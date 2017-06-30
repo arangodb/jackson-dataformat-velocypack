@@ -23,7 +23,7 @@ package com.arangodb.jackson.dataformat.velocypack;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
- * @author Mark - mark at arangodb.com
+ * @author Mark Vollmary
  *
  */
 public class VPackMapper extends ObjectMapper {
