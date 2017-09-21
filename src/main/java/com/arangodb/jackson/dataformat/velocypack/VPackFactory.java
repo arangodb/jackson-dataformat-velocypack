@@ -46,7 +46,9 @@ public class VPackFactory extends JsonFactory {
 	@Override
 	protected JsonParser _createParser(final byte[] data, final int offset, final int len, final IOContext ctxt)
 			throws IOException {
-		return new VPackParser(data, offset, _parserFeatures);
+		final VPackParser parser = new VPackParser(data, offset, _parserFeatures);
+		parser.setCodec(_objectCodec);
+		return parser;
 	}
 
 }

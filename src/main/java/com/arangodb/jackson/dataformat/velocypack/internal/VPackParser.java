@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.Map.Entry;
 
 import com.arangodb.velocypack.VPackSlice;
@@ -45,36 +46,59 @@ public class VPackParser extends ParserMinimalBase {
 
 	private VPackSlice currentValue;
 	private String currentName;
-	private Iterator<Entry<String, VPackSlice>> objectIterator;
+	private final LinkedList<Iterator<Entry<String, VPackSlice>>> objectIterators;
+	private final LinkedList<Iterator<VPackSlice>> arrayIterators;
+	private final LinkedList<JsonToken> currentCompoundValue;
+	private ObjectCodec codec;
 
 	public VPackParser(final byte[] data, final int offset, final int features) {
 		super(features);
 		currentValue = new VPackSlice(data, offset);
 		_currToken = null;
+		objectIterators = new LinkedList<Iterator<Entry<String, VPackSlice>>>();
+		arrayIterators = new LinkedList<Iterator<VPackSlice>>();
+		currentCompoundValue = new LinkedList<JsonToken>();
 	}
 
 	@Override
 	public JsonToken nextToken() throws IOException {
 		if (_currToken == null) {
-			_currToken = JsonToken.START_OBJECT;
+			_currToken = getToken(currentValue.getType(), currentValue);
 			return _currToken;
 		}
 		if (_currToken == JsonToken.START_OBJECT) {
-			objectIterator = currentValue.objectIterator();
+			objectIterators.add(currentValue.objectIterator());
+			currentCompoundValue.add(JsonToken.START_OBJECT);
+		} else if (_currToken == JsonToken.START_ARRAY) {
+			arrayIterators.add(currentValue.arrayIterator());
+			currentCompoundValue.add(JsonToken.START_ARRAY);
 		}
 		if (_currToken == JsonToken.FIELD_NAME) {
 			_currToken = getToken(currentValue.getType(), currentValue);
 			return _currToken;
 		}
-		if (objectIterator != null) {
-			if (objectIterator.hasNext()) {
-				final Entry<String, VPackSlice> next = objectIterator.next();
+		if (currentCompoundValue.getLast() == JsonToken.START_OBJECT && !objectIterators.isEmpty()) {
+			final Iterator<Entry<String, VPackSlice>> lastObject = objectIterators.getLast();
+			if (lastObject.hasNext()) {
+				final Entry<String, VPackSlice> next = lastObject.next();
 				currentName = next.getKey();
 				currentValue = next.getValue();
 				_currToken = JsonToken.FIELD_NAME;
 			} else {
 				_currToken = JsonToken.END_OBJECT;
-				objectIterator = null;
+				objectIterators.removeLast();
+				currentCompoundValue.removeLast();
+			}
+		} else if (currentCompoundValue.getLast() == JsonToken.START_ARRAY && !arrayIterators.isEmpty()) {
+			final Iterator<VPackSlice> lastArray = arrayIterators.getLast();
+			if (lastArray.hasNext()) {
+				currentName = null;
+				currentValue = lastArray.next();
+				_currToken = getToken(currentValue.getType(), currentValue);
+			} else {
+				_currToken = JsonToken.END_ARRAY;
+				arrayIterators.removeLast();
+				currentCompoundValue.removeLast();
 			}
 		}
 		return _currToken;
@@ -84,7 +108,7 @@ public class VPackParser extends ParserMinimalBase {
 		final JsonToken token;
 		switch (type) {
 		case OBJECT:
-			token = value.getStart() == 0 ? JsonToken.START_OBJECT : JsonToken.VALUE_EMBEDDED_OBJECT;
+			token = JsonToken.START_OBJECT;
 			break;
 		case ARRAY:
 			token = JsonToken.START_ARRAY;
@@ -168,16 +192,17 @@ public class VPackParser extends ParserMinimalBase {
 
 	@Override
 	public byte[] getBinaryValue(final Base64Variant b64variant) throws IOException {
-		return currentValue.getAsBinary();
-	}
-
-	@Override
-	public ObjectCodec getCodec() {
 		return null;
 	}
 
 	@Override
+	public ObjectCodec getCodec() {
+		return codec;
+	}
+
+	@Override
 	public void setCodec(final ObjectCodec c) {
+		codec = c;
 	}
 
 	@Override

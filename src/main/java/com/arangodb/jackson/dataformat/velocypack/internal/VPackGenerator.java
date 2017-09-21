@@ -169,6 +169,12 @@ public class VPackGenerator extends GeneratorBase {
 	@Override
 	public void writeBinary(final Base64Variant bv, final byte[] data, final int offset, final int len)
 			throws IOException {
+		try {
+			builder.add(attribute, data);
+			attribute = null;
+		} catch (final VPackBuilderException e) {
+			throw new IOException(e);
+		}
 	}
 
 	@Override
