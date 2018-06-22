@@ -44,6 +44,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.TimeZone;
 import java.util.UUID;
 
 import org.junit.Test;
@@ -82,6 +83,9 @@ import com.fasterxml.jackson.databind.module.SimpleModule;
 public class VPackSerializeDeserializeTest {
 
 	private static final DateFormat DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");// ISO 8601
+	static {
+		DATE_FORMAT.setTimeZone(TimeZone.getTimeZone("UTC"));
+	}
 
 	private final ObjectMapper mapper = new VPackMapper();
 
