@@ -22,7 +22,11 @@ package com.arangodb.jackson.dataformat.velocypack.internal;
 
 import java.io.IOException;
 import java.text.ParseException;
+import java.util.Map;
 
+import com.arangodb.entity.BaseDocument;
+import com.arangodb.entity.BaseEdgeDocument;
+import com.arangodb.velocypack.VPackSlice;
 import com.arangodb.velocypack.internal.util.DateUtil;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -34,6 +38,17 @@ import com.fasterxml.jackson.databind.JsonDeserializer;
  *
  */
 public class VPackDeserializers {
+
+	public static final JsonDeserializer<VPackSlice> VPACK = new JsonDeserializer<VPackSlice>() {
+		@Override
+		public VPackSlice deserialize(final JsonParser p, final DeserializationContext ctxt)
+				throws IOException, JsonProcessingException {
+			if (p instanceof VPackParser) {
+				return ((VPackParser) p).getVPack();
+			}
+			return new VPackSlice(p.getBinaryValue());
+		}
+	};
 
 	public static final JsonDeserializer<java.util.Date> UTIL_DATE = new JsonDeserializer<java.util.Date>() {
 		@Override
@@ -68,6 +83,24 @@ public class VPackDeserializers {
 			} catch (final ParseException e) {
 				throw new IOException(e);
 			}
+		}
+	};
+
+	public static final JsonDeserializer<BaseDocument> BASE_DOCUMENT = new JsonDeserializer<BaseDocument>() {
+		@SuppressWarnings("unchecked")
+		@Override
+		public BaseDocument deserialize(final JsonParser p, final DeserializationContext ctxt)
+				throws IOException, JsonProcessingException {
+			return new BaseDocument(p.readValueAs(Map.class));
+		}
+	};
+
+	public static final JsonDeserializer<BaseEdgeDocument> BASE_EDGE_DOCUMENT = new JsonDeserializer<BaseEdgeDocument>() {
+		@SuppressWarnings("unchecked")
+		@Override
+		public BaseEdgeDocument deserialize(final JsonParser p, final DeserializationContext ctxt)
+				throws IOException, JsonProcessingException {
+			return new BaseEdgeDocument(p.readValueAs(Map.class));
 		}
 	};
 

@@ -23,6 +23,7 @@ package com.arangodb.jackson.dataformat.velocypack.internal;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Map.Entry;
@@ -55,9 +56,9 @@ public class VPackParser extends ParserMinimalBase {
 		super(features);
 		currentValue = new VPackSlice(data, offset);
 		_currToken = null;
-		objectIterators = new LinkedList<Iterator<Entry<String, VPackSlice>>>();
-		arrayIterators = new LinkedList<Iterator<VPackSlice>>();
-		currentCompoundValue = new LinkedList<JsonToken>();
+		objectIterators = new LinkedList<>();
+		arrayIterators = new LinkedList<>();
+		currentCompoundValue = new LinkedList<>();
 	}
 
 	@Override
@@ -192,7 +193,17 @@ public class VPackParser extends ParserMinimalBase {
 
 	@Override
 	public byte[] getBinaryValue(final Base64Variant b64variant) throws IOException {
-		return null;
+		if (currentValue.isBinary()) {
+			return currentValue.getAsBinary();
+		} else if (currentValue.isString()) {
+			return b64variant.decode(currentValue.getAsString());
+		}
+		return Arrays.copyOfRange(currentValue.getBuffer(), currentValue.getStart(),
+			currentValue.getStart() + currentValue.getByteSize());
+	}
+
+	public VPackSlice getVPack() throws IOException {
+		return currentValue;
 	}
 
 	@Override

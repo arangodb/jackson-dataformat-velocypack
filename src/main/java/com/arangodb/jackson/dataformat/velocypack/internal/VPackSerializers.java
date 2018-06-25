@@ -23,7 +23,13 @@ package com.arangodb.jackson.dataformat.velocypack.internal;
 import java.io.IOException;
 import java.sql.Date;
 import java.sql.Timestamp;
+import java.util.HashMap;
+import java.util.Map;
 
+import com.arangodb.entity.BaseDocument;
+import com.arangodb.entity.BaseEdgeDocument;
+import com.arangodb.entity.DocumentField;
+import com.arangodb.velocypack.VPackSlice;
 import com.arangodb.velocypack.internal.util.DateUtil;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -35,6 +41,18 @@ import com.fasterxml.jackson.databind.SerializerProvider;
  *
  */
 public class VPackSerializers {
+
+	public static final JsonSerializer<VPackSlice> VPACK = new JsonSerializer<VPackSlice>() {
+		@Override
+		public void serialize(final VPackSlice value, final JsonGenerator gen, final SerializerProvider serializers)
+				throws IOException {
+			if (gen instanceof VPackGenerator) {
+				((VPackGenerator) gen).writeVPack(value);
+			} else {
+				gen.writeBinary(value.getBuffer());
+			}
+		}
+	};
 
 	public static final JsonSerializer<java.util.Date> UTIL_DATE = new JsonSerializer<java.util.Date>() {
 		@Override
@@ -58,7 +76,36 @@ public class VPackSerializers {
 				throws IOException, JsonProcessingException {
 			gen.writeString(DateUtil.format(value));
 		}
+	};
 
+	public static final JsonSerializer<BaseDocument> BASE_DOCUMENT = new JsonSerializer<BaseDocument>() {
+		@Override
+		public void serialize(final BaseDocument value, final JsonGenerator gen, final SerializerProvider serializers)
+				throws IOException {
+			final Map<String, Object> doc = new HashMap<>();
+			doc.putAll(value.getProperties());
+			doc.put(DocumentField.Type.ID.getSerializeName(), value.getId());
+			doc.put(DocumentField.Type.KEY.getSerializeName(), value.getKey());
+			doc.put(DocumentField.Type.REV.getSerializeName(), value.getRevision());
+			gen.writeObject(doc);
+		}
+	};
+
+	public static final JsonSerializer<BaseEdgeDocument> BASE_EDGE_DOCUMENT = new JsonSerializer<BaseEdgeDocument>() {
+		@Override
+		public void serialize(
+			final BaseEdgeDocument value,
+			final JsonGenerator gen,
+			final SerializerProvider serializers) throws IOException {
+			final Map<String, Object> doc = new HashMap<>();
+			doc.putAll(value.getProperties());
+			doc.put(DocumentField.Type.ID.getSerializeName(), value.getId());
+			doc.put(DocumentField.Type.KEY.getSerializeName(), value.getKey());
+			doc.put(DocumentField.Type.REV.getSerializeName(), value.getRevision());
+			doc.put(DocumentField.Type.FROM.getSerializeName(), value.getFrom());
+			doc.put(DocumentField.Type.TO.getSerializeName(), value.getTo());
+			gen.writeObject(doc);
+		}
 	};
 
 }

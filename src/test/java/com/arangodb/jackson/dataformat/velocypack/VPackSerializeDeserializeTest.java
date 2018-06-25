@@ -27,6 +27,11 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.junit.Assert.assertThat;
 
 import java.io.IOException;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+import java.lang.reflect.Field;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.text.DateFormat;
@@ -47,34 +52,23 @@ import java.util.Set;
 import java.util.TimeZone;
 import java.util.UUID;
 
+import javax.xml.bind.DatatypeConverter;
+
 import org.junit.Test;
 
+import com.arangodb.velocypack.Type;
 import com.arangodb.velocypack.VPack;
+import com.arangodb.velocypack.VPackAnnotationFieldFilter;
+import com.arangodb.velocypack.VPackAnnotationFieldNaming;
 import com.arangodb.velocypack.VPackBuilder;
-import com.arangodb.velocypack.VPackDeserializationContext;
-import com.arangodb.velocypack.VPackDeserializer;
+import com.arangodb.velocypack.VPackFieldNamingStrategy;
 import com.arangodb.velocypack.VPackInstanceCreator;
-import com.arangodb.velocypack.VPackKeyMapAdapter;
 import com.arangodb.velocypack.VPackSlice;
 import com.arangodb.velocypack.ValueType;
-import com.arangodb.velocypack.exception.VPackException;
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonInclude.Include;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.JsonToken;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.JsonDeserializer;
-import com.fasterxml.jackson.databind.JsonSerializer;
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.PropertyNamingStrategy;
-import com.fasterxml.jackson.databind.SerializerProvider;
-import com.fasterxml.jackson.databind.cfg.MapperConfig;
-import com.fasterxml.jackson.databind.introspect.AnnotatedMethod;
-import com.fasterxml.jackson.databind.module.SimpleModule;
 
 /**
  * @author Mark Vollmary
@@ -129,7 +123,7 @@ public class VPackSerializeDeserializeTest {
 	}
 
 	@Test
-	public void fromBoolean() throws IOException {
+	public void fromBoolean() throws JsonProcessingException {
 		final VPackSlice vpack = new VPackSlice(mapper.writeValueAsBytes(new TestEntityBoolean()));
 		assertThat(vpack, is(notNullValue()));
 		assertThat(vpack.isObject(), is(true));
@@ -206,7 +200,7 @@ public class VPackSerializeDeserializeTest {
 	}
 
 	@Test
-	public void fromStrings() throws IOException {
+	public void fromStrings() throws JsonProcessingException {
 		final VPackSlice vpack = new VPackSlice(mapper.writeValueAsBytes(new TestEntityString()));
 		assertThat(vpack, is(notNullValue()));
 		assertThat(vpack.isObject(), is(true));
@@ -267,7 +261,7 @@ public class VPackSerializeDeserializeTest {
 	}
 
 	@Test
-	public void fromInteger() throws IOException {
+	public void fromInteger() throws JsonProcessingException {
 		final VPackSlice vpack = new VPackSlice(mapper.writeValueAsBytes(new TestEntityInteger()));
 		assertThat(vpack, is(notNullValue()));
 		assertThat(vpack.isObject(), is(true));
@@ -280,6 +274,26 @@ public class VPackSerializeDeserializeTest {
 			final VPackSlice i2 = vpack.get("i2");
 			assertThat(i2.isInteger(), is(true));
 			assertThat(i2.getAsInt(), is(1));
+		}
+	}
+
+	@Test
+	public void fromNegativeInteger() throws JsonProcessingException {
+		final TestEntityInteger entity = new TestEntityInteger();
+		entity.i1 = -50;
+		entity.i2 = -50;
+		final VPackSlice vpack = new VPackSlice(mapper.writeValueAsBytes(entity));
+		assertThat(vpack, is(notNullValue()));
+		assertThat(vpack.isObject(), is(true));
+		{
+			final VPackSlice i1 = vpack.get("i1");
+			assertThat(i1.isInteger(), is(true));
+			assertThat(i1.getAsInt(), is(-50));
+		}
+		{
+			final VPackSlice i2 = vpack.get("i2");
+			assertThat(i2.isInteger(), is(true));
+			assertThat(i2.getAsInt(), is(-50));
 		}
 	}
 
@@ -297,6 +311,22 @@ public class VPackSerializeDeserializeTest {
 		assertThat(entity, is(notNullValue()));
 		assertThat(entity.i1, is(2));
 		assertThat(entity.i2, is(new Integer(3)));
+	}
+
+	@Test
+	public void toNegativeInteger() throws IOException {
+		final VPackBuilder builder = new VPackBuilder();
+		{
+			builder.add(ValueType.OBJECT);
+			builder.add("i1", -50);
+			builder.add("i2", -50);
+			builder.close();
+		}
+		final VPackSlice vpack = builder.slice();
+		final TestEntityInteger entity = mapper.readValue(vpack.getBuffer(), TestEntityInteger.class);
+		assertThat(entity, is(notNullValue()));
+		assertThat(entity.i1, is(-50));
+		assertThat(entity.i2, is(new Integer(-50)));
 	}
 
 	public static class TestEntityLong {
@@ -321,7 +351,7 @@ public class VPackSerializeDeserializeTest {
 	}
 
 	@Test
-	public void fromLong() throws IOException {
+	public void fromLong() throws JsonProcessingException {
 		final VPackSlice vpack = new VPackSlice(mapper.writeValueAsBytes(new TestEntityLong()));
 		assertThat(vpack, is(notNullValue()));
 		assertThat(vpack.isObject(), is(true));
@@ -334,6 +364,26 @@ public class VPackSerializeDeserializeTest {
 			final VPackSlice l2 = vpack.get("l2");
 			assertThat(l2.isInteger(), is(true));
 			assertThat(l2.getAsLong(), is(1L));
+		}
+	}
+
+	@Test
+	public void fromNegativeLong() throws JsonProcessingException {
+		final TestEntityLong entity = new TestEntityLong();
+		entity.l1 = -100L;
+		entity.l2 = new Long(-300);
+		final VPackSlice vpack = new VPackSlice(mapper.writeValueAsBytes(entity));
+		assertThat(vpack, is(notNullValue()));
+		assertThat(vpack.isObject(), is(true));
+		{
+			final VPackSlice l1 = vpack.get("l1");
+			assertThat(l1.isInteger(), is(true));
+			assertThat(l1.getAsLong(), is(-100L));
+		}
+		{
+			final VPackSlice l2 = vpack.get("l2");
+			assertThat(l2.isInteger(), is(true));
+			assertThat(l2.getAsLong(), is(-300L));
 		}
 	}
 
@@ -351,6 +401,113 @@ public class VPackSerializeDeserializeTest {
 		assertThat(entity, is(notNullValue()));
 		assertThat(entity.l1, is(2L));
 		assertThat(entity.l2, is(new Long(3)));
+	}
+
+	@Test
+	public void toNegativeLong() throws IOException {
+		final VPackBuilder builder = new VPackBuilder();
+		{
+			builder.add(ValueType.OBJECT);
+			builder.add("l1", -100L);
+			builder.add("l2", -300L);
+			builder.close();
+		}
+		final VPackSlice vpack = builder.slice();
+		final TestEntityLong entity = mapper.readValue(vpack.getBuffer(), TestEntityLong.class);
+		assertThat(entity, is(notNullValue()));
+		assertThat(entity.l1, is(-100L));
+		assertThat(entity.l2, is(new Long(-300)));
+	}
+
+	@Test
+	public void negativeLong() throws JsonProcessingException {
+		final TestEntityLong entity = new TestEntityLong();
+		entity.l1 = -100L;
+		entity.l2 = new Long(-300);
+		final VPack vp = new VPack.Builder().build();
+		final TestEntityLong out = vp.deserialize(vp.serialize(entity), TestEntityLong.class);
+		assertThat(out.l1, is(entity.l1));
+		assertThat(out.l2, is(entity.l2));
+	}
+
+	@Test
+	public void intToLong() throws IOException {
+		final VPackBuilder builder = new VPackBuilder();
+		{
+			builder.add(ValueType.OBJECT);
+			builder.add("l1", 100);
+			builder.add("l2", 300);
+			builder.close();
+		}
+		final VPackSlice vpack = builder.slice();
+		final TestEntityLong entity = mapper.readValue(vpack.getBuffer(), TestEntityLong.class);
+		assertThat(entity, is(notNullValue()));
+		assertThat(entity.l1, is(100L));
+		assertThat(entity.l2, is(new Long(300)));
+	}
+
+	@Test
+	public void negativeIntToLong() throws IOException {
+		final VPackBuilder builder = new VPackBuilder();
+		{
+			builder.add(ValueType.OBJECT);
+			builder.add("l1", -100);
+			builder.add("l2", -300);
+			builder.close();
+		}
+		final VPackSlice vpack = builder.slice();
+		final TestEntityLong entity = mapper.readValue(vpack.getBuffer(), TestEntityLong.class);
+		assertThat(entity, is(notNullValue()));
+		assertThat(entity.l1, is(-100L));
+		assertThat(entity.l2, is(new Long(-300)));
+	}
+
+	@Test
+	public void negativeLongToInt() throws IOException {
+		final VPackBuilder builder = new VPackBuilder();
+		{
+			builder.add(ValueType.OBJECT);
+			builder.add("i1", -100L);
+			builder.add("i2", -300L);
+			builder.close();
+		}
+		final VPackSlice vpack = builder.slice();
+		final TestEntityInteger entity = mapper.readValue(vpack.getBuffer(), TestEntityInteger.class);
+		assertThat(entity, is(notNullValue()));
+		assertThat(entity.i1, is(-100));
+		assertThat(entity.i2, is(new Integer(-300)));
+	}
+
+	@Test
+	public void negativeLongToShort() throws IOException {
+		final VPackBuilder builder = new VPackBuilder();
+		{
+			builder.add(ValueType.OBJECT);
+			builder.add("s1", -100L);
+			builder.add("s2", -300L);
+			builder.close();
+		}
+		final VPackSlice vpack = builder.slice();
+		final TestEntityShort entity = mapper.readValue(vpack.getBuffer(), TestEntityShort.class);
+		assertThat(entity, is(notNullValue()));
+		assertThat(entity.s1, is((short) -100));
+		assertThat(entity.s2, is(new Short((short) -300)));
+	}
+
+	@Test
+	public void negativeShortToLong() throws IOException {
+		final VPackBuilder builder = new VPackBuilder();
+		{
+			builder.add(ValueType.OBJECT);
+			builder.add("l1", (short) -100);
+			builder.add("l2", (short) -300);
+			builder.close();
+		}
+		final VPackSlice vpack = builder.slice();
+		final TestEntityLong entity = mapper.readValue(vpack.getBuffer(), TestEntityLong.class);
+		assertThat(entity, is(notNullValue()));
+		assertThat(entity.l1, is(-100L));
+		assertThat(entity.l2, is(new Long(-300)));
 	}
 
 	public static class TestEntityFloat {
@@ -375,7 +532,7 @@ public class VPackSerializeDeserializeTest {
 	}
 
 	@Test
-	public void fromFloat() throws IOException {
+	public void fromFloat() throws JsonProcessingException {
 		final VPackSlice vpack = new VPackSlice(mapper.writeValueAsBytes(new TestEntityFloat()));
 		assertThat(vpack, is(notNullValue()));
 		assertThat(vpack.isObject(), is(true));
@@ -429,7 +586,7 @@ public class VPackSerializeDeserializeTest {
 	}
 
 	@Test
-	public void fromShort() throws IOException {
+	public void fromShort() throws JsonProcessingException {
 		final VPackSlice vpack = new VPackSlice(mapper.writeValueAsBytes(new TestEntityShort()));
 		assertThat(vpack, is(notNullValue()));
 		assertThat(vpack.isObject(), is(true));
@@ -483,7 +640,7 @@ public class VPackSerializeDeserializeTest {
 	}
 
 	@Test
-	public void fromByte() throws IOException {
+	public void fromByte() throws JsonProcessingException {
 		final VPackSlice vpack = new VPackSlice(mapper.writeValueAsBytes(new TestEntityByte()));
 		assertThat(vpack, is(notNullValue()));
 		assertThat(vpack.isObject(), is(true));
@@ -537,7 +694,7 @@ public class VPackSerializeDeserializeTest {
 	}
 
 	@Test
-	public void fromDouble() throws IOException {
+	public void fromDouble() throws JsonProcessingException {
 		final VPackSlice vpack = new VPackSlice(mapper.writeValueAsBytes(new TestEntityDouble()));
 		assertThat(vpack, is(notNullValue()));
 		assertThat(vpack.isObject(), is(true));
@@ -591,18 +748,18 @@ public class VPackSerializeDeserializeTest {
 	}
 
 	@Test
-	public void fromBigNumbers() throws IOException {
+	public void fromBigNumbers() throws JsonProcessingException {
 		final VPackSlice vpack = new VPackSlice(mapper.writeValueAsBytes(new TestEntityBigNumber()));
 		assertThat(vpack, is(notNullValue()));
 		assertThat(vpack.isObject(), is(true));
 		{
 			final VPackSlice bi = vpack.get("bi");
-			assertThat(bi.isInteger(), is(true));
+			assertThat(bi.isString(), is(true));
 			assertThat(bi.getAsBigInteger(), is(BigInteger.valueOf(1L)));
 		}
 		{
 			final VPackSlice bd = vpack.get("bd");
-			assertThat(bd.isDouble(), is(true));
+			assertThat(bd.isString(), is(true));
 			assertThat(bd.getAsBigDecimal(), is(BigDecimal.valueOf(1.5)));
 		}
 	}
@@ -621,6 +778,15 @@ public class VPackSerializeDeserializeTest {
 		assertThat(entity, is(notNullValue()));
 		assertThat(entity.bi, is(BigInteger.valueOf(2)));
 		assertThat(entity.bd, is(BigDecimal.valueOf(3.75)));
+	}
+
+	@Test
+	public void bigDecimal() {
+		final BigDecimal fromDouble = BigDecimal.valueOf(-710.01);
+		final BigDecimal fromString = new BigDecimal("-710.01");
+		assertThat(fromDouble, is(fromString));
+		assertThat(new VPackBuilder().add(fromDouble).slice().getAsBigDecimal(), is(fromDouble));
+		assertThat(new VPackBuilder().add(fromString).slice().getAsBigDecimal(), is(fromDouble));
 	}
 
 	public static class TestEntityArray {
@@ -664,7 +830,7 @@ public class VPackSerializeDeserializeTest {
 	}
 
 	@Test
-	public void fromArray() throws IOException {
+	public void fromArray() throws JsonProcessingException {
 		final TestEntityArray entity = new TestEntityArray();
 		final VPackSlice vpack = new VPackSlice(mapper.writeValueAsBytes(entity));
 		assertThat(vpack, is(notNullValue()));
@@ -766,7 +932,7 @@ public class VPackSerializeDeserializeTest {
 	}
 
 	@Test
-	public void fromArrayWithNull() throws IOException {
+	public void fromArrayWithNull() throws JsonProcessingException {
 		final TestEntityArray entity = new TestEntityArray();
 		entity.a1 = new String[] { "foo", null };
 
@@ -799,7 +965,7 @@ public class VPackSerializeDeserializeTest {
 	}
 
 	@Test
-	public void fromEnum() throws IOException {
+	public void fromEnum() throws JsonProcessingException {
 		final VPackSlice vpack = new VPackSlice(mapper.writeValueAsBytes(new TestEntityEnum()));
 		assertThat(vpack, is(notNullValue()));
 		assertThat(vpack.isObject(), is(true));
@@ -846,7 +1012,7 @@ public class VPackSerializeDeserializeTest {
 	}
 
 	@Test
-	public void fromObject() throws IOException {
+	public void fromObject() throws JsonProcessingException {
 		final TestEntityObject entity = new TestEntityObject();
 		final VPackSlice vpack = new VPackSlice(mapper.writeValueAsBytes(entity));
 		assertThat(vpack, is(notNullValue()));
@@ -951,20 +1117,16 @@ public class VPackSerializeDeserializeTest {
 		final TestEntityObject entity = mapper.readValue(vpack.getBuffer(), TestEntityObject.class);
 		assertThat(entity, is(notNullValue()));
 		{
-			assertThat(entity.o1, is(notNullValue()));
 			assertThat(entity.o1.l1, is(5L));
 			assertThat(entity.o1.l2, is(new Long(5)));
 		}
 		{
-			assertThat(entity.o2, is(notNullValue()));
-			assertThat(entity.o2.a1, is(notNullValue()));
 			assertThat(entity.o2.a1.length, is(3));
 			assertThat(entity.o2.a1[0], is("a"));
 			assertThat(entity.o2.a1[1], is("b"));
 			assertThat(entity.o2.a1[2], is("c"));
 		}
 		{
-			assertThat(entity.o2.a2, is(notNullValue()));
 			assertThat(entity.o2.a2.length, is(4));
 			assertThat(entity.o2.a2[0], is(1));
 			assertThat(entity.o2.a2[1], is(2));
@@ -972,13 +1134,11 @@ public class VPackSerializeDeserializeTest {
 			assertThat(entity.o2.a2[3], is(4));
 		}
 		{
-			assertThat(entity.o2.a3, is(notNullValue()));
 			assertThat(entity.o2.a3.length, is(2));
 			assertThat(entity.o2.a3[0], is(false));
 			assertThat(entity.o2.a3[1], is(true));
 		}
 		{
-			assertThat(entity.o2.a4, is(notNullValue()));
 			assertThat(entity.o2.a4.length, is(2));
 			assertThat(entity.o2.a4[0], is(TestEnum.A));
 			assertThat(entity.o2.a4[1], is(TestEnum.B));
@@ -998,7 +1158,7 @@ public class VPackSerializeDeserializeTest {
 	}
 
 	@Test
-	public void fromArrayInArray() throws IOException {
+	public void fromArrayInArray() throws JsonProcessingException {
 		final TestEntityArrayInArray entity = new TestEntityArrayInArray();
 		entity.a1 = new long[][] { { 1, 2, 3 }, { 4, 5, 6 } };
 		final VPackSlice vpack = new VPackSlice(mapper.writeValueAsBytes(entity));
@@ -1094,8 +1254,7 @@ public class VPackSerializeDeserializeTest {
 		final TestEntityCollectionExtendedWithNulls entity = new TestEntityCollectionExtendedWithNulls();
 		entity.setA1(collection);
 
-		// final VPackSlice vpack = new VPack.Builder().serializeNullValues(true).build().serialize(entity);
-		final VPackSlice vpack = new VPackSlice(mapper.writeValueAsBytes(entity));
+		final VPackSlice vpack = new VPack.Builder().serializeNullValues(true).build().serialize(entity);
 		assertThat(vpack, is(notNullValue()));
 		assertThat(vpack.isObject(), is(true));
 		{
@@ -1153,7 +1312,7 @@ public class VPackSerializeDeserializeTest {
 	}
 
 	@Test
-	public void fromArrayInArrayInArray() throws IOException {
+	public void fromArrayInArrayInArray() throws JsonProcessingException {
 		final TestEntityArrayInArrayInArray entity = new TestEntityArrayInArrayInArray();
 		entity.setA1(new double[][][] { { { 1.5, 2.25 }, { 10.5, 20.25 } }, { { 100.5 }, { 200.25 } } });
 		final VPackSlice vpack = new VPackSlice(mapper.writeValueAsBytes(entity));
@@ -1288,7 +1447,7 @@ public class VPackSerializeDeserializeTest {
 	}
 
 	@Test
-	public void fromObjectInArray() throws IOException {
+	public void fromObjectInArray() throws JsonProcessingException {
 		final TestEntityObjectInArray entity = new TestEntityObjectInArray();
 		{
 			final TestEntityString[] a1 = new TestEntityString[2];
@@ -1364,7 +1523,7 @@ public class VPackSerializeDeserializeTest {
 	}
 
 	@Test
-	public void fromInheritance() throws IOException {
+	public void fromInheritance() throws JsonProcessingException {
 		final VPackSlice vpack = new VPackSlice(mapper.writeValueAsBytes(new TestEntityB()));
 		assertThat(vpack, is(notNullValue()));
 		assertThat(vpack.isObject(), is(true));
@@ -1416,7 +1575,7 @@ public class VPackSerializeDeserializeTest {
 		}
 	}
 
-	public static interface TestEntityD {
+	protected static interface TestEntityD {
 		String getD();
 
 		void setD(String d);
@@ -1437,7 +1596,7 @@ public class VPackSerializeDeserializeTest {
 	}
 
 	@Test
-	public void fromInterface() throws IOException {
+	public void fromInterface() throws JsonProcessingException {
 		final TestEntityC entity = new TestEntityC();
 		entity.setD(new TestEntityDImpl());
 		final VPackSlice vpack = new VPackSlice(mapper.writeValueAsBytes(entity));
@@ -1453,7 +1612,7 @@ public class VPackSerializeDeserializeTest {
 	}
 
 	@Test
-	public void toInterface() throws IOException {
+	public void toInterface() throws JsonProcessingException {
 		final VPackBuilder builder = new VPackBuilder();
 		{
 			builder.add(ValueType.OBJECT);
@@ -1529,7 +1688,7 @@ public class VPackSerializeDeserializeTest {
 	}
 
 	@Test
-	public void fromCollection() throws IOException {
+	public void fromCollection() throws JsonProcessingException {
 		final TestEntityCollection entity = new TestEntityCollection();
 		{
 			entity.c1.add("test");
@@ -1653,7 +1812,7 @@ public class VPackSerializeDeserializeTest {
 	}
 
 	@Test
-	public void fromCollectionWithObjects() throws IOException {
+	public void fromCollectionWithObjects() throws JsonProcessingException {
 		final TestEntityCollectionWithObjects entity = new TestEntityCollectionWithObjects();
 		{
 			final Collection<TestEntityString> c1 = new ArrayList<>();
@@ -1772,7 +1931,7 @@ public class VPackSerializeDeserializeTest {
 	}
 
 	@Test
-	public void fromMap() throws IOException {
+	public void fromMap() throws JsonProcessingException {
 		final TestEntityMap entity = new TestEntityMap();
 		{
 			final Map<String, String> m1 = new LinkedHashMap<>();
@@ -1996,7 +2155,7 @@ public class VPackSerializeDeserializeTest {
 	}
 
 	@Test
-	public void fromMapStringableKey() throws IOException {
+	public void fromMapStringableKey() throws JsonProcessingException {
 		final TestEntityMapStringableKey entity = new TestEntityMapStringableKey();
 		final String value = "test";
 		{
@@ -2148,7 +2307,7 @@ public class VPackSerializeDeserializeTest {
 	}
 
 	@Test
-	public void toMapSringableKey() throws IOException {
+	public void toMapSringableKey() throws JsonProcessingException {
 		final VPackBuilder builder = new VPackBuilder();
 		builder.add(ValueType.OBJECT);
 		{
@@ -2218,7 +2377,7 @@ public class VPackSerializeDeserializeTest {
 			builder.close();
 		}
 		builder.close();
-		final TestEntityMapStringableKey entity = mapper.readValue(builder.slice().getBuffer(),
+		final TestEntityMapStringableKey entity = new VPack.Builder().build().deserialize(builder.slice(),
 			TestEntityMapStringableKey.class);
 		{
 			assertThat(entity.m1.size(), is(2));
@@ -2308,72 +2467,7 @@ public class VPackSerializeDeserializeTest {
 	}
 
 	@Test
-	public void fromMapWithObjectKey() throws IOException {
-		final TestEntityMapWithObjectKey entity = new TestEntityMapWithObjectKey();
-		{
-			final Map<TestEntityLong, TestEntityCollection> m1 = new HashMap<>();
-			m1.put(new TestEntityLong(), new TestEntityCollection());
-			m1.put(new TestEntityLong(), new TestEntityCollection());
-			entity.setM1(m1);
-		}
-		{
-			final Map<TestEntityLong, String> m2 = new HashMap<>();
-			m2.put(new TestEntityLong(), "test");
-			m2.put(new TestEntityLong(), "test");
-			m2.put(new TestEntityLong(), "test");
-			entity.setM2(m2);
-		}
-		final VPackSlice vpack = new VPackSlice(mapper.writeValueAsBytes(entity));
-		assertThat(vpack.isObject(), is(true));
-		{
-			final VPackSlice m1 = vpack.get("m1");
-			assertThat(m1.isArray(), is(true));
-			assertThat(m1.getLength(), is(2));
-			for (int i = 0; i < m1.getLength(); i++) {
-				final VPackSlice at = m1.get(i);
-				assertThat(at.isObject(), is(true));
-				assertThat(at.getLength(), is(2));
-				{
-					final VPackSlice key = at.get("key");
-					assertThat(key.isObject(), is(true));
-					final VPackSlice l1 = key.get("l1");
-					assertThat(l1.isInteger(), is(true));
-					assertThat(l1.getAsLong(), is(1L));
-				}
-				{
-					final VPackSlice value = at.get("value");
-					assertThat(value.isObject(), is(true));
-					final VPackSlice c1 = value.get("c1");
-					assertThat(c1.isArray(), is(true));
-				}
-			}
-		}
-		{
-			final VPackSlice m2 = vpack.get("m2");
-			assertThat(m2.isArray(), is(true));
-			assertThat(m2.getLength(), is(3));
-			for (int i = 0; i < m2.getLength(); i++) {
-				final VPackSlice at = m2.get(i);
-				assertThat(at.isObject(), is(true));
-				assertThat(at.getLength(), is(2));
-				{
-					final VPackSlice key = at.get("key");
-					assertThat(key.isObject(), is(true));
-					final VPackSlice l1 = key.get("l1");
-					assertThat(l1.isInteger(), is(true));
-					assertThat(l1.getAsLong(), is(1L));
-				}
-				{
-					final VPackSlice value = at.get("value");
-					assertThat(value.isString(), is(true));
-					assertThat(value.getAsString(), is("test"));
-				}
-			}
-		}
-	}
-
-	@Test
-	public void toMapWithObjectKey() throws IOException {
+	public void toMapWithObjectKey() throws JsonProcessingException {
 		final int size = 2;
 		final VPackBuilder builder = new VPackBuilder();
 		builder.add(ValueType.OBJECT);
@@ -2414,7 +2508,7 @@ public class VPackSerializeDeserializeTest {
 			builder.close();
 		}
 		builder.close();
-		final TestEntityMapWithObjectKey entity = mapper.readValue(builder.slice().getBuffer(),
+		final TestEntityMapWithObjectKey entity = new VPack.Builder().build().deserialize(builder.slice(),
 			TestEntityMapWithObjectKey.class);
 		assertThat(entity, is(notNullValue()));
 		{
@@ -2441,7 +2535,7 @@ public class VPackSerializeDeserializeTest {
 	}
 
 	@Test
-	public void fromEmptyObject() throws IOException {
+	public void fromEmptyObject() throws JsonProcessingException {
 		final VPackSlice vpack = new VPackSlice(mapper.writeValueAsBytes(new TestEntityEmpty()));
 		assertThat(vpack, is(notNullValue()));
 		assertThat(vpack.isObject(), is(true));
@@ -2449,11 +2543,11 @@ public class VPackSerializeDeserializeTest {
 	}
 
 	@Test
-	public void toEmptyObject() throws IOException {
+	public void toEmptyObject() throws JsonProcessingException {
 		final VPackBuilder builder = new VPackBuilder();
 		builder.add(ValueType.OBJECT);
 		builder.close();
-		final TestEntityEmpty entity = mapper.readValue(builder.slice().getBuffer(), TestEntityEmpty.class);
+		final TestEntityEmpty entity = new VPack.Builder().build().deserialize(builder.slice(), TestEntityEmpty.class);
 		assertThat(entity, is(notNullValue()));
 	}
 
@@ -2470,7 +2564,7 @@ public class VPackSerializeDeserializeTest {
 	}
 
 	@Test
-	public void fromEmptyMap() throws IOException {
+	public void fromEmptyMap() throws JsonProcessingException {
 		final TestEntityEmptyMap entity = new TestEntityEmptyMap();
 		entity.setM(new HashMap<String, Object>());
 		final VPackSlice vpack = new VPackSlice(mapper.writeValueAsBytes(entity));
@@ -2483,13 +2577,14 @@ public class VPackSerializeDeserializeTest {
 	}
 
 	@Test
-	public void toEmptyMap() throws IOException {
+	public void toEmptyMap() throws JsonProcessingException {
 		final VPackBuilder builder = new VPackBuilder();
 		builder.add(ValueType.OBJECT);
 		builder.add("m", ValueType.OBJECT);
 		builder.close();
 		builder.close();
-		final TestEntityEmptyMap entity = mapper.readValue(builder.slice().getBuffer(), TestEntityEmptyMap.class);
+		final TestEntityEmptyMap entity = new VPack.Builder().build().deserialize(builder.slice(),
+			TestEntityEmptyMap.class);
 		assertThat(entity, is(notNullValue()));
 		assertThat(entity.m, is(notNullValue()));
 		assertThat(entity.m.size(), is(0));
@@ -2545,7 +2640,7 @@ public class VPackSerializeDeserializeTest {
 	}
 
 	@Test
-	public void fromObjectWithAttributeAdapter() throws IOException {
+	public void fromObjectWithAttributeAdapter() throws JsonProcessingException {
 		final VPackSlice vpack = new VPackSlice(mapper.writeValueAsBytes(new TestEntityBaseAttributes()));
 		assertThat(vpack.isObject(), is(true));
 		assertThat(vpack.getLength(), is(5));
@@ -2577,7 +2672,7 @@ public class VPackSerializeDeserializeTest {
 	}
 
 	@Test
-	public void toObjectWithAttributeAdapter() throws IOException {
+	public void toObjectWithAttributeAdapter() throws JsonProcessingException {
 		final VPackBuilder builder = new VPackBuilder();
 		{
 			builder.add(ValueType.OBJECT);
@@ -2588,7 +2683,7 @@ public class VPackSerializeDeserializeTest {
 			builder.add("_to", "e");
 			builder.close();
 		}
-		final TestEntityBaseAttributes entity = mapper.readValue(builder.slice().getBuffer(),
+		final TestEntityBaseAttributes entity = new VPack.Builder().build().deserialize(builder.slice(),
 			TestEntityBaseAttributes.class);
 		assertThat(entity, is(notNullValue()));
 		assertThat(entity._key, is("a"));
@@ -2599,7 +2694,7 @@ public class VPackSerializeDeserializeTest {
 	}
 
 	@Test
-	public void fromMapWithAttributeAdapter() throws IOException {
+	public void fromMapWithAttributeAdapter() throws JsonProcessingException {
 		final TestEntityMap entity = new TestEntityMap();
 		{
 			final Map<String, String> m1 = new HashMap<>();
@@ -2643,7 +2738,7 @@ public class VPackSerializeDeserializeTest {
 	}
 
 	@Test
-	public void toMapWithAttributeAdapter() throws IOException {
+	public void toMapWithAttributeAdapter() throws JsonProcessingException {
 		final VPackBuilder builder = new VPackBuilder();
 		{
 			builder.add(ValueType.OBJECT);
@@ -2656,208 +2751,79 @@ public class VPackSerializeDeserializeTest {
 			builder.close();
 			builder.close();
 		}
-		final TestEntityMap entity = mapper.readValue(builder.slice().getBuffer(), TestEntityMap.class);
+		final TestEntityMap entity = new VPack.Builder().build().deserialize(builder.slice(), TestEntityMap.class);
 		assertThat(entity, is(notNullValue()));
 		assertThat(entity.m1, is(notNullValue()));
 		assertThat(entity.m1.size(), is(5));
 	}
 
-	@Test
-	public void customSerializer() throws IOException {
-		final String value = "abc";
-		final SimpleModule module = new SimpleModule();
-		module.addSerializer(TestEntityString.class, new JsonSerializer<TestEntityString>() {
-			@Override
-			public void serialize(
-				final TestEntityString value,
-				final JsonGenerator gen,
-				final SerializerProvider serializers) throws IOException, JsonProcessingException {
-				gen.writeStartObject();
-				gen.writeFieldName("not-s");
-				gen.writeString(value.s);
-				gen.writeEndObject();
-			}
-		});
-		final ObjectMapper mapper = new VPackMapper().registerModule(module);
-		final TestEntityString entity = new TestEntityString();
-		entity.setS(value);
-		final VPackSlice vpack = new VPackSlice(mapper.writeValueAsBytes(entity));
-		assertThat(vpack, is(notNullValue()));
-		assertThat(vpack.isObject(), is(true));
-		{
-			final VPackSlice s = vpack.get("not-s");
-			assertThat(s.isString(), is(true));
-			assertThat(s.getAsString(), is(value));
+	@Retention(RetentionPolicy.RUNTIME)
+	@Target(ElementType.FIELD)
+	private static @interface CustomFilterAnnotation {
+		boolean serialize()
+
+		default true;
+
+		boolean deserialize() default true;
+	}
+
+	@Retention(RetentionPolicy.RUNTIME)
+	@Target(ElementType.FIELD)
+	private static @interface CustomNamingAnnotation {
+		String name();
+	}
+
+	private static class CustomAnEntity {
+		@CustomFilterAnnotation(serialize = false)
+		private String a = null;
+		@CustomFilterAnnotation(deserialize = false)
+		private String b = null;
+		@CustomNamingAnnotation(name = "d")
+		@CustomFilterAnnotation(deserialize = false)
+		private String c = null;
+
+		public CustomAnEntity() {
+			super();
 		}
 	}
 
 	@Test
-	public void customDeserializer() throws IOException {
-		final String value = "abc";
-		final VPackBuilder builder = new VPackBuilder();
-		builder.add(ValueType.OBJECT);
-		builder.add("not-s", value);
-		builder.close();
-		final SimpleModule module = new SimpleModule();
-		module.addDeserializer(TestEntityString.class, new JsonDeserializer<TestEntityString>() {
-			@Override
-			public TestEntityString deserialize(final JsonParser p, final DeserializationContext ctxt)
-					throws IOException, JsonProcessingException {
-				final TestEntityString entity = new TestEntityString();
-				p.nextToken();// FIELD_NAME
-				p.nextToken();// VALUE_STRING
-				entity.s = p.getValueAsString();
-				return entity;
-			}
-		});
-		final ObjectMapper mapper = new VPackMapper().registerModule(module);
-		final TestEntityString entity = mapper.readValue(builder.slice().getBuffer(), TestEntityString.class);
-		assertThat(entity, is(notNullValue()));
-		assertThat(entity.s, is(notNullValue()));
-		assertThat(entity.s, is(value));
-	}
+	public void fromCutsomAnnotation() {
+		final CustomAnEntity entity = new CustomAnEntity();
+		entity.a = "1";
+		entity.b = "2";
+		entity.c = "3";
+		final VPackSlice vpack = new VPack.Builder().annotationFieldFilter(CustomFilterAnnotation.class,
+			new VPackAnnotationFieldFilter<CustomFilterAnnotation>() {
 
-	@Test
-	public void customSerializerWithContext() throws IOException {
-		final SimpleModule module = new SimpleModule();
-		module.addSerializer(TestEntityObject.class, new JsonSerializer<TestEntityObject>() {
-			@Override
-			public void serialize(
-				final TestEntityObject value,
-				final JsonGenerator gen,
-				final SerializerProvider serializers) throws IOException, JsonProcessingException {
-				gen.writeStartObject();
-				serializers.defaultSerializeField("test", value.o1, gen);
-				gen.writeEndObject();
-			}
-		});
-		final ObjectMapper mapper = new VPackMapper().registerModule(module);
-		final TestEntityObject entity = new TestEntityObject();
-		final VPackSlice vpack = new VPackSlice(mapper.writeValueAsBytes(entity));
-		assertThat(vpack, is(notNullValue()));
-		assertThat(vpack.isObject(), is(true));
-		{
-			final VPackSlice test = vpack.get("test");
-			assertThat(test.isObject(), is(true));
-			final VPackSlice l1 = test.get("l1");
-			assertThat(l1.isInteger(), is(true));
-			assertThat(l1.getAsInt(), is(1));
-		}
-	}
-
-	@Test
-	public void customDeserializerWithContext() throws IOException {
-		final VPackBuilder builder = new VPackBuilder();
-		builder.add(ValueType.OBJECT);
-		builder.add("test", ValueType.OBJECT);
-		builder.add("l1", 5);
-		builder.close();
-		builder.close();
-		final SimpleModule module = new SimpleModule();
-		module.addDeserializer(TestEntityObject.class, new JsonDeserializer<TestEntityObject>() {
-			@Override
-			public TestEntityObject deserialize(final JsonParser p, final DeserializationContext ctxt)
-					throws IOException, JsonProcessingException {
-				final TestEntityObject entity = new TestEntityObject();
-				JsonToken nextToken;
-				while ((nextToken = p.nextToken()) != JsonToken.END_OBJECT) {
-					if (p.getCurrentName().equals("test") && nextToken == JsonToken.START_OBJECT) {
-						entity.o1 = p.readValueAs(TestEntityLong.class);
-						break;
-					}
+				@Override
+				public boolean serialize(final CustomFilterAnnotation annotation) {
+					return annotation.serialize();
 				}
-				return entity;
-			}
-		});
-		final ObjectMapper mapper = new VPackMapper().registerModule(module);
-		final TestEntityObject entity = mapper.readValue(builder.slice().getBuffer(), TestEntityObject.class);
-		assertThat(entity, is(notNullValue()));
-		assertThat(entity.o1, is(notNullValue()));
-		assertThat(entity.o1.l1, is(5L));
-	}
 
-	public static class TestEntitySerializeAnnotation {
-
-		@JsonProperty("abc")
-		private String test = "test";
-
-		public String getTest() {
-			return test;
-		}
-
-		public void setTest(final String test) {
-			this.test = test;
-		}
-
-	}
-
-	@Test
-	public void fromSerializedName() throws IOException {
-		final TestEntitySerializeAnnotation entity = new TestEntitySerializeAnnotation();
-		final VPackSlice vpack = new VPackSlice(mapper.writeValueAsBytes(entity));
+				@Override
+				public boolean deserialize(final CustomFilterAnnotation annotation) {
+					return annotation.deserialize();
+				}
+			}).annotationFieldNaming(CustomNamingAnnotation.class,
+				new VPackAnnotationFieldNaming<CustomNamingAnnotation>() {
+					@Override
+					public String name(final CustomNamingAnnotation annotation) {
+						return annotation.name();
+					}
+				}).build().serialize(entity);
+		assertThat(vpack, is(notNullValue()));
 		assertThat(vpack.isObject(), is(true));
-		assertThat(vpack.getLength(), is(1));
-		final VPackSlice abc = vpack.get("abc");
-		assertThat(abc.isString(), is(true));
-		assertThat(abc.getAsString(), is("test"));
+		assertThat(vpack.get("a").isNone(), is(true));
+		assertThat(vpack.get("b").isString(), is(true));
+		assertThat(vpack.get("b").getAsString(), is("2"));
+		assertThat(vpack.get("c").isNone(), is(true));
+		assertThat(vpack.get("d").isString(), is(true));
+		assertThat(vpack.get("d").getAsString(), is("3"));
 	}
 
 	@Test
-	public void toSerializedName() throws IOException {
-		final VPackBuilder builder = new VPackBuilder();
-		builder.add(ValueType.OBJECT);
-		builder.add("abc", "test2");
-		builder.close();
-		final TestEntitySerializeAnnotation entity = mapper.readValue(builder.slice().getBuffer(),
-			TestEntitySerializeAnnotation.class);
-		assertThat(entity, is(notNullValue()));
-		assertThat(entity.test, is(notNullValue()));
-		assertThat(entity.test, is("test2"));
-	}
-
-	public static class TestEntityExpose {
-		private String a;
-		@JsonIgnore
-		private String b;
-
-		public String getA() {
-			return a;
-		}
-
-		public void setA(final String a) {
-			this.a = a;
-		}
-
-		public String getB() {
-			return b;
-		}
-
-		public void setB(final String b) {
-			this.b = b;
-		}
-
-	}
-
-	@Test
-	public void fromJsonIgnore() throws IOException {
-		final TestEntityExpose entity = new TestEntityExpose();
-		entity.a = entity.b = "test";
-		final VPackSlice vpack = new VPackSlice(mapper.writeValueAsBytes(entity));
-		assertThat(vpack.isObject(), is(true));
-		assertThat(vpack.getLength(), is(1));
-		{
-			final VPackSlice a = vpack.get("a");
-			assertThat(a.isString(), is(true));
-			assertThat(a.getAsString(), is("test"));
-		}
-		{
-			final VPackSlice b = vpack.get("b");
-			assertThat(b.isNone(), is(true));
-		}
-	}
-
-	@Test
-	public void directFromCollection() throws IOException {
+	public void directFromCollection() throws JsonProcessingException {
 		final Collection<String> list = new ArrayList<>();
 		list.add("test");
 		final VPackSlice vpack = new VPackSlice(mapper.writeValueAsBytes(list));
@@ -2870,7 +2836,7 @@ public class VPackSerializeDeserializeTest {
 	}
 
 	@Test
-	public void directFromCollectionWithType() throws IOException {
+	public void directFromCollectionWithType() throws JsonProcessingException {
 		final Collection<TestEntityString> list = new ArrayList<>();
 		list.add(new TestEntityString());
 		list.add(new TestEntityString());
@@ -2890,16 +2856,16 @@ public class VPackSerializeDeserializeTest {
 	}
 
 	@Test
-	public void directToCollection() throws IOException {
+	public void directToCollection() throws JsonProcessingException {
 		final VPackBuilder builder = new VPackBuilder();
 		builder.add(ValueType.ARRAY);
 		builder.add(ValueType.OBJECT);
 		builder.add("s", "abc");
 		builder.close();
 		builder.close();
-		final List<TestEntityString> list = mapper.readValue(builder.slice().getBuffer(),
-			new TypeReference<List<TestEntityString>>() {
-			});
+		final List<TestEntityString> list = new VPack.Builder().build().deserialize(builder.slice(),
+			new Type<List<TestEntityString>>() {
+			}.getType());
 		assertThat(list, is(notNullValue()));
 		assertThat(list.size(), is(1));
 		final TestEntityString entry = list.get(0);
@@ -2907,7 +2873,7 @@ public class VPackSerializeDeserializeTest {
 	}
 
 	@Test
-	public void directFromStringMap() throws IOException {
+	public void directFromStringMap() throws JsonProcessingException {
 		final Map<String, TestEntityString> map = new HashMap<>();
 		map.put("a", new TestEntityString());
 		map.put("b", new TestEntityString());
@@ -2921,16 +2887,16 @@ public class VPackSerializeDeserializeTest {
 	}
 
 	@Test
-	public void directToStringMap() throws IOException {
+	public void directToStringMap() throws JsonProcessingException {
 		final VPackBuilder builder = new VPackBuilder();
 		builder.add(ValueType.OBJECT);
 		builder.add("a", ValueType.OBJECT);
 		builder.add("s", "abc");
 		builder.close();
 		builder.close();
-		final Map<String, TestEntityString> map = mapper.readValue(builder.slice().getBuffer(),
-			new TypeReference<Map<String, TestEntityString>>() {
-			});
+		final Map<String, TestEntityString> map = new VPack.Builder().build().deserialize(builder.slice(),
+			new Type<Map<String, TestEntityString>>() {
+			}.getType());
 		assertThat(map, is(notNullValue()));
 		assertThat(map.size(), is(1));
 		final TestEntityString a = map.get("a");
@@ -2939,29 +2905,7 @@ public class VPackSerializeDeserializeTest {
 	}
 
 	@Test
-	public void directFromObjectMap() throws IOException {
-		final Map<TestEntityString, TestEntityString> map = new HashMap<>();
-		map.put(new TestEntityString(), new TestEntityString());
-		map.put(new TestEntityString(), new TestEntityString());
-
-		// final VPackSlice vpack = new VPack.Builder().build().serialize(map,
-		// new SerializeOptions().type(new Type<Map<TestEntityString, TestEntityString>>() {
-		// }.getType()));
-		final VPackSlice vpack = new VPackSlice(mapper.writeValueAsBytes(map));
-		assertThat(vpack, is(notNullValue()));
-		assertThat(vpack.isArray(), is(true));
-		assertThat(vpack.getLength(), is(map.size()));
-		for (int i = 0; i < map.size(); i++) {
-			final VPackSlice entry = vpack.get(i);
-			final VPackSlice key = entry.get("key");
-			checkStringEntity(key);
-			final VPackSlice value = entry.get("value");
-			checkStringEntity(value);
-		}
-	}
-
-	@Test
-	public void directFromMap() throws IOException {
+	public void directFromMap() throws JsonProcessingException {
 		final Map<String, Object> map = new HashMap<>();
 		final TestEntityA entity = new TestEntityA();
 		entity.a = "test";
@@ -2977,7 +2921,7 @@ public class VPackSerializeDeserializeTest {
 	}
 
 	@Test
-	public void directFromMapWithinMap() throws IOException {
+	public void directFromMapWithinMap() throws JsonProcessingException {
 		final Map<String, Object> map = new HashMap<>();
 		final Map<String, Object> map2 = new HashMap<>();
 		map2.put("b", "test");
@@ -2994,7 +2938,7 @@ public class VPackSerializeDeserializeTest {
 		assertThat(b.getAsString(), is("test"));
 	}
 
-	private void checkStringEntity(final VPackSlice vpack) throws IOException {
+	private void checkStringEntity(final VPackSlice vpack) throws JsonProcessingException {
 		final TestEntityString expected = new TestEntityString();
 		assertThat(vpack.isObject(), is(true));
 		assertThat(vpack.getLength(), is(3));
@@ -3010,7 +2954,7 @@ public class VPackSerializeDeserializeTest {
 	}
 
 	@Test
-	public void directToObjectMap() throws IOException {
+	public void directToObjectMap() throws JsonProcessingException {
 		final VPackBuilder builder = new VPackBuilder();
 		builder.add(ValueType.ARRAY);
 		builder.add(ValueType.OBJECT);
@@ -3022,9 +2966,9 @@ public class VPackSerializeDeserializeTest {
 		builder.close();
 		builder.close();
 		builder.close();
-		final Map<TestEntityString, TestEntityString> map = mapper.readValue(builder.slice().getBuffer(),
-			new TypeReference<Map<TestEntityString, TestEntityString>>() {
-			});
+		final Map<TestEntityString, TestEntityString> map = new VPack.Builder().build().deserialize(builder.slice(),
+			new Type<Map<TestEntityString, TestEntityString>>() {
+			}.getType());
 		assertThat(map, is(notNullValue()));
 		assertThat(map.size(), is(1));
 		for (final Entry<TestEntityString, TestEntityString> entry : map.entrySet()) {
@@ -3035,7 +2979,7 @@ public class VPackSerializeDeserializeTest {
 
 	@SuppressWarnings("unchecked")
 	@Test
-	public void directToMapWithinMap() throws IOException {
+	public void directToMapWithinMap() throws JsonProcessingException {
 		final VPackBuilder builder = new VPackBuilder();
 		builder.add(ValueType.OBJECT);
 		builder.add("a", ValueType.OBJECT);
@@ -3049,9 +2993,7 @@ public class VPackSerializeDeserializeTest {
 		builder.close();
 		builder.close();
 		builder.close();
-		final Map<String, Object> map = mapper.readValue(builder.slice().getBuffer(),
-			new TypeReference<Map<String, Object>>() {
-			});
+		final Map<String, Object> map = new VPack.Builder().build().deserialize(builder.slice(), Map.class);
 		assertThat(map, is(notNullValue()));
 		assertThat(map.size(), is(1));
 		final Object a = map.get("a");
@@ -3079,12 +3021,11 @@ public class VPackSerializeDeserializeTest {
 	}
 
 	@Test
-	public void dontSerializeNullValues() throws IOException {
+	public void dontSerializeNullValues() throws JsonProcessingException {
+		final VPack serializer = new VPack.Builder().serializeNullValues(false).build();
 		final TestEntityString entity = new TestEntityString();
 		entity.setS(null);
-		final ObjectMapper mapper = new VPackMapper();
-		mapper.setSerializationInclusion(Include.NON_NULL);
-		final VPackSlice vpack = new VPackSlice(mapper.writeValueAsBytes(entity));
+		final VPackSlice vpack = serializer.serialize(entity);
 		assertThat(vpack, is(notNullValue()));
 		assertThat(vpack.isObject(), is(true));
 		final VPackSlice s = vpack.get("s");
@@ -3092,24 +3033,24 @@ public class VPackSerializeDeserializeTest {
 	}
 
 	@Test
-	public void serializeNullValue() throws IOException {
+	public void serializeNullValue() throws JsonProcessingException {
+		final VPack serializer = new VPack.Builder().serializeNullValues(true).build();
 		final TestEntityString entity = new TestEntityString();
 		entity.setS(null);
-		final ObjectMapper mapper = new VPackMapper();
-		mapper.setSerializationInclusion(Include.ALWAYS);
-		final VPackSlice vpack = new VPackSlice(mapper.writeValueAsBytes(entity));
+		final VPackSlice vpack = serializer.serialize(entity);
 		assertThat(vpack, is(notNullValue()));
 		final VPackSlice s = vpack.get("s");
 		assertThat(s.isNull(), is(true));
 	}
 
 	@Test
-	public void toNullValue() throws IOException {
+	public void toNullValue() throws JsonProcessingException {
 		final VPackBuilder builder = new VPackBuilder();
 		builder.add(ValueType.OBJECT);
 		builder.add("s", ValueType.NULL);
 		builder.close();
-		final TestEntityString entity = mapper.readValue(builder.slice().getBuffer(), TestEntityString.class);
+		final TestEntityString entity = new VPack.Builder().build().deserialize(builder.slice(),
+			TestEntityString.class);
 		assertThat(entity, is(notNullValue()));
 		assertThat(entity.s, is(nullValue()));
 		assertThat(entity.c1, is(notNullValue()));
@@ -3117,16 +3058,16 @@ public class VPackSerializeDeserializeTest {
 	}
 
 	@Test
-	public void toSimpleString() throws IOException {
+	public void toSimpleString() throws JsonProcessingException {
 		final VPackBuilder builder = new VPackBuilder();
 		builder.add("test");
-		final String s = mapper.readValue(builder.slice().getBuffer(), String.class);
+		final String s = new VPack.Builder().build().deserialize(builder.slice(), String.class);
 		assertThat(s, is(notNullValue()));
 		assertThat(s, is("test"));
 	}
 
 	@Test
-	public void fromSimpleString() throws IOException {
+	public void fromSimpleString() throws JsonProcessingException {
 		final VPackSlice vpack = new VPackSlice(mapper.writeValueAsBytes("test"));
 		assertThat(vpack, is(notNullValue()));
 		assertThat(vpack.isString(), is(true));
@@ -3138,7 +3079,7 @@ public class VPackSerializeDeserializeTest {
 	}
 
 	@Test
-	public void fromStringTypedEntity() throws IOException {
+	public void fromStringTypedEntity() throws JsonProcessingException {
 		final TestEntityTyped<String> entity = new TestEntityTyped<>();
 		entity.e = "test";
 		final VPackSlice vpack = new VPackSlice(mapper.writeValueAsBytes(entity));
@@ -3151,7 +3092,7 @@ public class VPackSerializeDeserializeTest {
 	}
 
 	@Test
-	public void fromObjectTypedEntity() throws IOException {
+	public void fromObjectTypedEntity() throws JsonProcessingException {
 		final TestEntityTyped<TestEntityString> entity = new TestEntityTyped<>();
 		entity.e = new TestEntityString();
 		entity.e.s = "test2";
@@ -3168,13 +3109,10 @@ public class VPackSerializeDeserializeTest {
 	}
 
 	@Test
-	public void fromTypedTypedEntity() throws IOException {
+	public void fromTypedTypedEntity() throws JsonProcessingException {
 		final TestEntityTyped<TestEntityTyped<String>> entity = new TestEntityTyped<>();
 		entity.e = new TestEntityTyped<>();
 		entity.e.e = "test";
-		// final VPackSlice vpack = new VPack.Builder().build().serialize(entity,
-		// new SerializeOptions().type(new Type<TestEntityTyped<TestEntityTyped<String>>>() {
-		// }.getType()));
 		final VPackSlice vpack = new VPackSlice(mapper.writeValueAsBytes(entity));
 		assertThat(vpack, is(notNullValue()));
 		assertThat(vpack.isObject(), is(true));
@@ -3188,20 +3126,13 @@ public class VPackSerializeDeserializeTest {
 	}
 
 	@Test
-	public void fieldNamingStrategySerialize() throws IOException {
-		final ObjectMapper mapper = new VPackMapper();
-		mapper.setPropertyNamingStrategy(new PropertyNamingStrategy() {
-			private static final long serialVersionUID = 1L;
-
+	public void fieldNamingStrategySerialize() throws JsonProcessingException {
+		final VPackSlice vpack = new VPack.Builder().fieldNamingStrategy(new VPackFieldNamingStrategy() {
 			@Override
-			public String nameForGetterMethod(
-				final MapperConfig<?> config,
-				final AnnotatedMethod method,
-				final String defaultName) {
+			public String translateName(final Field field) {
 				return "bla";
 			}
-		});
-		final VPackSlice vpack = new VPackSlice(mapper.writeValueAsBytes(new TestEntityA()));
+		}).build().serialize(new TestEntityA());
 		assertThat(vpack, is(notNullValue()));
 		assertThat(vpack.isObject(), is(true));
 		final VPackSlice bla = vpack.get("bla");
@@ -3210,26 +3141,41 @@ public class VPackSerializeDeserializeTest {
 	}
 
 	@Test
-	public void fieldNamingStrategyDeserialize() throws IOException {
+	public void fieldNamingStrategyDeserialize() throws JsonProcessingException {
 		final VPackBuilder builder = new VPackBuilder();
 		builder.add(ValueType.OBJECT);
 		builder.add("bla", "test");
 		builder.close();
-		final ObjectMapper mapper = new VPackMapper();
-		mapper.setPropertyNamingStrategy(new PropertyNamingStrategy() {
-			private static final long serialVersionUID = 1L;
-
+		final TestEntityA entity = new VPack.Builder().fieldNamingStrategy(new VPackFieldNamingStrategy() {
 			@Override
-			public String nameForSetterMethod(
-				final MapperConfig<?> config,
-				final AnnotatedMethod method,
-				final String defaultName) {
+			public String translateName(final Field field) {
 				return "bla";
 			}
-		});
-		final TestEntityA entity = mapper.readValue(builder.slice().getBuffer(), TestEntityA.class);
+		}).build().deserialize(builder.slice(), TestEntityA.class);
 		assertThat(entity, is(notNullValue()));
 		assertThat(entity.a, is("test"));
+	}
+
+	@Test
+	public void serializeVPack() throws JsonProcessingException {
+		final VPackBuilder builder = new VPackBuilder();
+		builder.add("test");
+		final VPackSlice slice = builder.slice();
+		final VPackSlice vpack = new VPackSlice(mapper.writeValueAsBytes(slice));
+		assertThat(vpack, is(notNullValue()));
+		assertThat(vpack.isString(), is(true));
+		assertThat(vpack.getAsString(), is("test"));
+	}
+
+	@Test
+	public void deserializeVPack() throws JsonProcessingException {
+		final VPackBuilder builder = new VPackBuilder();
+		builder.add("test");
+		final VPackSlice slice = builder.slice();
+		final VPackSlice vpack = new VPack.Builder().build().deserialize(slice, slice.getClass());
+		assertThat(vpack, is(notNullValue()));
+		assertThat(vpack.isString(), is(true));
+		assertThat(vpack.getAsString(), is("test"));
 	}
 
 	public static class TestEntityDate {
@@ -3264,7 +3210,7 @@ public class VPackSerializeDeserializeTest {
 	}
 
 	@Test
-	public void fromDate() throws IOException {
+	public void fromDate() throws JsonProcessingException {
 		final VPackSlice vpack = new VPackSlice(mapper.writeValueAsBytes(new TestEntityDate()));
 		assertThat(vpack, is(notNullValue()));
 		assertThat(vpack.isObject(), is(true));
@@ -3284,7 +3230,23 @@ public class VPackSerializeDeserializeTest {
 	}
 
 	@Test
-	public void toDateFromString() throws IOException {
+	public void toDate() throws JsonProcessingException {
+		final VPackBuilder builder = new VPackBuilder();
+		builder.add(ValueType.OBJECT);
+		builder.add("utilDate", new Date(1475062216));
+		builder.add("sqlDate", new java.sql.Date(1475062216));
+		builder.add("timestamp", new java.sql.Timestamp(1475062216));
+		builder.close();
+
+		final TestEntityDate entity = new VPack.Builder().build().deserialize(builder.slice(), TestEntityDate.class);
+		assertThat(entity, is(notNullValue()));
+		assertThat(entity.utilDate, is(new Date(1475062216)));
+		assertThat(entity.sqlDate, is(new java.sql.Date(1475062216)));
+		assertThat(entity.timestamp, is(new java.sql.Timestamp(1475062216)));
+	}
+
+	@Test
+	public void toDateFromString() throws JsonProcessingException {
 		final VPackBuilder builder = new VPackBuilder();
 		builder.add(ValueType.OBJECT);
 		builder.add("utilDate", DATE_FORMAT.format(new Date(1475062216)));
@@ -3292,7 +3254,7 @@ public class VPackSerializeDeserializeTest {
 		builder.add("timestamp", DATE_FORMAT.format(new java.sql.Timestamp(1475062216)));
 		builder.close();
 
-		final TestEntityDate entity = mapper.readValue(builder.slice().getBuffer(), TestEntityDate.class);
+		final TestEntityDate entity = new VPack.Builder().build().deserialize(builder.slice(), TestEntityDate.class);
 		assertThat(entity, is(notNullValue()));
 		assertThat(entity.utilDate, is(new Date(1475062216)));
 		assertThat(entity.sqlDate, is(new java.sql.Date(1475062216)));
@@ -3312,7 +3274,7 @@ public class VPackSerializeDeserializeTest {
 	}
 
 	@Test
-	public void fromUUID() throws IOException {
+	public void fromUUID() throws JsonProcessingException {
 		final TestEntityUUID entity = new TestEntityUUID();
 		entity.setUuid(UUID.randomUUID());
 		final VPackSlice vpack = new VPackSlice(mapper.writeValueAsBytes(entity));
@@ -3325,28 +3287,55 @@ public class VPackSerializeDeserializeTest {
 	}
 
 	@Test
-	public void toUUID() throws IOException {
+	public void toUUID() {
 		final UUID uuid = UUID.randomUUID();
 		final VPackBuilder builder = new VPackBuilder();
 		builder.add(ValueType.OBJECT);
 		builder.add("uuid", uuid.toString());
 		builder.close();
 
-		final TestEntityUUID entity = mapper.readValue(builder.slice().getBuffer(), TestEntityUUID.class);
+		final TestEntityUUID entity = new VPack.Builder().build().deserialize(builder.slice(), TestEntityUUID.class);
 		assertThat(entity, is(notNullValue()));
 		assertThat(entity.uuid, is(uuid));
 	}
 
 	@Test
-	public void uuid() throws IOException {
+	public void uuid() {
 		final TestEntityUUID entity = new TestEntityUUID();
 		entity.setUuid(UUID.randomUUID());
-		// final VPack vpacker = new VPack.Builder().build();
-		// final VPackSlice vpack = vpacker.serialize(entity);
-		final VPackSlice vpack = new VPackSlice(mapper.writeValueAsBytes(entity));
-		final TestEntityUUID entity2 = mapper.readValue(vpack.getBuffer(), TestEntityUUID.class);
+		final VPack vpacker = new VPack.Builder().build();
+		final VPackSlice vpack = vpacker.serialize(entity);
+		final TestEntityUUID entity2 = vpacker.deserialize(vpack, TestEntityUUID.class);
 		assertThat(entity2, is(notNullValue()));
 		assertThat(entity2.getUuid(), is(entity.getUuid()));
+	}
+
+	private static class BinaryEntity {
+		private byte[] foo;
+
+		public BinaryEntity() {
+			super();
+		}
+	}
+
+	@Test
+	public void fromBinary() throws JsonProcessingException {
+		final BinaryEntity entity = new BinaryEntity();
+		entity.foo = "bar".getBytes();
+		final VPackSlice vpack = new VPackSlice(mapper.writeValueAsBytes(entity));
+		assertThat(vpack, is(notNullValue()));
+		assertThat(vpack.isObject(), is(true));
+		assertThat(vpack.get("foo").isString(), is(true));
+		assertThat(vpack.get("foo").getAsString(), is(DatatypeConverter.printBase64Binary(entity.foo)));
+	}
+
+	@Test
+	public void toBinary() throws JsonParseException, JsonMappingException, IOException {
+		final String value = DatatypeConverter.printBase64Binary("bar".getBytes());
+		final VPackSlice vpack = new VPackBuilder().add(ValueType.OBJECT).add("foo", value).close().slice();
+		final BinaryEntity entity = mapper.readValue(vpack.getBuffer(), BinaryEntity.class);
+		assertThat(entity, is(notNullValue()));
+		assertThat(entity.foo, is("bar".getBytes()));
 	}
 
 	@Test
@@ -3357,102 +3346,4 @@ public class VPackSerializeDeserializeTest {
 		assertThat(vpack.get("value").getAsDouble(), is(12000.));
 	}
 
-	public static class TestEntityObjectKeyMap {
-		private Map<TestEntityA, Object> map;
-
-		public TestEntityObjectKeyMap() {
-			super();
-		}
-	}
-
-	@Test
-	public void keyMapAdapter() {
-		final VPack vpack = new VPack.Builder()
-				.registerKeyMapAdapter(TestEntityA.class, new VPackKeyMapAdapter<TestEntityA>() {
-					@Override
-					public String serialize(final TestEntityA key) {
-						return key.getA();
-					}
-
-					@Override
-					public TestEntityA deserialize(final String key) {
-						final TestEntityA e = new TestEntityA();
-						e.setA(key);
-						return e;
-					}
-				}).build();
-
-		final TestEntityObjectKeyMap entityIn = new TestEntityObjectKeyMap();
-		entityIn.map = new HashMap<>();
-		final TestEntityA key = new TestEntityA();
-		key.setA("b");
-		entityIn.map.put(key, "test");
-
-		final VPackSlice slice = vpack.serialize(entityIn);
-		assertThat(slice.isObject(), is(true));
-		assertThat(slice.get("map").isObject(), is(true));
-		assertThat(slice.get("map").size(), is(1));
-		assertThat(slice.get("map").get("b").getAsString(), is("test"));
-
-		final TestEntityObjectKeyMap entityOut = vpack.deserialize(slice, TestEntityObjectKeyMap.class);
-		assertThat(entityOut.map.size(), is(1));
-		final Entry<TestEntityA, Object> entry = entityOut.map.entrySet().iterator().next();
-		assertThat(entry.getKey().a, is("b"));
-		assertThat(entry.getValue().toString(), is("test"));
-	}
-
-	public static class TestEntityNullHandle1 {
-		private TestEntityNullHandle2 e;
-
-		public TestEntityNullHandle1() {
-			super();
-		}
-
-	}
-
-	public static class TestEntityNullHandle2 {
-
-		public TestEntityNullHandle2() {
-			super();
-		}
-
-	}
-
-	@Test
-	public void customDeserializerWithSelfNullHandle() {
-		final VPack vpack = new VPack.Builder()
-				.registerDeserializer(TestEntityNullHandle2.class, new VPackDeserializer<TestEntityNullHandle2>() {
-					@Override
-					public TestEntityNullHandle2 deserialize(
-						final VPackSlice parent,
-						final VPackSlice vpack,
-						final VPackDeserializationContext context) throws VPackException {
-						return new TestEntityNullHandle2();
-					}
-				}, true).serializeNullValues(true).build();
-		final TestEntityNullHandle1 entityIn = new TestEntityNullHandle1();
-		entityIn.e = null;
-		final VPackSlice slice = vpack.serialize(entityIn);
-		final TestEntityNullHandle1 entityOut = vpack.deserialize(slice, TestEntityNullHandle1.class);
-		assertThat(entityOut.e, is(notNullValue()));
-	}
-
-	@Test
-	public void customDeserializerWithoutSelfNullHandle() {
-		final VPack vpack = new VPack.Builder()
-				.registerDeserializer(TestEntityNullHandle2.class, new VPackDeserializer<TestEntityNullHandle2>() {
-					@Override
-					public TestEntityNullHandle2 deserialize(
-						final VPackSlice parent,
-						final VPackSlice vpack,
-						final VPackDeserializationContext context) throws VPackException {
-						return new TestEntityNullHandle2();
-					}
-				}, false).serializeNullValues(true).build();
-		final TestEntityNullHandle1 entityIn = new TestEntityNullHandle1();
-		entityIn.e = null;
-		final VPackSlice slice = vpack.serialize(entityIn);
-		final TestEntityNullHandle1 entityOut = vpack.deserialize(slice, TestEntityNullHandle1.class);
-		assertThat(entityOut.e, is(nullValue()));
-	}
 }

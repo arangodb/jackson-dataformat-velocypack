@@ -22,25 +22,29 @@ package com.arangodb;
 
 import java.io.IOException;
 import java.lang.reflect.Type;
+import java.util.Arrays;
 import java.util.Iterator;
 
 import com.arangodb.jackson.dataformat.velocypack.VPackMapper;
-import com.arangodb.util.ArangoDeserializer;
+import com.arangodb.util.ArangoSerialization;
 import com.arangodb.util.ArangoSerializer;
 import com.arangodb.velocypack.VPackSlice;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
  * @author Mark Vollmary
  *
  */
-public class VelocyJack implements ArangoSerializer, ArangoDeserializer {
+public class VelocyJack implements ArangoSerialization {
 
 	public interface ConfigureFunction {
 		void configure(ObjectMapper mapper);
 	}
+
+	private static final Options EMPTY_OPTIONS = new ArangoSerializer.Options();
 
 	private final ObjectMapper vpackMapper;
 	private final ObjectMapper vpackMapperNull;
@@ -64,7 +68,7 @@ public class VelocyJack implements ArangoSerializer, ArangoDeserializer {
 
 	@Override
 	public VPackSlice serialize(final Object entity) throws ArangoDBException {
-		return serialize(entity, new ArangoSerializer.Options());
+		return serialize(entity, EMPTY_OPTIONS);
 	}
 
 	@SuppressWarnings("unchecked")
@@ -105,9 +109,12 @@ public class VelocyJack implements ArangoSerializer, ArangoDeserializer {
 		try {
 			final T doc;
 			if (type == String.class && !vpack.isString()) {
-				doc = (T) jsonMapper.readValue(vpack.getBuffer(), String.class);
+				final JsonNode node = vpackMapper.readTree(
+					Arrays.copyOfRange(vpack.getBuffer(), vpack.getStart(), vpack.getStart() + vpack.getByteSize()));
+				doc = (T) jsonMapper.writeValueAsString(node);
 			} else {
-				doc = vpackMapper.readValue(vpack.getBuffer(), (Class<T>) type);
+				doc = vpackMapper.readValue(vpack.getBuffer(), vpack.getStart(), vpack.getStart() + vpack.getByteSize(),
+					(Class<T>) type);
 			}
 			return doc;
 		} catch (final IOException e) {

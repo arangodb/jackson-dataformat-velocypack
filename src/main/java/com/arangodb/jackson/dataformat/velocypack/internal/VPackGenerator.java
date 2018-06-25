@@ -26,6 +26,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 
 import com.arangodb.velocypack.VPackBuilder;
+import com.arangodb.velocypack.VPackSlice;
 import com.arangodb.velocypack.ValueType;
 import com.arangodb.velocypack.exception.VPackBuilderException;
 import com.fasterxml.jackson.core.Base64Variant;
@@ -170,7 +171,16 @@ public class VPackGenerator extends GeneratorBase {
 	public void writeBinary(final Base64Variant bv, final byte[] data, final int offset, final int len)
 			throws IOException {
 		try {
-			builder.add(attribute, data);
+			builder.add(attribute, bv.encode(data, false));
+			attribute = null;
+		} catch (final VPackBuilderException e) {
+			throw new IOException(e);
+		}
+	}
+
+	public void writeVPack(final VPackSlice vpack) throws IOException {
+		try {
+			builder.add(attribute, vpack);
 			attribute = null;
 		} catch (final VPackBuilderException e) {
 			throw new IOException(e);

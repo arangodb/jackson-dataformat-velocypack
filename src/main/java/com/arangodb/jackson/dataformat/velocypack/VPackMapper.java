@@ -20,10 +20,14 @@
 
 package com.arangodb.jackson.dataformat.velocypack;
 
+import com.arangodb.entity.BaseDocument;
+import com.arangodb.entity.BaseEdgeDocument;
 import com.arangodb.jackson.dataformat.velocypack.internal.VPackDeserializers;
 import com.arangodb.jackson.dataformat.velocypack.internal.VPackSerializers;
+import com.arangodb.velocypack.VPackSlice;
 import com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.module.SimpleModule;
@@ -39,28 +43,22 @@ public class VPackMapper extends ObjectMapper {
 	public VPackMapper() {
 		super(new VPackFactory());
 		configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
+		configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 		setVisibility(PropertyAccessor.FIELD, Visibility.ANY);
 		final SimpleModule module = new SimpleModule();
+		module.addSerializer(VPackSlice.class, VPackSerializers.VPACK);
 		module.addSerializer(java.util.Date.class, VPackSerializers.UTIL_DATE);
 		module.addSerializer(java.sql.Date.class, VPackSerializers.SQL_DATE);
 		module.addSerializer(java.sql.Timestamp.class, VPackSerializers.SQL_TIMESTAMP);
+		module.addSerializer(BaseDocument.class, VPackSerializers.BASE_DOCUMENT);
+		module.addSerializer(BaseEdgeDocument.class, VPackSerializers.BASE_EDGE_DOCUMENT);
+
+		module.addDeserializer(VPackSlice.class, VPackDeserializers.VPACK);
 		module.addDeserializer(java.util.Date.class, VPackDeserializers.UTIL_DATE);
 		module.addDeserializer(java.sql.Date.class, VPackDeserializers.SQL_DATE);
 		module.addDeserializer(java.sql.Timestamp.class, VPackDeserializers.SQL_TIMESTAMP);
-		// module.addKeySerializer(Boolean.class, VPackKeySerializers.BOOLEAN);
-		// module.addKeySerializer(Integer.class, VPackKeySerializers.INTEGER);
-		// module.addKeySerializer(Long.class, VPackKeySerializers.LONG);
-		// module.addKeySerializer(Short.class, VPackKeySerializers.SHORT);
-		// module.addKeySerializer(Double.class, VPackKeySerializers.DOUBLE);
-		// module.addKeySerializer(Float.class, VPackKeySerializers.FLOAT);
-		// module.addKeySerializer(Character.class, VPackKeySerializers.CHARACTER);
-		// module.addKeyDeserializer(Boolean.class, StdKeyDeserializer.forType(Boolean.class));
-		// module.addKeyDeserializer(Integer.class, StdKeyDeserializer.forType(Integer.class));
-		// module.addKeyDeserializer(Long.class, StdKeyDeserializer.forType(Long.class));
-		// module.addKeyDeserializer(Short.class, StdKeyDeserializer.forType(Short.class));
-		// module.addKeyDeserializer(Double.class, StdKeyDeserializer.forType(Double.class));
-		// module.addKeyDeserializer(Float.class, StdKeyDeserializer.forType(Float.class));
-		// module.addKeyDeserializer(Character.class, StdKeyDeserializer.forType(Character.class));
+		module.addDeserializer(BaseDocument.class, VPackDeserializers.BASE_DOCUMENT);
+		module.addDeserializer(BaseEdgeDocument.class, VPackDeserializers.BASE_EDGE_DOCUMENT);
 		registerModule(module);
 	}
 
