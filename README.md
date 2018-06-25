@@ -5,7 +5,7 @@
 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.arangodb/jackson-dataformat-velocypack/badge.svg)](https://maven-badges.herokuapp.com/maven-central/com.arangodb/jackson-dataformat-velocypack)
 
 
-This project contains a [Jackson](https://github.com/FasterXML/jackson) extension for reading and writing [VelocyPack]((https://github.com/arangodb/velocypack) encoded data.
+This project contains a [Jackson](https://github.com/FasterXML/jackson) extension for reading and writing [VelocyPack](https://github.com/arangodb/velocypack) encoded data.
 
 
 ## Maven
