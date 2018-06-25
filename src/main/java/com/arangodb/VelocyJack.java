@@ -44,8 +44,6 @@ public class VelocyJack implements ArangoSerialization {
 		void configure(ObjectMapper mapper);
 	}
 
-	private static final Options EMPTY_OPTIONS = new ArangoSerializer.Options();
-
 	private final ObjectMapper vpackMapper;
 	private final ObjectMapper vpackMapperNull;
 	private final ObjectMapper jsonMapper;
@@ -68,7 +66,7 @@ public class VelocyJack implements ArangoSerialization {
 
 	@Override
 	public VPackSlice serialize(final Object entity) throws ArangoDBException {
-		return serialize(entity, EMPTY_OPTIONS);
+		return serialize(entity, new ArangoSerializer.Options());
 	}
 
 	@SuppressWarnings("unchecked")
