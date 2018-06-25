@@ -4,7 +4,7 @@
 
 	<groupId>com.arangodb</groupId>
 	<artifactId>jackson-dataformat-velocypack</artifactId>
-	<version>0.1.1-SNAPSHOT</version>
+	<version>0.1.1</version>
 	<inceptionYear>2017</inceptionYear>
 	<packaging>jar</packaging>
 

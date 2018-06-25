@@ -17,7 +17,7 @@ To add the dependency to your project with maven, add the following code to your
   <dependency>
     <groupId>com.arangodb</groupId>
     <artifactId>jackson-dataformat-velocypack</artifactId>
-    <version>0.1.0</version>
+    <version>0.1.1</version>
   </dependency>
 </dependencies>
 ```
