@@ -4,7 +4,7 @@
 
 	<groupId>com.arangodb</groupId>
 	<artifactId>jackson-dataformat-velocypack</artifactId>
-	<version>0.1.2-SNAPSHOT</version>
+	<version>0.1.2</version>
 	<inceptionYear>2017</inceptionYear>
 	<packaging>jar</packaging>
 
@@ -234,7 +234,7 @@
 			<scope>provided</scope>
 		</dependency>
 	</dependencies>
-	
+
 	<dependencyManagement>
 		<dependencies>
 			<dependency>
@@ -290,5 +290,5 @@
 		<name>ArangoDB GmbH</name>
 		<url>https://www.arangodb.com</url>
 	</organization>
-	
+
 </project>

@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 ## [Unreleased]
 
+## [0.1.2] - 2018-06-28
+
 ### Fixed
 
 - fixed mapping of nested objects
