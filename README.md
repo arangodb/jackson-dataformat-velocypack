@@ -1,12 +1,10 @@
 ![ArangoDB-Logo](https://docs.arangodb.com/assets/arangodb_logo_2016_inverted.png)
 
-# VelocyPack dataformat for Jackson 
+# VelocyPack dataformat for Jackson
 
 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.arangodb/jackson-dataformat-velocypack/badge.svg)](https://maven-badges.herokuapp.com/maven-central/com.arangodb/jackson-dataformat-velocypack)
 
-
 This project contains a [Jackson](https://github.com/FasterXML/jackson) extension for reading and writing [VelocyPack](https://github.com/arangodb/velocypack) encoded data.
-
 
 ## Maven
 
@@ -37,3 +35,8 @@ The [ArangoDB Java driver](https://github.com/arangodb/arangodb-java-driver) all
 ```java
 ArangoDB arango = new ArangoDB.Builder().serializer(new VelocyJack()).build();
 ```
+
+# Learn more
+
+- [ArangoDB](https://www.arangodb.com/)
+- [ChangeLog](ChangeLog.md)
