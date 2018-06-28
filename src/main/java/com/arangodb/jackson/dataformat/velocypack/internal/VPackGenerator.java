@@ -50,7 +50,6 @@ public class VPackGenerator extends GeneratorBase {
 
 	@Override
 	public void flush() throws IOException {
-		out.write(builder.slice().getBuffer());
 		out.flush();
 	}
 
@@ -273,7 +272,7 @@ public class VPackGenerator extends GeneratorBase {
 
 	@Override
 	public void close() throws IOException {
+		out.write(builder.slice().getBuffer());
 		super.close();
-		flush();
 	}
 }
