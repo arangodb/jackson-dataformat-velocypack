@@ -28,6 +28,7 @@ import java.util.Iterator;
 import com.arangodb.jackson.dataformat.velocypack.VPackMapper;
 import com.arangodb.util.ArangoSerialization;
 import com.arangodb.util.ArangoSerializer;
+import com.arangodb.velocypack.VPackParser;
 import com.arangodb.velocypack.VPackSlice;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -47,21 +48,20 @@ public class VelocyJack implements ArangoSerialization {
 	private final ObjectMapper vpackMapper;
 	private final ObjectMapper vpackMapperNull;
 	private final ObjectMapper jsonMapper;
-	private final ObjectMapper jsonMapperNull;
+	private final VPackParser vpackParser;
 
 	public VelocyJack() {
 		super();
 		vpackMapper = new VPackMapper().setSerializationInclusion(Include.NON_NULL);
 		vpackMapperNull = new VPackMapper().setSerializationInclusion(Include.ALWAYS);
 		jsonMapper = new ObjectMapper().setSerializationInclusion(Include.NON_NULL);
-		jsonMapperNull = new ObjectMapper().setSerializationInclusion(Include.ALWAYS);
+		vpackParser = new VPackParser.Builder().build();
 	}
 
 	public void configure(final ConfigureFunction f) {
 		f.configure(vpackMapper);
 		f.configure(vpackMapperNull);
 		f.configure(jsonMapper);
-		f.configure(jsonMapperNull);
 	}
 
 	@Override
@@ -80,13 +80,11 @@ public class VelocyJack implements ArangoSerialization {
 			final Class<? extends Object> type = entity.getClass();
 			final boolean serializeNullValues = options.isSerializeNullValues();
 			if (String.class.isAssignableFrom(type)) {
-				final ObjectMapper p = serializeNullValues ? jsonMapperNull : jsonMapper;
-				vpack = new VPackSlice(p.writeValueAsBytes((String) entity));
+				vpack = vpackParser.fromJson((String) entity, serializeNullValues);
 			} else if (options.isStringAsJson() && Iterable.class.isAssignableFrom(type)) {
 				final Iterator<?> iterator = Iterable.class.cast(entity).iterator();
 				if (iterator.hasNext() && String.class.isAssignableFrom(iterator.next().getClass())) {
-					final ObjectMapper p = serializeNullValues ? jsonMapperNull : jsonMapper;
-					vpack = new VPackSlice(p.writeValueAsBytes((Iterable<String>) entity));
+					vpack = vpackParser.fromJson((Iterable<String>) entity, serializeNullValues);
 				} else {
 					final ObjectMapper vp = serializeNullValues ? vpackMapperNull : vpackMapper;
 					vpack = new VPackSlice(vp.writeValueAsBytes(entity));
