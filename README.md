@@ -28,12 +28,24 @@ Just create an instance of `VPackMapper` simply by:
 ObjectMapper mapper = new VPackMapper();
 ```
 
-## Usage within ArangoDB Java driver
+## Within ArangoDB Java driver
+
+### Usage
 
 Since version 4.5.2 the [ArangoDB Java driver](https://github.com/arangodb/arangodb-java-driver) allows to use a custom serializer to de-/serialize documents, edges and query results. Just create an instance of `VelocyJack` and pass it to the driver through `ArangoDB.Builder.serializer(ArangoSerialization)`.
 
 ```java
 ArangoDB arango = new ArangoDB.Builder().serializer(new VelocyJack()).build();
+```
+
+### Configure
+
+```java
+VelocyJack velocyJack = new VelocyJack();
+velocyJack.configure((mapper) -> {
+  // your configuration here
+});
+ArangoDB arango = new ArangoDB.Builder().serializer(velocyJack).build();
 ```
 
 # Learn more
