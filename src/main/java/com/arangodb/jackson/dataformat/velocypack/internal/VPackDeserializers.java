@@ -44,7 +44,14 @@ public class VPackDeserializers {
 		public VPackSlice deserialize(final JsonParser p, final DeserializationContext ctxt)
 				throws IOException, JsonProcessingException {
 			if (p instanceof VPackParser) {
-				return ((VPackParser) p).getVPack();
+				final VPackSlice vpack = ((VPackParser) p).getVPack();
+				// consume each element
+				if (vpack.isArray() || vpack.isObject()) {
+					for (int i = 0; i < vpack.size() + 1; i++) {
+						p.nextToken();
+					}
+				}
+				return vpack;
 			}
 			return new VPackSlice(p.getBinaryValue());
 		}
