@@ -168,7 +168,7 @@ public class VPackParser extends ParserMinimalBase {
 
 	@Override
 	public String getText() throws IOException {
-		return currentValue.getAsString();
+		return _currToken == JsonToken.FIELD_NAME ? currentName : currentValue.getAsString();
 	}
 
 	@Override

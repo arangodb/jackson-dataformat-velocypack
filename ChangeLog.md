@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 ### Fixed
 
 - fixed deserializing of raw VelocyPack objects and arrays
+- fixed parsing of inner maps
 
 ## [0.1.2] - 2018-06-28
 
