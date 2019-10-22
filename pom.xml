@@ -26,8 +26,8 @@
 		<logback-classic.version>1.3.0-alpha4</logback-classic.version>
 		<hamcrest-all.version>1.3</hamcrest-all.version>
 		<junit.version>4.13-beta-1</junit.version>
-		<jackson.core.version>2.9.8</jackson.core.version>
-		<arangodb.velocypack.version>1.4.2</arangodb.velocypack.version>
+		<jackson.core.version>2.9.10</jackson.core.version>
+		<arangodb.velocypack.version>1.4.3</arangodb.velocypack.version>
 	</properties>
 
 	<developers>

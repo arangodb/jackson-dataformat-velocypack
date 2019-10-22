@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 ## [Unreleased]
 
+- jackson v2.9.10
+
 ## [0.1.4] - 2019-08-19
 
 - using java-velocypack version 1.4.2
