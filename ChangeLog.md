@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 ## [Unreleased]
 
+## [0.1.5] - 2019-10-23
+
+- arangodb-java-driver v6.4.1
 - jackson v2.9.10
 
 ## [0.1.4] - 2019-08-19
