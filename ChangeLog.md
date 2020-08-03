@@ -6,7 +6,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 ## [Unreleased]
 
-- compatibility with Java Platform Module System
+## [0.2.0] - 2020-08-03
+
+- compatibility with Java Platform Module System: moved `VelocyJack` under `com.arangodb.jackson.dataformat.velocypack` package
 
 ## [0.1.5] - 2019-10-23
 
