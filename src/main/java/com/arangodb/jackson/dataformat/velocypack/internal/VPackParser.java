@@ -359,6 +359,10 @@ public class VPackParser extends ParserMinimalBase {
                 currentValue.getStart() + currentValue.getByteSize());
     }
 
+    public VPackSlice getVPack() {
+        return currentValue;
+    }
+
     @Override
     public int readBinaryValue(Base64Variant b64variant, OutputStream out) {
         return -1;

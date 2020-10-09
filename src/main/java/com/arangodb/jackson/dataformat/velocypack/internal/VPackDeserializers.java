@@ -20,10 +20,6 @@
 
 package com.arangodb.jackson.dataformat.velocypack.internal;
 
-import java.io.IOException;
-import java.text.ParseException;
-import java.util.Map;
-
 import com.arangodb.entity.BaseDocument;
 import com.arangodb.entity.BaseEdgeDocument;
 import com.arangodb.velocypack.VPackSlice;
@@ -32,6 +28,10 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
+
+import java.io.IOException;
+import java.text.ParseException;
+import java.util.Map;
 
 /**
  * @author Mark Vollmary
@@ -44,7 +44,7 @@ public class VPackDeserializers {
 		public VPackSlice deserialize(final JsonParser p, final DeserializationContext ctxt)
 				throws IOException, JsonProcessingException {
 			if (p instanceof VPackParser) {
-				final VPackSlice vpack = (VPackSlice) p.getCurrentValue();
+				final VPackSlice vpack = ((VPackParser) p).getVPack();
 				// consume each element
 				if (vpack.isArray() || vpack.isObject()) {
 					for (int i = 0; i < vpack.size() + 1; i++) {

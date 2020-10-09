@@ -3321,4 +3321,12 @@ public class VPackSerializeDeserializeTest {
 		assertThat(vpack.get("value").getAsDouble(), is(12000.));
 	}
 
+	@Test
+	public void toVPackSlice() throws IOException {
+		final VPackSlice value = new VPackBuilder().add(ValueType.OBJECT).add("key", "value").close().slice();
+		final VPackSlice entity = mapper.readValue(value.getBuffer(), VPackSlice.class);
+		assertThat(entity, is(value));
+	}
+
+
 }
