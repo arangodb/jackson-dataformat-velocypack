@@ -52,7 +52,7 @@ public class VPackSerializeDeserializeTest {
 		DATE_FORMAT.setTimeZone(TimeZone.getTimeZone("UTC"));
 	}
 
-	private final ObjectMapper mapper = new VPackMapper();
+	private final ObjectMapper mapper = new ArangoVPackMapperFactory().create();
 
 	public static class TestEntityBoolean {
 		private boolean a = true;
@@ -698,8 +698,11 @@ public class VPackSerializeDeserializeTest {
 	}
 
 	public static class TestEntityBigNumber {
-		private BigInteger bi = BigInteger.valueOf(1L);
-		private BigDecimal bd = BigDecimal.valueOf(1.5);
+		private static BigInteger BI = BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.ONE);
+		private static BigDecimal BD = BigDecimal.valueOf(Double.MAX_VALUE).add(BigDecimal.ONE);
+
+		private BigInteger bi = BI;
+		private BigDecimal bd = BD;
 
 		public BigInteger getBi() {
 			return bi;
@@ -726,12 +729,12 @@ public class VPackSerializeDeserializeTest {
 		{
 			final VPackSlice bi = vpack.get("bi");
 			assertThat(bi.isString(), is(true));
-			assertThat(bi.getAsBigInteger(), is(BigInteger.valueOf(1L)));
+			assertThat(bi.getAsBigInteger(), is(TestEntityBigNumber.BI));
 		}
 		{
 			final VPackSlice bd = vpack.get("bd");
 			assertThat(bd.isString(), is(true));
-			assertThat(bd.getAsBigDecimal(), is(BigDecimal.valueOf(1.5)));
+			assertThat(bd.getAsBigDecimal(), is(TestEntityBigNumber.BD));
 		}
 	}
 
@@ -3245,16 +3248,17 @@ public class VPackSerializeDeserializeTest {
 	}
 
 	@Test
-	public void fromUUID() throws JsonProcessingException {
+	public void fromUUID() throws IOException {
 		final TestEntityUUID entity = new TestEntityUUID();
 		entity.setUuid(UUID.randomUUID());
-		final VPackSlice vpack = new VPackSlice(mapper.writeValueAsBytes(entity));
+		byte[] bytes = mapper.writeValueAsBytes(entity);
+		final VPackSlice vpack = new VPackSlice(bytes);
 		assertThat(vpack, is(notNullValue()));
 		assertThat(vpack.isObject(), is(true));
 
 		final VPackSlice uuid = vpack.get("uuid");
 		assertThat(uuid.isString(), is(true));
-		assertThat(uuid.getAsString(), is(entity.uuid.toString()));
+		assertThat(mapper.readValue(bytes, TestEntityUUID.class).getUuid(), is(entity.getUuid()));
 	}
 
 	@Test

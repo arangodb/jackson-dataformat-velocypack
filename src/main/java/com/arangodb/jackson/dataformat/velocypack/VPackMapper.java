@@ -20,46 +20,57 @@
 
 package com.arangodb.jackson.dataformat.velocypack;
 
-import com.arangodb.entity.BaseDocument;
-import com.arangodb.entity.BaseEdgeDocument;
-import com.arangodb.jackson.dataformat.velocypack.internal.VPackDeserializers;
-import com.arangodb.jackson.dataformat.velocypack.internal.VPackSerializers;
-import com.arangodb.velocypack.VPackSlice;
-import com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility;
-import com.fasterxml.jackson.annotation.PropertyAccessor;
-import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.core.Version;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.databind.module.SimpleModule;
+import com.fasterxml.jackson.databind.cfg.MapperBuilder;
 
 /**
  * @author Mark Vollmary
- *
  */
 public class VPackMapper extends ObjectMapper {
 
 	private static final long serialVersionUID = 1L;
 
-	public VPackMapper() {
-		super(new VPackFactory());
-		configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
-		configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-		setVisibility(PropertyAccessor.FIELD, Visibility.ANY);
-		final SimpleModule module = new SimpleModule();
-		module.addSerializer(VPackSlice.class, VPackSerializers.VPACK);
-		module.addSerializer(java.util.Date.class, VPackSerializers.UTIL_DATE);
-		module.addSerializer(java.sql.Date.class, VPackSerializers.SQL_DATE);
-		module.addSerializer(java.sql.Timestamp.class, VPackSerializers.SQL_TIMESTAMP);
-		module.addSerializer(BaseDocument.class, VPackSerializers.BASE_DOCUMENT);
-		module.addSerializer(BaseEdgeDocument.class, VPackSerializers.BASE_EDGE_DOCUMENT);
+	public static class Builder extends MapperBuilder<VPackMapper, Builder> {
+		public Builder(VPackMapper m) {
+			super(m);
+		}
+	}
 
-		module.addDeserializer(VPackSlice.class, VPackDeserializers.VPACK);
-		module.addDeserializer(java.util.Date.class, VPackDeserializers.UTIL_DATE);
-		module.addDeserializer(java.sql.Date.class, VPackDeserializers.SQL_DATE);
-		module.addDeserializer(java.sql.Timestamp.class, VPackDeserializers.SQL_TIMESTAMP);
-		module.addDeserializer(BaseDocument.class, VPackDeserializers.BASE_DOCUMENT);
-		module.addDeserializer(BaseEdgeDocument.class, VPackDeserializers.BASE_EDGE_DOCUMENT);
-		registerModule(module);
+	public static VPackMapper.Builder builder() {
+		return new VPackMapper.Builder(new VPackMapper());
+	}
+
+	public static VPackMapper.Builder builder(VPackFactory jf) {
+		return new VPackMapper.Builder(new VPackMapper(jf));
+	}
+
+	public VPackMapper() {
+		this(new VPackFactory());
+	}
+
+	public VPackMapper(VPackFactory jf) {
+		super(jf);
+	}
+
+	protected VPackMapper(VPackMapper src) {
+		super(src);
+	}
+
+	@Override
+	public VPackMapper copy() {
+		_checkInvalidCopy(VPackMapper.class);
+		return new VPackMapper(this);
+	}
+
+	@Override
+	public Version version() {
+		return new Version(2, 10, 5, null, null, null);
+	}
+
+	@Override
+	public VPackFactory getFactory() {
+		return (VPackFactory) _jsonFactory;
 	}
 
 }

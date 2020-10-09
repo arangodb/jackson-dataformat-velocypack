@@ -1,29 +1,4 @@
-/*
- * DISCLAIMER
- *
- * Copyright 2016 ArangoDB GmbH, Cologne, Germany
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- * Copyright holder is ArangoDB GmbH, Cologne, Germany
- */
-
 package com.arangodb.jackson.dataformat.velocypack.internal;
-
-import java.io.IOException;
-import java.io.OutputStream;
-import java.math.BigDecimal;
-import java.math.BigInteger;
 
 import com.arangodb.velocypack.VPackBuilder;
 import com.arangodb.velocypack.VPackSlice;
@@ -31,248 +6,304 @@ import com.arangodb.velocypack.ValueType;
 import com.arangodb.velocypack.exception.VPackBuilderException;
 import com.fasterxml.jackson.core.Base64Variant;
 import com.fasterxml.jackson.core.ObjectCodec;
+import com.fasterxml.jackson.core.SerializableString;
+import com.fasterxml.jackson.core.Version;
 import com.fasterxml.jackson.core.base.GeneratorBase;
+import com.fasterxml.jackson.core.io.IOContext;
+import com.fasterxml.jackson.core.json.PackageVersion;
+
+import java.io.IOException;
+import java.io.OutputStream;
+import java.math.BigDecimal;
+import java.math.BigInteger;
 
 /**
  * @author Mark Vollmary
- *
+ * @author Michele Rastelli
+ * TODO: allocate buffers inside VPackBuilder using ioCtxt
  */
 public class VPackGenerator extends GeneratorBase {
 
-	private final VPackBuilder builder = new VPackBuilder();
-	private final OutputStream out;
-	private String attribute = null;
+    protected final VPackBuilder builder;
+    protected String attribute;
+    protected final IOContext ioContext;
+    protected final OutputStream out;
 
-	public VPackGenerator(final int features, final ObjectCodec codec, final OutputStream out) {
-		super(features, codec);
-		this.out = out;
-	}
+    public VPackGenerator(IOContext ioCtxt, int streamWriteFeatures, ObjectCodec codec, OutputStream out) {
+        super(streamWriteFeatures, codec);
+        ioContext = ioCtxt;
+        this.out = out;
+        builder = new VPackBuilder();
+        attribute = null;
+    }
 
-	@Override
-	public void flush() throws IOException {
-		out.flush();
-	}
+    @Override
+    public void writeStartObject() throws IOException {
+        try {
+            builder.add(attribute, ValueType.OBJECT);
+            attribute = null;
+        } catch (final VPackBuilderException e) {
+            throw new IOException(e);
+        }
+    }
 
-	@Override
-	protected void _releaseBuffers() {
-	}
+    @Override
+    public void writeEndObject() throws IOException {
+        try {
+            builder.close();
+        } catch (final VPackBuilderException e) {
+            throw new IOException(e);
+        }
+    }
 
-	@Override
-	protected void _verifyValueWrite(final String typeMsg) throws IOException {
-	}
+    @Override
+    public void writeFieldName(String s) throws IOException {
+        attribute = s;
+    }
 
-	@Override
-	public void writeStartArray() throws IOException {
-		try {
-			builder.add(attribute, ValueType.ARRAY);
-			attribute = null;
-		} catch (final VPackBuilderException e) {
-			throw new IOException(e);
-		}
-	}
+    @Override
+    public void writeFieldName(SerializableString serializableString) throws IOException {
+        attribute = serializableString.getValue();
+    }
 
-	@Override
-	public void writeEndArray() throws IOException {
-		try {
-			builder.close();
-		} catch (final VPackBuilderException e) {
-			throw new IOException(e);
-		}
-	}
+    @Override
+    public void flush() throws IOException {
+        out.flush();
+    }
 
-	@Override
-	public void writeStartObject() throws IOException {
-		try {
-			builder.add(attribute, ValueType.OBJECT);
-			attribute = null;
-		} catch (final VPackBuilderException e) {
-			throw new IOException(e);
-		}
-	}
+    @Override
+    public void writeString(String s) throws IOException {
+        try {
+            builder.add(attribute, s);
+            attribute = null;
+        } catch (final VPackBuilderException e) {
+            throw new IOException(e);
+        }
+    }
 
-	@Override
-	public void writeEndObject() throws IOException {
-		try {
-			builder.close();
-		} catch (final VPackBuilderException e) {
-			throw new IOException(e);
-		}
-	}
+    @Override
+    public void writeString(char[] chars, int i, int i1) throws IOException {
+        try {
+            builder.add(attribute, new String(chars, i, i1));
+            attribute = null;
+        } catch (final VPackBuilderException e) {
+            throw new IOException(e);
+        }
+    }
 
-	@Override
-	public void writeFieldName(final String name) throws IOException {
-		attribute = name;
-	}
+    @Override
+    public void writeRawUTF8String(byte[] bytes, int i, int i1) throws IOException {
+        try {
+            builder.add(attribute, new String(bytes, i, i1));
+            attribute = null;
+        } catch (final VPackBuilderException e) {
+            throw new IOException(e);
+        }
+    }
 
-	@Override
-	public void writeString(final String text) throws IOException {
-		try {
-			builder.add(attribute, text);
-			attribute = null;
-		} catch (final VPackBuilderException e) {
-			throw new IOException(e);
-		}
-	}
+    @Override
+    public void writeUTF8String(byte[] bytes, int i, int i1) throws IOException {
+        try {
+            builder.add(attribute, new String(bytes, i, i1));
+            attribute = null;
+        } catch (final VPackBuilderException e) {
+            throw new IOException(e);
+        }
+    }
 
-	@Override
-	public void writeString(final char[] text, final int offset, final int len) throws IOException {
-		try {
-			builder.add(attribute, new String(text, offset, len));
-			attribute = null;
-		} catch (final VPackBuilderException e) {
-			throw new IOException(e);
-		}
-	}
+    @Override
+    public void writeRaw(String s) throws IOException {
+        throw new UnsupportedOperationException("writeRaw is not supported");
+    }
 
-	@Override
-	public void writeRawUTF8String(final byte[] text, final int offset, final int length) throws IOException {
-		try {
-			builder.add(attribute, new String(text, offset, length));
-			attribute = null;
-		} catch (final VPackBuilderException e) {
-			throw new IOException(e);
-		}
-	}
+    @Override
+    public void writeRaw(String s, int i, int i1) throws IOException {
+        throw new UnsupportedOperationException("writeRaw is not supported");
+    }
 
-	@Override
-	public void writeUTF8String(final byte[] text, final int offset, final int length) throws IOException {
-		try {
-			builder.add(attribute, new String(text, offset, length));
-			attribute = null;
-		} catch (final VPackBuilderException e) {
-			throw new IOException(e);
-		}
-	}
+    @Override
+    public void writeRaw(char[] chars, int i, int i1) throws IOException {
+        throw new UnsupportedOperationException("writeRaw is not supported");
+    }
 
-	@Override
-	public void writeRaw(final String text) throws IOException {
-	}
+    @Override
+    public void writeRaw(char c) throws IOException {
+        throw new UnsupportedOperationException("writeRaw is not supported");
+    }
 
-	@Override
-	public void writeRaw(final String text, final int offset, final int len) throws IOException {
-	}
+    @Override
+    public void writeBinary(Base64Variant base64Variant, byte[] bytes, int i, int i1) throws IOException {
+        try {
+            builder.add(attribute, base64Variant.encode(bytes, false));
+            attribute = null;
+        } catch (final VPackBuilderException e) {
+            throw new IOException(e);
+        }
+    }
 
-	@Override
-	public void writeRaw(final char[] text, final int offset, final int len) throws IOException {
-	}
+    public void writeVPack(final VPackSlice vpack) throws IOException {
+        try {
+            builder.add(attribute, vpack);
+            attribute = null;
+        } catch (final VPackBuilderException e) {
+            throw new IOException(e);
+        }
+    }
 
-	@Override
-	public void writeRaw(final char c) throws IOException {
-		try {
-			builder.add(attribute, c);
-			attribute = null;
-		} catch (final VPackBuilderException e) {
-			throw new IOException(e);
-		}
-	}
+    @Override
+    public void writeNumber(int i) throws IOException {
+        try {
+            builder.add(attribute, i);
+            attribute = null;
+        } catch (final VPackBuilderException e) {
+            throw new IOException(e);
+        }
+    }
 
-	@Override
-	public void writeBinary(final Base64Variant bv, final byte[] data, final int offset, final int len)
-			throws IOException {
-		try {
-			builder.add(attribute, bv.encode(data, false));
-			attribute = null;
-		} catch (final VPackBuilderException e) {
-			throw new IOException(e);
-		}
-	}
+    @Override
+    public void writeNumber(long l) throws IOException {
+        try {
+            builder.add(attribute, l);
+            attribute = null;
+        } catch (final VPackBuilderException e) {
+            throw new IOException(e);
+        }
+    }
 
-	public void writeVPack(final VPackSlice vpack) throws IOException {
-		try {
-			builder.add(attribute, vpack);
-			attribute = null;
-		} catch (final VPackBuilderException e) {
-			throw new IOException(e);
-		}
-	}
+    @Override
+    public void writeNumber(BigInteger bigInteger) throws IOException {
+        try {
+            try {
+                builder.add(attribute, bigInteger.longValueExact());
+            } catch (ArithmeticException e) {
+                builder.add(attribute, bigInteger);
+            }
+            attribute = null;
+        } catch (final VPackBuilderException e) {
+            throw new IOException(e);
+        }
+    }
 
-	@Override
-	public void writeNumber(final int v) throws IOException {
-		try {
-			builder.add(attribute, v);
-			attribute = null;
-		} catch (final VPackBuilderException e) {
-			throw new IOException(e);
-		}
-	}
+    @Override
+    public void writeNumber(double v) throws IOException {
+        try {
+            builder.add(attribute, v);
+            attribute = null;
+        } catch (final VPackBuilderException e) {
+            throw new IOException(e);
+        }
+    }
 
-	@Override
-	public void writeNumber(final long v) throws IOException {
-		try {
-			builder.add(attribute, v);
-			attribute = null;
-		} catch (final VPackBuilderException e) {
-			throw new IOException(e);
-		}
-	}
+    @Override
+    public void writeNumber(float v) throws IOException {
+        try {
+            builder.add(attribute, v);
+            attribute = null;
+        } catch (final VPackBuilderException e) {
+            throw new IOException(e);
+        }
+    }
 
-	@Override
-	public void writeNumber(final BigInteger v) throws IOException {
-		try {
-			builder.add(attribute, v);
-			attribute = null;
-		} catch (final VPackBuilderException e) {
-			throw new IOException(e);
-		}
-	}
+    @Override
+    public void writeNumber(BigDecimal bigDecimal) throws IOException {
+        try {
+            double doubleValue = bigDecimal.doubleValue();
+            if (BigDecimal.valueOf(doubleValue).compareTo(bigDecimal) == 0) {
+                builder.add(attribute, doubleValue);
+            } else {
+                builder.add(attribute, bigDecimal);
+            }
+            attribute = null;
+        } catch (final VPackBuilderException e) {
+            throw new IOException(e);
+        }
+    }
 
-	@Override
-	public void writeNumber(final double v) throws IOException {
-		try {
-			builder.add(attribute, v);
-			attribute = null;
-		} catch (final VPackBuilderException e) {
-			throw new IOException(e);
-		}
-	}
+    @Override
+    public void writeNumber(String s) throws IOException {
+        BigInteger bi = new BigInteger(s);
+        if (bi.toString().equals(s)) {
+            writeNumber(bi);
+        } else {
+            writeNumber(new BigDecimal(s));
+        }
+    }
 
-	@Override
-	public void writeNumber(final float v) throws IOException {
-		try {
-			builder.add(attribute, v);
-			attribute = null;
-		} catch (final VPackBuilderException e) {
-			throw new IOException(e);
-		}
-	}
+    @Override
+    public void writeBoolean(boolean b) throws IOException {
+        try {
+            builder.add(attribute, b);
+            attribute = null;
+        } catch (final VPackBuilderException e) {
+            throw new IOException(e);
+        }
+    }
 
-	@Override
-	public void writeNumber(final BigDecimal v) throws IOException {
-		try {
-			builder.add(attribute, v);
-			attribute = null;
-		} catch (final VPackBuilderException e) {
-			throw new IOException(e);
-		}
-	}
+    @Override
+    public void writeNull() throws IOException {
+        try {
+            builder.add(attribute, ValueType.NULL);
+            attribute = null;
+        } catch (final VPackBuilderException e) {
+            throw new IOException(e);
+        }
+    }
 
-	@Override
-	public void writeNumber(final String encodedValue) throws IOException {
-	}
+    @Override
+    public void writeStartArray() throws IOException {
+        try {
+            builder.add(attribute, ValueType.ARRAY);
+            attribute = null;
+        } catch (final VPackBuilderException e) {
+            throw new IOException(e);
+        }
+    }
 
-	@Override
-	public void writeBoolean(final boolean state) throws IOException {
-		try {
-			builder.add(attribute, state);
-			attribute = null;
-		} catch (final VPackBuilderException e) {
-			throw new IOException(e);
-		}
-	}
+    @Override
+    public void writeEndArray() throws IOException {
+        try {
+            builder.close();
+        } catch (final VPackBuilderException e) {
+            throw new IOException(e);
+        }
+    }
 
-	@Override
-	public void writeNull() throws IOException {
-		try {
-			builder.add(attribute, ValueType.NULL);
-			attribute = null;
-		} catch (final VPackBuilderException e) {
-			throw new IOException(e);
-		}
-	}
+    @Override
+    public void close() throws IOException {
+        out.write(builder.slice().getBuffer());
+        super.close();
+    }
 
-	@Override
-	public void close() throws IOException {
-		out.write(builder.slice().getBuffer());
-		super.close();
-	}
+    @Override
+    protected void _releaseBuffers() {
+
+    }
+
+    @Override
+    protected void _verifyValueWrite(String s) throws IOException {
+
+    }
+
+    /*
+    /**********************************************************************
+    /* Versioned
+    /**********************************************************************
+     */
+
+    @Override
+    public Version version() {
+        return PackageVersion.VERSION;
+    }
+
+    /*
+    /**********************************************************************
+    /* Capability introspection
+    /**********************************************************************
+     */
+
+    @Override
+    public boolean canWriteBinaryNatively() {
+        return true;
+    }
+
 }

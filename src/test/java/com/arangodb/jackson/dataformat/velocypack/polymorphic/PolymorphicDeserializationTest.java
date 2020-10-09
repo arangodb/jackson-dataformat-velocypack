@@ -64,12 +64,6 @@ public class PolymorphicDeserializationTest {
 		assertThat(result, is(container));
 
 		System.out.println("Deserialized: " + result);
-
-		Container resultFromJson = mapper.readValue(json, Container.class);
-		assertThat(resultFromJson, is(container));
-
-		System.out.println("DeserializedFromJson: " + resultFromJson);
-
 	}
 
 }

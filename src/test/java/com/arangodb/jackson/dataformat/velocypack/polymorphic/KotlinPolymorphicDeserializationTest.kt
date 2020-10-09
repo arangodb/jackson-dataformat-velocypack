@@ -58,21 +58,17 @@ class KotlinPolymorphicDeserializationTest {
         val result = mapper.readValue(bytes, ContainerKt::class.java)
         MatcherAssert.assertThat(result, Matchers.`is`(container))
 
-        val resultFromJson = mapper.readValue(json, ContainerKt::class.java)
-        MatcherAssert.assertThat(resultFromJson, Matchers.`is`(container))
-
         println("Json:\t $json")
         println("Original:\t\t $container")
         println("Deserialized:\t\t $result")
-        println("DeserializedFromJson:\t $resultFromJson")
 
     }
 
 }
 
 data class ContainerKt(
-        private val attributes: Map<String, PolyTypeKt>,
-        private val text: List<String>
+        val attributes: Map<String, PolyTypeKt>,
+        val text: List<String>
 )
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.EXTERNAL_PROPERTY, property = "type")
@@ -82,12 +78,12 @@ data class ContainerKt(
 )
 sealed class PolyTypeKt {
     data class FirstTypeKt(
-            private val key: String,
-            private val value: String
+            val key: String,
+            val value: String
     ) : PolyTypeKt()
 
     data class SecondTypeKt(
-            private val key: String,
-            private val value: String
+            val key: String,
+            val value: String
     ) : PolyTypeKt()
 }

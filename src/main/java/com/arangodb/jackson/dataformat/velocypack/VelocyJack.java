@@ -51,9 +51,13 @@ public class VelocyJack implements ArangoSerialization {
 	private final VPackParser vpackParser;
 
 	public VelocyJack() {
+		this(new ArangoVPackMapperFactory());
+	}
+
+	public VelocyJack(ArangoVPackMapperFactory mapperFactory) {
 		super();
-		vpackMapper = new VPackMapper().setSerializationInclusion(Include.NON_NULL);
-		vpackMapperNull = new VPackMapper().setSerializationInclusion(Include.ALWAYS);
+		vpackMapper = mapperFactory.create().setSerializationInclusion(Include.NON_NULL);
+		vpackMapperNull = mapperFactory.create().setSerializationInclusion(Include.ALWAYS);
 		jsonMapper = new ObjectMapper().setSerializationInclusion(Include.NON_NULL);
 		vpackParser = new VPackParser.Builder().build();
 	}
