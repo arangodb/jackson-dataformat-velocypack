@@ -48,11 +48,12 @@ import static org.junit.Assert.assertThat;
 public class VPackSerializeDeserializeTest {
 
 	private static final DateFormat DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");// ISO 8601
+
 	static {
 		DATE_FORMAT.setTimeZone(TimeZone.getTimeZone("UTC"));
 	}
 
-	private final ObjectMapper mapper = new ArangoVPackMapperFactory().create();
+	private final ObjectMapper mapper = VelocyJack.createDefaultMapper();
 
 	public static class TestEntityBoolean {
 		private boolean a = true;

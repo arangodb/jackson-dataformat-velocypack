@@ -21,14 +21,23 @@
 package com.arangodb.jackson.dataformat.velocypack;
 
 import com.arangodb.ArangoDBException;
+import com.arangodb.entity.BaseDocument;
+import com.arangodb.entity.BaseEdgeDocument;
+import com.arangodb.jackson.dataformat.velocypack.internal.VPackDeserializers;
+import com.arangodb.jackson.dataformat.velocypack.internal.VPackSerializers;
 import com.arangodb.util.ArangoSerialization;
 import com.arangodb.util.ArangoSerializer;
 import com.arangodb.velocypack.VPackParser;
 import com.arangodb.velocypack.VPackSlice;
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
+import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.module.SimpleModule;
 
 import java.io.IOException;
 import java.lang.reflect.Type;
@@ -50,14 +59,41 @@ public class VelocyJack implements ArangoSerialization {
 	private final ObjectMapper jsonMapper;
 	private final VPackParser vpackParser;
 
-	public VelocyJack() {
-		this(new ArangoVPackMapperFactory());
+	static VPackMapper createDefaultMapper() {
+		final VPackMapper mapper = new VPackMapper();
+		mapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
+		mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+		mapper.setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
+		final SimpleModule module = new SimpleModule();
+		module.addSerializer(VPackSlice.class, VPackSerializers.VPACK);
+		module.addSerializer(java.util.Date.class, VPackSerializers.UTIL_DATE);
+		module.addSerializer(java.sql.Date.class, VPackSerializers.SQL_DATE);
+		module.addSerializer(java.sql.Timestamp.class, VPackSerializers.SQL_TIMESTAMP);
+		module.addSerializer(BaseDocument.class, VPackSerializers.BASE_DOCUMENT);
+		module.addSerializer(BaseEdgeDocument.class, VPackSerializers.BASE_EDGE_DOCUMENT);
+
+		module.addDeserializer(VPackSlice.class, VPackDeserializers.VPACK);
+		module.addDeserializer(java.util.Date.class, VPackDeserializers.UTIL_DATE);
+		module.addDeserializer(java.sql.Date.class, VPackDeserializers.SQL_DATE);
+		module.addDeserializer(java.sql.Timestamp.class, VPackDeserializers.SQL_TIMESTAMP);
+		module.addDeserializer(BaseDocument.class, VPackDeserializers.BASE_DOCUMENT);
+		module.addDeserializer(BaseEdgeDocument.class, VPackDeserializers.BASE_EDGE_DOCUMENT);
+		mapper.registerModule(module);
+
+		return mapper;
 	}
 
-	public VelocyJack(ArangoVPackMapperFactory mapperFactory) {
+	public VelocyJack() {
+		this(createDefaultMapper());
+	}
+
+	/**
+	 * @param mapper configured VPackMapper to use. A defensive copy is created and used.
+	 */
+	public VelocyJack(final VPackMapper mapper) {
 		super();
-		vpackMapper = mapperFactory.create().setSerializationInclusion(Include.NON_NULL);
-		vpackMapperNull = mapperFactory.create().setSerializationInclusion(Include.ALWAYS);
+		vpackMapper = mapper.copy().setSerializationInclusion(Include.NON_NULL);
+		vpackMapperNull = mapper.copy().setSerializationInclusion(Include.ALWAYS);
 		jsonMapper = new ObjectMapper().setSerializationInclusion(Include.NON_NULL);
 		vpackParser = new VPackParser.Builder().build();
 	}
