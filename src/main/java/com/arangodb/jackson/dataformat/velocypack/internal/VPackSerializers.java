@@ -49,7 +49,7 @@ public class VPackSerializers {
 			if (gen instanceof VPackGenerator) {
 				((VPackGenerator) gen).writeVPack(value);
 			} else {
-				gen.writeBinary(value.getBuffer());
+				gen.writeBinary(value.toByteArray());
 			}
 		}
 	};

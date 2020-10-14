@@ -270,7 +270,7 @@ public class VPackGenerator extends GeneratorBase {
 
     @Override
     public void close() throws IOException {
-        out.write(builder.slice().getBuffer());
+        out.write(builder.slice().toByteArray());
         super.close();
     }
 
