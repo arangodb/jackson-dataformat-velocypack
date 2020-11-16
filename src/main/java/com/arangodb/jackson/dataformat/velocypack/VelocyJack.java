@@ -23,6 +23,7 @@ package com.arangodb.jackson.dataformat.velocypack;
 import com.arangodb.ArangoDBException;
 import com.arangodb.entity.BaseDocument;
 import com.arangodb.entity.BaseEdgeDocument;
+import com.arangodb.jackson.dataformat.velocypack.internal.ArangoAnnotationIntrospector;
 import com.arangodb.jackson.dataformat.velocypack.internal.VPackDeserializers;
 import com.arangodb.jackson.dataformat.velocypack.internal.VPackSerializers;
 import com.arangodb.util.ArangoSerialization;
@@ -79,6 +80,8 @@ public class VelocyJack implements ArangoSerialization {
 		module.addDeserializer(BaseDocument.class, VPackDeserializers.BASE_DOCUMENT);
 		module.addDeserializer(BaseEdgeDocument.class, VPackDeserializers.BASE_EDGE_DOCUMENT);
 		mapper.registerModule(module);
+
+		mapper.setAnnotationIntrospector(new ArangoAnnotationIntrospector());
 
 		return mapper;
 	}
