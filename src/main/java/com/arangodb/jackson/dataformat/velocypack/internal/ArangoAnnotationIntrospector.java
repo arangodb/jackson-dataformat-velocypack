@@ -21,7 +21,9 @@
 package com.arangodb.jackson.dataformat.velocypack.internal;
 
 import com.arangodb.entity.DocumentField;
+import com.arangodb.velocypack.annotations.Expose;
 import com.arangodb.velocypack.annotations.SerializedName;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.PropertyName;
 import com.fasterxml.jackson.databind.introspect.Annotated;
 import com.fasterxml.jackson.databind.introspect.AnnotatedMember;
@@ -32,6 +34,38 @@ import com.fasterxml.jackson.databind.introspect.JacksonAnnotationIntrospector;
  * @author Michele Rastelli
  */
 public class ArangoAnnotationIntrospector extends JacksonAnnotationIntrospector {
+
+	@Override
+	public JsonProperty.Access findPropertyAccess(Annotated m) {
+		if (!(m instanceof AnnotatedMember)) {
+			return super.findPropertyAccess(m);
+		}
+
+		final Expose expose = m.getAnnotation(Expose.class);
+		if (expose != null) {
+			final boolean serialize = expose.serialize();
+			final boolean deserialize = expose.deserialize();
+
+			if (serialize && deserialize) {
+				return JsonProperty.Access.READ_WRITE;
+			} else if (serialize) {
+				return JsonProperty.Access.READ_ONLY;
+			} else if (deserialize) {
+				return JsonProperty.Access.WRITE_ONLY;
+			}
+		}
+
+		return super.findPropertyAccess(m);
+	}
+
+	@Override
+	public boolean hasIgnoreMarker(AnnotatedMember m) {
+		final Expose expose = m.getAnnotation(Expose.class);
+		if (expose != null && !expose.serialize() && !expose.deserialize()) {
+			return true;
+		}
+		return super.hasIgnoreMarker(m);
+	}
 
 	@Override
 	public PropertyName findNameForSerialization(Annotated a) {

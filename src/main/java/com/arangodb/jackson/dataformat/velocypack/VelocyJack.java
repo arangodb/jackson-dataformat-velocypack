@@ -60,12 +60,21 @@ public class VelocyJack implements ArangoSerialization {
 	private final ObjectMapper jsonMapper;
 	private final VPackParser vpackParser;
 
+	private static final class ArangoModule extends SimpleModule {
+		@Override
+		public void setupModule(SetupContext context) {
+			super.setupModule(context);
+			context.appendAnnotationIntrospector(new ArangoAnnotationIntrospector());
+		}
+	}
+
 	static VPackMapper createDefaultMapper() {
 		final VPackMapper mapper = new VPackMapper();
 		mapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
 		mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 		mapper.setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
-		final SimpleModule module = new SimpleModule();
+
+		final SimpleModule module = new ArangoModule();
 		module.addSerializer(VPackSlice.class, VPackSerializers.VPACK);
 		module.addSerializer(java.util.Date.class, VPackSerializers.UTIL_DATE);
 		module.addSerializer(java.sql.Date.class, VPackSerializers.SQL_DATE);
@@ -79,10 +88,8 @@ public class VelocyJack implements ArangoSerialization {
 		module.addDeserializer(java.sql.Timestamp.class, VPackDeserializers.SQL_TIMESTAMP);
 		module.addDeserializer(BaseDocument.class, VPackDeserializers.BASE_DOCUMENT);
 		module.addDeserializer(BaseEdgeDocument.class, VPackDeserializers.BASE_EDGE_DOCUMENT);
+
 		mapper.registerModule(module);
-
-		mapper.setAnnotationIntrospector(new ArangoAnnotationIntrospector());
-
 		return mapper;
 	}
 

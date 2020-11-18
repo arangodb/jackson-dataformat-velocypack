@@ -29,6 +29,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.CoreMatchers.nullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 /**
@@ -91,6 +92,34 @@ public class ArangoAnnotationsTest {
 		SerializedNameParameterEntity deserializedEntity = mapper
 				.deserialize(slice, SerializedNameParameterEntity.class);
 		assertThat(deserializedEntity, is(new SerializedNameParameterEntity("A", "B", "C")));
+	}
+
+	@Test
+	public void expose() {
+		ExposeEntity e = new ExposeEntity();
+		e.setReadWrite("readWrite");
+		e.setReadOnly("readOnly");
+		e.setWriteOnly("writeOnly");
+		e.setIgnored("ignored");
+
+		VPackSlice serializedEntity = mapper.serialize(e);
+		Map<String, String> deserializedEntity = mapper.deserialize(serializedEntity, Object.class);
+		assertThat(deserializedEntity.get("readWrite"), is("readWrite"));
+		assertThat(deserializedEntity.get("readOnly"), is("readOnly"));
+		assertThat(deserializedEntity.size(), is(2));
+
+		Map<String, String> map = new HashMap<>();
+		map.put("readWrite", "readWrite");
+		map.put("readOnly", "readOnly");
+		map.put("writeOnly", "writeOnly");
+		map.put("ignored", "ignored");
+
+		VPackSlice serializedMap = mapper.serialize(map);
+		ExposeEntity deserializedMap = mapper.deserialize(serializedMap, ExposeEntity.class);
+		assertThat(deserializedMap.getIgnored(), is(nullValue()));
+		assertThat(deserializedMap.getReadOnly(), is(nullValue()));
+		assertThat(deserializedMap.getWriteOnly(), is("writeOnly"));
+		assertThat(deserializedMap.getReadWrite(), is("readWrite"));
 	}
 
 }
