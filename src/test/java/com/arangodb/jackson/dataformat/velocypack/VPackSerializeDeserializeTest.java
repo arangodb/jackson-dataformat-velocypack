@@ -3259,6 +3259,7 @@ public class VPackSerializeDeserializeTest {
 
 		final VPackSlice uuid = vpack.get("uuid");
 		assertThat(uuid.isString(), is(true));
+		assertThat(uuid.getAsString(), is(entity.getUuid().toString()));
 		assertThat(mapper.readValue(bytes, TestEntityUUID.class).getUuid(), is(entity.getUuid()));
 	}
 

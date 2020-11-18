@@ -295,15 +295,4 @@ public class VPackGenerator extends GeneratorBase {
         return PackageVersion.VERSION;
     }
 
-    /*
-    /**********************************************************************
-    /* Capability introspection
-    /**********************************************************************
-     */
-
-    @Override
-    public boolean canWriteBinaryNatively() {
-        return true;
-    }
-
 }
