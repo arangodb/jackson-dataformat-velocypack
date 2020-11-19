@@ -64,7 +64,7 @@ public class VelocyJack implements ArangoSerialization {
 		@Override
 		public void setupModule(SetupContext context) {
 			super.setupModule(context);
-			context.appendAnnotationIntrospector(new ArangoAnnotationIntrospector());
+			context.insertAnnotationIntrospector(new ArangoAnnotationIntrospector());
 		}
 	}
 
