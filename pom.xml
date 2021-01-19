@@ -76,8 +76,12 @@
                     </artifactSet>
                     <relocations>
                         <relocation>
-                            <pattern>com.fasterxml.jackson</pattern>
-                            <shadedPattern>com.arangodb.jackson.dataformat.velocypack.deps.com.fasterxml.jackson</shadedPattern>
+                            <pattern>com.fasterxml.jackson.core</pattern>
+                            <shadedPattern>com.arangodb.jackson.dataformat.velocypack.deps.com.fasterxml.jackson.core</shadedPattern>
+                        </relocation>
+                        <relocation>
+                            <pattern>com.fasterxml.jackson.databind</pattern>
+                            <shadedPattern>com.arangodb.jackson.dataformat.velocypack.deps.com.fasterxml.jackson.databind</shadedPattern>
                         </relocation>
                     </relocations>
                     <transformers>
