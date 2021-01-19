@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 ## [Unreleased]
 
+- shaded `jackson-core` and `jackson-databind` dependencies
+
 ## [0.4.0] - 2020-11-19
 
 - support for ArangoDB driver and velocypack annotations (`@DocumentField`, `@SerializedName`, `@Expose`)
