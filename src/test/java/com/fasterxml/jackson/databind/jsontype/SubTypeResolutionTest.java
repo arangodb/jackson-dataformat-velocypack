@@ -126,20 +126,10 @@ public class SubTypeResolutionTest extends BaseMapTest
         assertNotNull(jsonStr);
     }
 
-    // [databind#2632]: fail to specialize type-erased
     public void testSpecializeIncompatibleRawType() throws Exception
     {
-        // 27-Feb-2020, tatu: First things first; incompatible typing should
-        //     cause reasonable exception
-        //  ... although since it's writing, perhaps should NOT fail at all?
-        String json;
-
-        try {
-            json = com.fasterxml.jackson.VPackUtils.toJson( MAPPER.writeValueAsBytes(new Foo()));
-            assertNotNull(json);
-            fail("Should not (yet?) pass");
-        } catch (JsonMappingException e) {
-            verifyException(e, "Failed to specialize base type ");
-        }
+        String json = com.fasterxml.jackson.VPackUtils.toJson( MAPPER.writeValueAsBytes(new Foo()));
+        assertNotNull(json);
+        assertEquals(aposToQuotes("{'either':{'@type':'right'}}"), json);
     }
 }

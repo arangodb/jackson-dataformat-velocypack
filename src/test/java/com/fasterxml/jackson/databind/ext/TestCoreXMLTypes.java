@@ -64,7 +64,7 @@ public class TestCoreXMLTypes
         act = act.substring(1, act.length() - 1); // remove quotes
         exp = removeZ(exp);
         act = removeZ(act);
-        assertEquals(exp, act);
+        assertEquals(exp, removeZ(act));
     }
 
     private String removeZ(String dateStr) {
@@ -73,6 +73,9 @@ public class TestCoreXMLTypes
         }
         if (dateStr.endsWith("+0000")) {
             return dateStr.substring(0, dateStr.length()-5);
+        }
+        if (dateStr.endsWith("+00:00")) {
+            return dateStr.substring(0, dateStr.length()-6);
         }
         return dateStr;
     }

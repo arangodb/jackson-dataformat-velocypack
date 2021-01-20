@@ -863,28 +863,26 @@ public class JDKScalarsTest
 
     public void testInvalidStringCoercionFail() throws IOException
     {
-        _testInvalidStringCoercionFail(boolean[].class);
-        _testInvalidStringCoercionFail(byte[].class);
+        _testInvalidStringCoercionFail(boolean[].class, "boolean");
+        _testInvalidStringCoercionFail(byte[].class, "byte[]");
 
         // char[] is special, cannot use generalized test here
 //        _testInvalidStringCoercionFail(char[].class);
-        _testInvalidStringCoercionFail(short[].class);
-        _testInvalidStringCoercionFail(int[].class);
-        _testInvalidStringCoercionFail(long[].class);
-        _testInvalidStringCoercionFail(float[].class);
-        _testInvalidStringCoercionFail(double[].class);
+        _testInvalidStringCoercionFail(short[].class, "short[]");
+        _testInvalidStringCoercionFail(int[].class, "int[]");
+        _testInvalidStringCoercionFail(long[].class, "long[]");
+        _testInvalidStringCoercionFail(float[].class, "float[]");
+        _testInvalidStringCoercionFail(double[].class, "double[]");
     }
 
-    private void _testInvalidStringCoercionFail(Class<?> cls) throws IOException
+    private void _testInvalidStringCoercionFail(Class<?> cls, String clsSimpleName) throws IOException
     {
         final String JSON = "[ \"foobar\" ]";
-        final String SIMPLE_NAME = cls.getSimpleName();
-
         try {
             MAPPER.readerFor(cls).readValue(com.fasterxml.jackson.VPackUtils.toBytes(JSON));
             fail("Should not pass");
         } catch (JsonMappingException e) {
-            verifyException(e, "Cannot deserialize value of type `"+SIMPLE_NAME+"` from String \"foobar\"");
+            verifyException(e, "Cannot deserialize value of type `"+clsSimpleName+"` from String \"foobar\"");
         }
     }
 }

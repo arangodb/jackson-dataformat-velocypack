@@ -2,10 +2,7 @@ package com.fasterxml.jackson.databind.util;
 
 import java.util.List;
 
-import com.fasterxml.jackson.databind.BaseMapTest;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationConfig;
-import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.dataformat.velocypack.TestVelocypackMapper;
 
 public class EnumValuesTest extends BaseMapTest
@@ -53,7 +50,7 @@ public class EnumValuesTest extends BaseMapTest
 
     public void testEnumResolver()
     {
-        EnumResolver enumRes = EnumResolver.constructUnsafeUsingToString(ABC.class, null);
+        EnumResolver enumRes = EnumResolver.constructUnsafeUsingToString(ABC.class, AnnotationIntrospector.nopInstance());
         assertEquals(ABC.B, enumRes.getEnum(1));
         assertNull(enumRes.getEnum(-1));
         assertNull(enumRes.getEnum(3));
