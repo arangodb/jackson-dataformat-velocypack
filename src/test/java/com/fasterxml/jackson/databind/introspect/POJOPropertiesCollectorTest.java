@@ -1,15 +1,15 @@
 package com.fasterxml.jackson.databind.introspect;
 
+import com.fasterxml.jackson.annotation.*;
+import com.fasterxml.jackson.databind.*;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.math.BigDecimal;
 import java.util.*;
-
-import com.fasterxml.jackson.annotation.*;
-import com.fasterxml.jackson.databind.*;
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 
 public class POJOPropertiesCollectorTest
     extends BaseMapTest
@@ -415,7 +415,7 @@ public class POJOPropertiesCollectorTest
 
     public void testInnerClassWithAnnotationsInCreator() throws Exception
     {
-        BasicBeanDescription beanDesc;
+        BeanDescription beanDesc;
         // first with serialization
         beanDesc = MAPPER.getSerializationConfig().introspect(MAPPER.constructType(Issue701Bean.class));
         assertNotNull(beanDesc);
@@ -427,10 +427,8 @@ public class POJOPropertiesCollectorTest
     public void testUseAnnotationsFalse() throws Exception
     {
         // note: need a separate mapper, need to reconfigure
-        ObjectMapper mapper = jsonMapperBuilder()
-                .configure(MapperFeature.USE_ANNOTATIONS, false)
-                .build();
-        BasicBeanDescription beanDesc = mapper.getSerializationConfig().introspect(mapper.constructType(Jackson703.class));
+        ObjectMapper mapper = jsonMapperBuilder().configure(MapperFeature.USE_ANNOTATIONS, false).build();
+        BeanDescription beanDesc = mapper.getSerializationConfig().introspect(mapper.constructType(Jackson703.class));
         assertNotNull(beanDesc);
 
         Jackson703 bean = new Jackson703();
