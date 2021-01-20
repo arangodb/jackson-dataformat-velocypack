@@ -130,7 +130,7 @@ public class VPackParser extends ParserMinimalBase {
 
     @Override
     public Version version() {
-        return new Version(2, 10, 5, null, null, null);
+        return com.fasterxml.jackson.databind.cfg.PackageVersion.VERSION;
     }
 
     /*

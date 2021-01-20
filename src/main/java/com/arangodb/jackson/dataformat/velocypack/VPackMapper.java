@@ -24,6 +24,9 @@ import com.fasterxml.jackson.core.Version;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.cfg.MapperBuilder;
 
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
 /**
  * @author Mark Vollmary
  */
@@ -51,21 +54,28 @@ public class VPackMapper extends ObjectMapper {
 
 	public VPackMapper(VPackFactory jf) {
 		super(jf);
+		checkSupportedVersion();
 	}
 
 	protected VPackMapper(VPackMapper src) {
 		super(src);
+		checkSupportedVersion();
+	}
+
+	private void checkSupportedVersion() {
+		Version version = version();
+		int major = version.getMajorVersion();
+		int minor = version.getMinorVersion();
+		if (major != 2 || minor < 10 || minor > 12) {
+			Logger.getLogger(VPackMapper.class.getName())
+					.log(Level.WARNING, "Unsupported version of jackson-databind: {0}", version);
+		}
 	}
 
 	@Override
 	public VPackMapper copy() {
 		_checkInvalidCopy(VPackMapper.class);
 		return new VPackMapper(this);
-	}
-
-	@Override
-	public Version version() {
-		return new Version(2, 10, 5, null, null, null);
 	}
 
 	@Override
