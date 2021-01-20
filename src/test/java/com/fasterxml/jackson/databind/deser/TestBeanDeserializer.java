@@ -379,7 +379,7 @@ public class TestBeanDeserializer extends BaseMapTest
             MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(quote("")), Bean.class);
             fail("Should not accept Empty String for POJO");
         } catch (JsonProcessingException e) {
-            verifyException(e, "from String value");
+            verifyException(e, "Cannot coerce empty String");
         }
         // should be ok to enable dynamically
         ObjectReader r = MAPPER.readerFor(Bean.class)

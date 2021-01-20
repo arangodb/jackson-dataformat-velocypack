@@ -55,7 +55,7 @@ public class EmptyArrayAsNullTest extends BaseMapTest
                 .readValue(com.fasterxml.jackson.VPackUtils.toBytes(EMPTY_ARRAY));
             fail("Should not accept Empty Array for POJO by default");
         } catch (JsonMappingException e) {
-            verifyException(e, "START_ARRAY token");
+            verifyException(e, "JsonToken.START_ARRAY");
         }
 
         // should be ok to enable dynamically:
@@ -78,7 +78,7 @@ public class EmptyArrayAsNullTest extends BaseMapTest
                 .readValue(com.fasterxml.jackson.VPackUtils.toBytes(EMPTY_ARRAY));
             fail("Should not accept Empty Array for Map by default");
         } catch (JsonMappingException e) {
-            verifyException(e, "START_ARRAY token");
+            verifyException(e, "JsonToken.START_ARRAY");
         }
         // should be ok to enable dynamically:
         Map<?,?> result = READER_WITH_ARRAYS.forType(Map.class)

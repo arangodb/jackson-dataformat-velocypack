@@ -22,25 +22,25 @@ public class NumericConversionTest extends BaseMapTest
             R.forType(Integer.class).readValue(com.fasterxml.jackson.VPackUtils.toBytes("1.5"));
             fail("Should not pass");
         } catch (JsonMappingException e) {
-            verifyException(e, "Cannot coerce a floating-point");
+            verifyException(e, "Cannot coerce Floating-point value");
         }
         try {
             R.forType(Integer.TYPE).readValue(com.fasterxml.jackson.VPackUtils.toBytes("1.5"));
             fail("Should not pass");
         } catch (JsonMappingException e) {
-            verifyException(e, "Cannot coerce a floating-point");
+            verifyException(e, "Cannot coerce Floating-point value");
         }
         try {
             R.forType(IntWrapper.class).readValue(com.fasterxml.jackson.VPackUtils.toBytes("{\"i\":-2.25 }"));
             fail("Should not pass");
         } catch (JsonMappingException e) {
-            verifyException(e, "Cannot coerce a floating-point");
+            verifyException(e, "Cannot coerce Floating-point value");
         }
         try {
             R.forType(int[].class).readValue(com.fasterxml.jackson.VPackUtils.toBytes("[ 2.5 ]"));
             fail("Should not pass");
         } catch (JsonMappingException e) {
-            verifyException(e, "Cannot coerce a floating-point");
+            verifyException(e, "Cannot coerce Floating-point value");
         }
     }
 
@@ -58,27 +58,27 @@ public class NumericConversionTest extends BaseMapTest
             R.forType(Long.class).readValue(com.fasterxml.jackson.VPackUtils.toBytes("1.5"));
             fail("Should not pass");
         } catch (MismatchedInputException e) {
-            verifyException(e, "Cannot coerce a floating-point");
+            verifyException(e, "Cannot coerce Floating-point value");
         }
 
         try {
             R.forType(Long.TYPE).readValue(com.fasterxml.jackson.VPackUtils.toBytes("1.5"));
             fail("Should not pass");
         } catch (MismatchedInputException e) {
-            verifyException(e, "Cannot coerce a floating-point");
+            verifyException(e, "Cannot coerce Floating-point value");
         }
 
         try {
             R.forType(LongWrapper.class).readValue(com.fasterxml.jackson.VPackUtils.toBytes("{\"l\": 7.7 }"));
             fail("Should not pass");
         } catch (MismatchedInputException e) {
-            verifyException(e, "Cannot coerce a floating-point");
+            verifyException(e, "Cannot coerce Floating-point value");
         }
         try {
             R.forType(long[].class).readValue(com.fasterxml.jackson.VPackUtils.toBytes("[ 2.5 ]"));
             fail("Should not pass");
         } catch (MismatchedInputException e) {
-            verifyException(e, "Cannot coerce a floating-point");
+            verifyException(e, "Cannot coerce Floating-point value");
         }
     }
 }

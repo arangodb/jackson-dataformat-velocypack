@@ -357,7 +357,7 @@ public class ArrayNodeTest
             mapper.readValue(" 123 ", ArrayNode.class);
             fail("Should not pass");
         } catch (MismatchedInputException e) {
-            verifyException(e, "out of VALUE_NUMBER_INT token");
+            verifyException(e, "from Integer value (token `JsonToken.VALUE_NUMBER_INT`)");
         }
     }
 }

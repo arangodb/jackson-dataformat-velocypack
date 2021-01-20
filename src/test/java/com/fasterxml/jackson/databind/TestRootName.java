@@ -71,7 +71,7 @@ public class TestRootName extends BaseMapTest
                 .readValue(com.fasterxml.jackson.VPackUtils.toBytes(jsonUnwrapped));
             fail("Should have failed");
         } catch (JsonMappingException e) {
-            verifyException(e, "Root name 'a'");
+            verifyException(e, "Root name ('a')");
         }
         // except wrapping may be expected:
         result = mapper.readerFor(Bean.class).with(DeserializationFeature.UNWRAP_ROOT_VALUE)

@@ -259,7 +259,7 @@ public class UnwrapSingleArrayScalarsTest extends BaseMapTest
             fail("Exception not thrown when attempting to unwrap a single value 'String' array into a simple String");
         } catch (MismatchedInputException exp) {
             verifyException(exp, "Cannot deserialize");
-            verifyException(exp, "out of START_ARRAY");
+            verifyException(exp, "from Array value (token `JsonToken.START_ARRAY`)");
         }
         
         mapper.enable(DeserializationFeature.UNWRAP_SINGLE_VALUE_ARRAYS);
@@ -287,7 +287,7 @@ public class UnwrapSingleArrayScalarsTest extends BaseMapTest
             fail("Exception was not thrown when attempting to read a single value array of BigDecimal when UNWRAP_SINGLE_VALUE_ARRAYS feature is disabled");
         } catch (MismatchedInputException exp) {
             verifyException(exp, "Cannot deserialize");
-            verifyException(exp, "out of START_ARRAY");
+            verifyException(exp, "from Array value (token `JsonToken.START_ARRAY`)");
         }
         
         mapper.enable(DeserializationFeature.UNWRAP_SINGLE_VALUE_ARRAYS);
@@ -316,7 +316,7 @@ public class UnwrapSingleArrayScalarsTest extends BaseMapTest
             fail("Exception was not thrown when attempting to read a single value array of BigInteger when UNWRAP_SINGLE_VALUE_ARRAYS feature is disabled");
         } catch (MismatchedInputException exp) {
             verifyException(exp, "Cannot deserialize");
-            verifyException(exp, "out of START_ARRAY");
+            verifyException(exp, "from Array value (token `JsonToken.START_ARRAY`)");
         }
         
         mapper.enable(DeserializationFeature.UNWRAP_SINGLE_VALUE_ARRAYS);
@@ -345,7 +345,7 @@ public class UnwrapSingleArrayScalarsTest extends BaseMapTest
                 .readValue(com.fasterxml.jackson.VPackUtils.toBytes("[" + quote(String.class.getName()) + "]"));
             fail("Did not throw exception when UNWRAP_SINGLE_VALUE_ARRAYS feature was disabled and attempted to read a Class array containing one element");
         } catch (MismatchedInputException e) {
-            verifyException(e, "out of START_ARRAY token");
+            verifyException(e, "from Array value (token `JsonToken.START_ARRAY`)");
         }
 
         _verifyMultiValueArrayFail("[" + quote(Object.class.getName()) + "," + quote(Object.class.getName()) +"]",
@@ -365,7 +365,7 @@ public class UnwrapSingleArrayScalarsTest extends BaseMapTest
                 .readValue(com.fasterxml.jackson.VPackUtils.toBytes("[\""+value.toString()+"\"]"));
             fail("Did not throw exception for single value array when UNWRAP_SINGLE_VALUE_ARRAYS is disabled");
         } catch (MismatchedInputException e) {
-            verifyException(e, "out of START_ARRAY token");
+            verifyException(e, "from Array value (token `JsonToken.START_ARRAY`)");
         }
         
         _verifyMultiValueArrayFail("[\""+value.toString()+"\",\""+value.toString()+"\"]", URI.class);
@@ -381,7 +381,7 @@ public class UnwrapSingleArrayScalarsTest extends BaseMapTest
                 .readValue(com.fasterxml.jackson.VPackUtils.toBytes("[" + quote(uuidStr) + "]"));
             fail("Exception was not thrown when UNWRAP_SINGLE_VALUE_ARRAYS is disabled and attempted to read a single value array as a single element");
         } catch (MismatchedInputException e) {
-            verifyException(e, "out of START_ARRAY token");
+            verifyException(e, "from Array value (token `JsonToken.START_ARRAY`)");
         }
         assertEquals(uuid,
                 reader.with(DeserializationFeature.UNWRAP_SINGLE_VALUE_ARRAYS)
