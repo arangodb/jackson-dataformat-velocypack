@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 ## [Unreleased]
 
+- `com.arangodb.jackson.dataformat.velocypack.VelocyJack` has been removed from this project and added to 
+`com.arangodb:arangodb-java-driver` (since version `6.9.0`). To avoid naming conflicts it has been also renamed to 
+`com.arangodb.mapping.ArangoJack`.
+
 ## [0.4.0] - 2020-11-19
 
 - support for ArangoDB driver and velocypack annotations (`@DocumentField`, `@SerializedName`, `@Expose`)
