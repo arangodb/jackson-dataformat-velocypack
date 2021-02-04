@@ -32,20 +32,47 @@ ObjectMapper mapper = new VPackMapper();
 
 ### Usage
 
-Since version 4.5.2 the [ArangoDB Java driver](https://github.com/arangodb/arangodb-java-driver) allows to use a custom serializer to de-/serialize documents, edges and query results. Just create an instance of `VelocyJack` and pass it to the driver through `ArangoDB.Builder.serializer(ArangoSerialization)`.
+Since version 4.5.2 the [ArangoDB Java driver](https://github.com/arangodb/arangodb-java-driver) allows to use a custom 
+serializer to de-/serialize documents, edges and query results. Just create an instance of `ArangoJack` and pass it to the driver through `ArangoDB.Builder.serializer(ArangoSerialization)`.
 
 ```java
-ArangoDB arango = new ArangoDB.Builder().serializer(new VelocyJack()).build();
+ArangoDB arango = new ArangoDB.Builder().serializer(new ArangoJack()).build();
 ```
 
 ### Configure
 
 ```java
-VelocyJack velocyJack = new VelocyJack();
-velocyJack.configure((mapper) -> {
+ArangoJack arangoJack = new ArangoJack();
+arangoJack.configure((mapper) -> {
   // your configuration here
 });
-ArangoDB arango = new ArangoDB.Builder().serializer(velocyJack).build();
+ArangoDB arango = new ArangoDB.Builder().serializer(arangoJack).build();
+```
+
+## Jackson datatype and language modules
+
+The `VPackMapper` can be configured with [Jackson datatype modules](https://github.com/FasterXML/jackson#third-party-datatype-modules)
+as well as [Jackson JVM Language modules](https://github.com/FasterXML/jackson#jvm-language-modules).
+
+### Kotlin
+
+[Kotlin language module](https://github.com/FasterXML/jackson-module-kotlin) enables support for Kotlin native types 
+and can be registered in the following way:
+
+```kotlin
+val mapper = VPackMapper().apply {
+    registerModule(KotlinModule())
+}
+```
+
+### Scala
+
+[Scala language module](https://github.com/FasterXML/jackson-module-scala) enables support for Scala native types 
+and can be registered in the following way:
+
+```scala
+val mapper = new VPackMapper()
+mapper.registerModule(DefaultScalaModule)
 ```
 
 # Learn more
