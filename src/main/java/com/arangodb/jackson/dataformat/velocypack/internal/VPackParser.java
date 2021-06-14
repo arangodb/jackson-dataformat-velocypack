@@ -6,6 +6,7 @@ import com.fasterxml.jackson.core.*;
 import com.fasterxml.jackson.core.base.ParserMinimalBase;
 import com.fasterxml.jackson.core.io.IOContext;
 
+import java.io.IOException;
 import java.io.OutputStream;
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -451,6 +452,11 @@ public class VPackParser extends ParserMinimalBase {
     @Override
     public BigDecimal getDecimalValue() {
         return currentValue.getAsBigDecimal();
+    }
+
+    @Override
+    public Object getEmbeddedObject() throws IOException {
+        return null;
     }
 
     @Override

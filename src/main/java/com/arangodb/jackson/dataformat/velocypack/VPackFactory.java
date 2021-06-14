@@ -43,23 +43,6 @@ public class VPackFactory extends JsonFactory {
         super(src, oc);
     }
 
-    protected VPackFactory(VPackFactoryBuilder b) {
-        super(b, false);
-    }
-
-    @Override
-    public VPackFactoryBuilder rebuild() {
-        return new VPackFactoryBuilder(this);
-    }
-
-    /**
-     * Main factory method to use for constructing {@link VPackFactory} instances with
-     * different configuration.
-     */
-    public static VPackFactoryBuilder builder() {
-        return new VPackFactoryBuilder();
-    }
-
     @Override
     public VPackFactory copy() {
         _checkInvalidCopy(VPackFactory.class);

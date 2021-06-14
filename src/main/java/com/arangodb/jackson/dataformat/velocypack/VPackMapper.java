@@ -22,7 +22,6 @@ package com.arangodb.jackson.dataformat.velocypack;
 
 import com.fasterxml.jackson.core.Version;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.cfg.MapperBuilder;
 
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -32,55 +31,41 @@ import java.util.logging.Logger;
  */
 public class VPackMapper extends ObjectMapper {
 
-	private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 1L;
 
-	public static class Builder extends MapperBuilder<VPackMapper, Builder> {
-		public Builder(VPackMapper m) {
-			super(m);
-		}
-	}
+    public VPackMapper() {
+        this(new VPackFactory());
+    }
 
-	public static VPackMapper.Builder builder() {
-		return new VPackMapper.Builder(new VPackMapper());
-	}
+    public VPackMapper(VPackFactory jf) {
+        super(jf);
+        checkSupportedVersion();
+    }
 
-	public static VPackMapper.Builder builder(VPackFactory jf) {
-		return new VPackMapper.Builder(new VPackMapper(jf));
-	}
+    protected VPackMapper(VPackMapper src) {
+        super(src);
+        checkSupportedVersion();
+    }
 
-	public VPackMapper() {
-		this(new VPackFactory());
-	}
+    private void checkSupportedVersion() {
+        Version version = version();
+        int major = version.getMajorVersion();
+        int minor = version.getMinorVersion();
+        if (major != 2 || minor != 6) {
+            Logger.getLogger(VPackMapper.class.getName())
+                    .log(Level.WARNING, "Unsupported version of jackson-databind: {0}", version);
+        }
+    }
 
-	public VPackMapper(VPackFactory jf) {
-		super(jf);
-		checkSupportedVersion();
-	}
+    @Override
+    public VPackMapper copy() {
+        _checkInvalidCopy(VPackMapper.class);
+        return new VPackMapper(this);
+    }
 
-	protected VPackMapper(VPackMapper src) {
-		super(src);
-		checkSupportedVersion();
-	}
-
-	private void checkSupportedVersion() {
-		Version version = version();
-		int major = version.getMajorVersion();
-		int minor = version.getMinorVersion();
-		if (major != 2 || minor < 10 || minor > 12) {
-			Logger.getLogger(VPackMapper.class.getName())
-					.log(Level.WARNING, "Unsupported version of jackson-databind: {0}", version);
-		}
-	}
-
-	@Override
-	public VPackMapper copy() {
-		_checkInvalidCopy(VPackMapper.class);
-		return new VPackMapper(this);
-	}
-
-	@Override
-	public VPackFactory getFactory() {
-		return (VPackFactory) _jsonFactory;
-	}
+    @Override
+    public VPackFactory getFactory() {
+        return (VPackFactory) _jsonFactory;
+    }
 
 }

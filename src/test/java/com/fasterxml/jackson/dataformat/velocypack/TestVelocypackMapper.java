@@ -7,7 +7,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.JsonMappingException;
-import com.fasterxml.jackson.databind.cfg.MapperBuilder;
 
 import java.io.IOException;
 
@@ -20,20 +19,6 @@ public class TestVelocypackMapper extends VPackMapper {
 
 
     private static final long serialVersionUID = 1L;
-
-    public static class Builder extends MapperBuilder<TestVelocypackMapper, TestVelocypackMapper.Builder> {
-        public Builder(TestVelocypackMapper m) {
-            super(m);
-        }
-    }
-
-    public static TestVelocypackMapper.Builder testBuilder() {
-        return new TestVelocypackMapper.Builder(new TestVelocypackMapper());
-    }
-
-    public static TestVelocypackMapper.Builder testBuilder(VPackFactory jf) {
-        return new TestVelocypackMapper.Builder(new TestVelocypackMapper(jf));
-    }
 
     public TestVelocypackMapper() {
         this(new VPackFactory());
@@ -65,7 +50,7 @@ public class TestVelocypackMapper extends VPackMapper {
     }
 
     @Override
-    public <T> T readValue(String content, TypeReference<T> valueTypeRef) throws JsonProcessingException, JsonMappingException {
+    public <T> T readValue(String content, TypeReference valueTypeRef) throws JsonProcessingException, JsonMappingException {
         try {
             return super.readValue(PARSER.fromJson(content, true).getBuffer(), valueTypeRef);
         } catch (JsonProcessingException e) {

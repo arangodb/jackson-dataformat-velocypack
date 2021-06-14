@@ -3,13 +3,13 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.arangodb</groupId>
-    <artifactId>jackson-dataformat-velocypack</artifactId>
-    <version>2.0.0</version>
+    <artifactId>jackson-dataformat-velocypack_2.6</artifactId>
+    <version>0.0.1</version>
     <inceptionYear>2017</inceptionYear>
     <packaging>jar</packaging>
 
     <name>ArangoDB Velocypack Jackson</name>
-    <description>Jackson Dataformat for Velocypack</description>
+    <description>Jackson Dataformat 2.6 for Velocypack</description>
     <url>http://maven.apache.org</url>
 
     <licenses>
@@ -301,7 +301,7 @@
             <dependency>
                 <groupId>com.fasterxml.jackson</groupId>
                 <artifactId>jackson-bom</artifactId>
-                <version>2.12.2</version>
+                <version>2.6.7.3</version>
                 <scope>import</scope>
                 <type>pom</type>
             </dependency>
