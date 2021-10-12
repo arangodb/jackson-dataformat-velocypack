@@ -38,7 +38,6 @@ public class BigDecimalTest {
     private void doTestRoundTrip(ObjectMapper mapper, BigDecimal bd) throws IOException {
         byte[] serialized = mapper.writeValueAsBytes(bd);
         BigDecimal deserialized = mapper.readValue(serialized, BigDecimal.class);
-        System.out.println(bd + " --> " + deserialized);
         assertThat(deserialized.scale(), is(bd.scale()));
     }
 
