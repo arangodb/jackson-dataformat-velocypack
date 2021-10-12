@@ -173,11 +173,7 @@ public class VPackGenerator extends GeneratorBase {
     @Override
     public void writeNumber(BigInteger bigInteger) throws IOException {
         try {
-            try {
-                builder.add(attribute, bigInteger.longValueExact());
-            } catch (ArithmeticException e) {
-                builder.add(attribute, bigInteger);
-            }
+            builder.add(attribute, bigInteger);
             attribute = null;
         } catch (final VPackBuilderException e) {
             throw new IOException(e);
@@ -207,12 +203,7 @@ public class VPackGenerator extends GeneratorBase {
     @Override
     public void writeNumber(BigDecimal bigDecimal) throws IOException {
         try {
-            double doubleValue = bigDecimal.doubleValue();
-            if (BigDecimal.valueOf(doubleValue).compareTo(bigDecimal) == 0) {
-                builder.add(attribute, doubleValue);
-            } else {
-                builder.add(attribute, bigDecimal);
-            }
+            builder.add(attribute, bigDecimal);
             attribute = null;
         } catch (final VPackBuilderException e) {
             throw new IOException(e);
