@@ -99,15 +99,10 @@ public class NumberSerTest extends BaseMapTest
                 BigInteger.valueOf(1234567890L),
                 new BigInteger("123456789012345678901234568"),
                 new BigInteger("-1250000124326904597090347547457")
-                };
+        };
 
         for (BigInteger value : values) {
-            String expected = value.toString();
-            try {
-                long ignored = value.longValueExact();
-            } catch (ArithmeticException e) {
-                expected = quote(expected);
-            }
+            String expected = quote(value.toString());
             assertEquals(expected, com.fasterxml.jackson.VPackUtils.toJson(MAPPER.writeValueAsBytes(value)));
         }
     }
@@ -156,7 +151,7 @@ public class NumberSerTest extends BaseMapTest
         assertEquals(aposToQuotes("{'value':4}"), com.fasterxml.jackson.VPackUtils.toJson( MAPPER.writeValueAsBytes(new NumberWrapper(Long.valueOf(4L)))));
         assertEquals(aposToQuotes("{'value':0.5}"), com.fasterxml.jackson.VPackUtils.toJson( MAPPER.writeValueAsBytes(new NumberWrapper(Float.valueOf(0.5f)))));
         assertEquals(aposToQuotes("{'value':0.05}"), com.fasterxml.jackson.VPackUtils.toJson( MAPPER.writeValueAsBytes(new NumberWrapper(Double.valueOf(0.05)))));
-        assertEquals(aposToQuotes("{'value':123}"), com.fasterxml.jackson.VPackUtils.toJson( MAPPER.writeValueAsBytes(new NumberWrapper(BigInteger.valueOf(123)))));
-        assertEquals(aposToQuotes("{'value':0.025}"), com.fasterxml.jackson.VPackUtils.toJson( MAPPER.writeValueAsBytes(new NumberWrapper(BigDecimal.valueOf(0.025)))));
+        assertEquals(aposToQuotes("{'value':\"123\"}"), com.fasterxml.jackson.VPackUtils.toJson( MAPPER.writeValueAsBytes(new NumberWrapper(BigInteger.valueOf(123)))));
+        assertEquals(aposToQuotes("{'value':\"0.025\"}"), com.fasterxml.jackson.VPackUtils.toJson( MAPPER.writeValueAsBytes(new NumberWrapper(BigDecimal.valueOf(0.025)))));
     }
 }
