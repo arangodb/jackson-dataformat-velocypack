@@ -41,7 +41,7 @@ public class JDKTypeSerializationTest
         String PI_STR = "3.14159265";
         map.put("pi", new BigDecimal(PI_STR));
         String str = com.fasterxml.jackson.VPackUtils.toJson( MAPPER.writeValueAsBytes(map));
-        assertEquals("{\"pi\":3.14159265}", str);
+        assertEquals("{\"pi\":\"3.14159265\"}", str);
     }
     
     public void testBigDecimalAsPlainString() throws Exception
@@ -53,7 +53,7 @@ public class JDKTypeSerializationTest
         String PI_STR = "3.00000001";
         map.put("pi", new BigDecimal(PI_STR));
         String str = com.fasterxml.jackson.VPackUtils.toJson( mapper.writeValueAsBytes(map));
-        assertEquals("{\"pi\":3.00000001}", str);
+        assertEquals("{\"pi\":\"3.00000001\"}", str);
     }
 
     public void testFile() throws IOException

@@ -76,7 +76,7 @@ public class JsonValueExtTypeIdTest extends BaseMapTest
 
     public void testDecimalMetadata() throws IOException{
         DecimalMetadata dec = new DecimalMetadata();
-        String expected = "{\"metadata\":[{\"key\":\"num\",\"value\":111.1,\"@type\":\"decimalValue\"}]}";
+        String expected = "{\"metadata\":[{\"key\":\"num\",\"value\":\"111.1\",\"@type\":\"decimalValue\"}]}";
         String json = com.fasterxml.jackson.VPackUtils.toJson( MAPPER.writeValueAsBytes(dec));
         assertEquals("Serialized json not equivalent", expected, json);
     }
