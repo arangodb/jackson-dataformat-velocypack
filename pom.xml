@@ -21,12 +21,13 @@
     </licenses>
 
     <properties>
-        <jackson.version>2.14.1</jackson.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
         <!-- javadoc-->
         <javadoc.opts/>
         <kotlin.version>1.6.21</kotlin.version>
+        <surefire.argLine/>
+        <jackson.version>2.14.1</jackson.version>
     </properties>
 
     <developers>
@@ -60,6 +61,18 @@
             </activation>
             <properties>
                 <javadoc.opts>-Xdoclint:none</javadoc.opts>
+            </properties>
+        </profile>
+        <profile>
+            <id>open-modules</id>
+            <activation>
+                <jdk>[17,)</jdk>
+            </activation>
+            <properties>
+                <surefire.argLine>
+                    --add-opens java.base/java.lang=ALL-UNNAMED
+                    --add-opens java.base/java.util=ALL-UNNAMED
+                </surefire.argLine>
             </properties>
         </profile>
     </profiles>
@@ -123,8 +136,7 @@
                 <version>3.0.0-M5</version>
                 <configuration>
                     <argLine>
-                        --add-opens java.base/java.lang=ALL-UNNAMED
-                        --add-opens java.base/java.util=ALL-UNNAMED
+                        ${surefire.argLine}
                     </argLine>
                 </configuration>
             </plugin>
