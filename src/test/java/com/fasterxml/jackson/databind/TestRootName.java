@@ -4,6 +4,8 @@ import com.fasterxml.jackson.annotation.*;
 
 import com.fasterxml.jackson.dataformat.velocypack.TestVelocypackMapper;
 
+import static com.fasterxml.jackson.TestUtils.isAtLeastVersion;
+
 /**
  * Unit tests dealing with handling of "root element wrapping",
  * including configuration of root name to use.
@@ -53,6 +55,8 @@ public class TestRootName extends BaseMapTest
 
     public void testReconfiguringOfWrapping() throws Exception
     {
+        if(!isAtLeastVersion(2, 12)) return;
+
         ObjectMapper mapper = new TestVelocypackMapper();
         // default: no wrapping
         final Bean input = new Bean();

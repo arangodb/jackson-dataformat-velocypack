@@ -7,6 +7,8 @@ import java.math.BigInteger;
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.exc.MismatchedInputException;
 
+import static com.fasterxml.jackson.TestUtils.isAtLeastVersion;
+
 // for [databind#1106]
 public class ScalarCoercionTest extends BaseMapTest
 {
@@ -137,6 +139,8 @@ public class ScalarCoercionTest extends BaseMapTest
 
     public void testStringCoercionFail() throws Exception
     {
+        if(!isAtLeastVersion(2, 12)) return;
+
         _verifyCoerceFail(quote("true"), Boolean.TYPE);
         _verifyCoerceFail(quote("true"), Boolean.class);
         _verifyCoerceFail(quote("123"), Byte.TYPE);
@@ -158,6 +162,8 @@ public class ScalarCoercionTest extends BaseMapTest
 
     public void testMiscCoercionFail() throws Exception
     {
+        if(!isAtLeastVersion(2, 12)) return;
+
         // And then we have coercions from more esoteric types too
         _verifyCoerceFail("1", Boolean.TYPE);
         _verifyCoerceFail("1", Boolean.class);

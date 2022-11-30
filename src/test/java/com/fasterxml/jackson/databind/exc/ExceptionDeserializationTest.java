@@ -8,6 +8,8 @@ import com.fasterxml.jackson.annotation.*;
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.dataformat.velocypack.TestVelocypackMapper;
 
+import static com.fasterxml.jackson.TestUtils.isAtLeastVersion;
+
 /**
  * Unit tests for verifying that simple exceptions can be deserialized.
  */
@@ -141,6 +143,8 @@ public class ExceptionDeserializationTest
     }
 
     public void testSingleValueArrayDeserializationException() throws Exception {
+        if(!isAtLeastVersion(2, 12)) return;
+
         final ObjectMapper mapper = new TestVelocypackMapper();
         mapper.disable(DeserializationFeature.UNWRAP_SINGLE_VALUE_ARRAYS);
         

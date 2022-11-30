@@ -9,6 +9,8 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.dataformat.velocypack.TestVelocypackMapper;
 
+import static com.fasterxml.jackson.TestUtils.isAtLeastVersion;
+
 /**
  * Tests to verify implementation of [databind#540]; also for
  * follow up work of:
@@ -49,6 +51,8 @@ public class EmptyArrayAsNullTest extends BaseMapTest
     // [databind#540]
     public void testPOJOFromEmptyArray() throws Exception
     {
+        if(!isAtLeastVersion(2, 12)) return;
+
         // first, verify default settings which do not accept empty Array
         try {
             DEFAULT_READER.forType(Bean.class)
@@ -72,6 +76,8 @@ public class EmptyArrayAsNullTest extends BaseMapTest
 
     public void testMapFromEmptyArray() throws Exception
     {
+        if(!isAtLeastVersion(2, 12)) return;
+
         // first, verify default settings which do not accept empty Array
         try {
             DEFAULT_READER.forType(Map.class)

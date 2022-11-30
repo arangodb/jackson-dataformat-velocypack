@@ -6,6 +6,8 @@ import java.util.List;
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.dataformat.velocypack.TestVelocypackMapper;
 
+import static com.fasterxml.jackson.TestUtils.isAtLeastVersion;
+
 public class ExceptionSerializableTest1195 extends BaseMapTest
 {
     static class ClassToRead {
@@ -24,6 +26,8 @@ public class ExceptionSerializableTest1195 extends BaseMapTest
 
     public void testExceptionSerializabilitySimple() throws Exception
     {
+        if(!isAtLeastVersion(2, 12)) return;
+
         try {
             MAPPER.readValue("{\"x\": \"B\"}", ClassToRead.class);
             fail("Should not have passed");
@@ -42,6 +46,8 @@ public class ExceptionSerializableTest1195 extends BaseMapTest
 
     public void testExceptionSerializabilityStructured() throws Exception
     {
+        if(!isAtLeastVersion(2, 12)) return;
+
         try {
             MAPPER.readValue("{\"classesToRead\": [{\"x\": 1}, {\"x\": \"B\"}]}",
                     ContainerClassesToRead.class);

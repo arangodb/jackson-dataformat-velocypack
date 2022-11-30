@@ -15,6 +15,8 @@ import com.fasterxml.jackson.databind.type.CollectionType;
 import com.fasterxml.jackson.databind.type.MapType;
 import com.fasterxml.jackson.dataformat.velocypack.TestVelocypackMapper;
 
+import static com.fasterxml.jackson.TestUtils.isAtLeastVersion;
+
 @SuppressWarnings("serial")
 public class TestBeanDeserializer extends BaseMapTest
 {
@@ -373,6 +375,8 @@ public class TestBeanDeserializer extends BaseMapTest
 
     public void testPOJOFromEmptyString() throws Exception
     {
+        if(!isAtLeastVersion(2, 12)) return;
+
         // first, verify default settings which do not accept empty String:
         assertFalse(MAPPER.isEnabled(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT));
         try {

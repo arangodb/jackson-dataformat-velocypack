@@ -15,6 +15,8 @@ import com.fasterxml.jackson.databind.ObjectReader;
 import com.fasterxml.jackson.databind.exc.MismatchedInputException;
 import com.fasterxml.jackson.dataformat.velocypack.TestVelocypackMapper;
 
+import static com.fasterxml.jackson.TestUtils.isAtLeastVersion;
+
 public class UnwrapSingleArrayScalarsTest extends BaseMapTest
 {
     static class BooleanBean {
@@ -250,6 +252,8 @@ public class UnwrapSingleArrayScalarsTest extends BaseMapTest
     
     public void testSingleStringWrapped() throws Exception
     {
+        if(!isAtLeastVersion(2, 12)) return;
+
         final ObjectMapper mapper = new TestVelocypackMapper();
         mapper.disable(DeserializationFeature.UNWRAP_SINGLE_VALUE_ARRAYS);
         
@@ -276,6 +280,8 @@ public class UnwrapSingleArrayScalarsTest extends BaseMapTest
 
     public void testBigDecimal() throws Exception
     {
+        if(!isAtLeastVersion(2, 12)) return;
+
         final ObjectMapper mapper = objectMapper();
         mapper.disable(DeserializationFeature.UNWRAP_SINGLE_VALUE_ARRAYS);
         
@@ -304,6 +310,8 @@ public class UnwrapSingleArrayScalarsTest extends BaseMapTest
 
     public void testBigInteger() throws Exception
     {
+        if(!isAtLeastVersion(2, 12)) return;
+
         final ObjectMapper mapper = objectMapper();
         mapper.disable(DeserializationFeature.UNWRAP_SINGLE_VALUE_ARRAYS);
         
@@ -333,6 +341,8 @@ public class UnwrapSingleArrayScalarsTest extends BaseMapTest
 
     public void testClassAsArray() throws Exception
     {
+        if(!isAtLeastVersion(2, 12)) return;
+
         Class<?> result = MAPPER
                     .readerFor(Class.class)
                     .with(DeserializationFeature.UNWRAP_SINGLE_VALUE_ARRAYS)
@@ -358,6 +368,8 @@ public class UnwrapSingleArrayScalarsTest extends BaseMapTest
 
     public void testURIAsArray() throws Exception
     {
+        if(!isAtLeastVersion(2, 12)) return;
+
         final ObjectReader reader = MAPPER.readerFor(URI.class);
         final URI value = new URI("http://foo.com");
         try {
@@ -373,6 +385,8 @@ public class UnwrapSingleArrayScalarsTest extends BaseMapTest
 
     public void testUUIDAsArray() throws Exception
     {
+        if(!isAtLeastVersion(2, 12)) return;
+
         final ObjectReader reader = MAPPER.readerFor(UUID.class);
         final String uuidStr = "76e6d183-5f68-4afa-b94a-922c1fdb83f8";
         UUID uuid = UUID.fromString(uuidStr);

@@ -10,6 +10,8 @@ import com.fasterxml.jackson.databind.ObjectReader;
 
 import java.io.IOException;
 
+import static com.fasterxml.jackson.TestUtils.isAtLeastVersion;
+
 public class TestCreatorNullPrimitives extends BaseMapTest {
 
     // [databind#2101]
@@ -43,6 +45,8 @@ public class TestCreatorNullPrimitives extends BaseMapTest {
 
     // [databind#2101]: ensure that the property is included in the path
     public void testCreatorNullPrimitive() throws IOException {
+        if(!isAtLeastVersion(2, 12)) return;
+
         final ObjectReader r = MAPPER.readerFor(JsonEntity.class)
             .with(DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES);
         String json = aposToQuotes("{'x': 2}");
@@ -57,6 +61,8 @@ public class TestCreatorNullPrimitives extends BaseMapTest {
     }
 
     public void testCreatorNullPrimitiveInNestedObject() throws IOException {
+        if(!isAtLeastVersion(2, 12)) return;
+
         final ObjectReader r = MAPPER.readerFor(NestedJsonEntity.class)
                 .with(DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES);
         String json = aposToQuotes("{ 'entity': {'x': 2}}");

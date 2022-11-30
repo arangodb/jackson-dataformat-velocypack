@@ -21,6 +21,8 @@ import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.util.StdDateFormat;
 
+import static com.fasterxml.jackson.TestUtils.isAtLeastVersion;
+
 public class DateSerializationTest
     extends BaseMapTest
 {
@@ -115,6 +117,8 @@ public class DateSerializationTest
 
     public void testDateISO8601() throws IOException
     {
+        if(!isAtLeastVersion(2, 12)) return;
+
         ObjectMapper mapper = new TestVelocypackMapper();
         mapper.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
 
@@ -130,6 +134,8 @@ public class DateSerializationTest
     // [databind#2167]: beyond year 9999 needs special handling
     public void testDateISO8601_10k() throws IOException
     {
+        if(!isAtLeastVersion(2, 12)) return;
+
         ObjectWriter w = MAPPER.writer()
                 .without(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
         serialize(w, judate(10204, 1, 1,  00, 00, 00, 0, "UTC"),   "+10204-01-01T00:00:00.000+00:00");
@@ -140,6 +146,8 @@ public class DateSerializationTest
     // [databind#2167]: dates before Common Era (CE), that is, BCE, need special care:
     public void testDateISO8601_BCE() throws IOException
     {
+        if(!isAtLeastVersion(2, 12)) return;
+
         ObjectWriter w = MAPPER.writer()
                 .without(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
@@ -157,6 +165,8 @@ public class DateSerializationTest
      */
     public void testDateISO8601_customTZ() throws IOException
     {
+        if(!isAtLeastVersion(2, 12)) return;
+
         ObjectMapper mapper = new TestVelocypackMapper();
         mapper.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
         mapper.setTimeZone(TimeZone.getTimeZone("GMT+2"));
@@ -172,6 +182,8 @@ public class DateSerializationTest
      */
     public void testDateISO8601_colonInTZ() throws IOException
     {
+        if(!isAtLeastVersion(2, 12)) return;
+
         StdDateFormat dateFormat = new StdDateFormat();
         assertTrue(dateFormat.isColonIncludedInTimeZone());
         dateFormat = dateFormat.withColonInTimeZone(false);
@@ -228,6 +240,8 @@ public class DateSerializationTest
 
     public void testDatesAsMapKeys() throws IOException
     {
+        if(!isAtLeastVersion(2, 12)) return;
+
         ObjectMapper mapper = new TestVelocypackMapper();
         Map<Date,Integer> map = new HashMap<Date,Integer>();
         assertFalse(mapper.isEnabled(SerializationFeature.WRITE_DATE_KEYS_AS_TIMESTAMPS));
@@ -242,6 +256,8 @@ public class DateSerializationTest
 
     public void testDateWithJsonFormat() throws Exception
     {
+        if(!isAtLeastVersion(2, 12)) return;
+
         ObjectMapper mapper = new TestVelocypackMapper();
         String json;
 
@@ -299,6 +315,8 @@ public class DateSerializationTest
      */
     public void testDateDefaultShape() throws Exception
     {
+        if(!isAtLeastVersion(2, 12)) return;
+
         ObjectMapper mapper = new TestVelocypackMapper();
         // No @JsonFormat => default to user config
         mapper.enable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);

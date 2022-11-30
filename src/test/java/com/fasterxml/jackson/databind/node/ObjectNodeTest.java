@@ -13,6 +13,8 @@ import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.exc.MismatchedInputException;
 
+import static com.fasterxml.jackson.TestUtils.isAtLeastVersion;
+
 /**
  * Additional tests for {@link ObjectNode} container class.
  */
@@ -482,6 +484,8 @@ public class ObjectNodeTest
 
     public void testSimpleMismatch() throws Exception
     {
+        if(!isAtLeastVersion(2, 12)) return;
+
         ObjectMapper mapper = objectMapper();
         try {
             mapper.readValue("[ 1, 2, 3 ]", ObjectNode.class);
