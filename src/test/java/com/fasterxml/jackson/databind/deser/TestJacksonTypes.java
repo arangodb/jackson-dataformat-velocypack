@@ -2,6 +2,8 @@ package com.fasterxml.jackson.databind.deser;
 
 import java.util.*;
 
+import com.arangodb.velocypack.VPackBuilder;
+import com.arangodb.velocypack.ValueType;
 import com.fasterxml.jackson.core.*;
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.type.TypeFactory;
@@ -112,8 +114,7 @@ public class TestJacksonTypes
     // [databind#2398]
     public void testDeeplyNestedArrays() throws Exception
     {
-        try (JsonParser p = MAPPER.tokenStreamFactory().createParser(com.fasterxml.jackson.VPackUtils.toBytes(_createNested(RECURSION_2398 * 2,
-                "[", " 123 ", "]")))) {
+        try (JsonParser p = MAPPER.tokenStreamFactory().createParser(_createNestedArray(RECURSION_2398 * 2, 123))) {
             p.nextToken();
             TokenBuffer b = new TokenBuffer(p);
             b.copyCurrentStructure(p);
@@ -123,8 +124,7 @@ public class TestJacksonTypes
 
     public void testDeeplyNestedObjects() throws Exception
     {
-        try (JsonParser p = MAPPER.tokenStreamFactory().createParser(com.fasterxml.jackson.VPackUtils.toBytes(_createNested(RECURSION_2398,
-                "{\"a\":", "42", "}")))) {
+        try (JsonParser p = MAPPER.tokenStreamFactory().createParser(_createNestedObject(RECURSION_2398, "a", 42))) {
             p.nextToken();
             TokenBuffer b = new TokenBuffer(p);
             b.copyCurrentStructure(p);
@@ -132,16 +132,29 @@ public class TestJacksonTypes
         }
     }
 
-    private String _createNested(int nesting, String open, String middle, String close) 
-    {
-        StringBuilder sb = new StringBuilder(2 * nesting);
-        for (int i = 0; i < nesting; ++i) {
-            sb.append(open);
+    private byte[] _createNestedArray(int nesting, int middle) {
+        VPackBuilder builder = new VPackBuilder();
+        for (int i = 0; i < nesting; i++) {
+            builder.add(ValueType.ARRAY);
         }
-        sb.append(middle);
-        for (int i = 0; i < nesting; ++i) {
-            sb.append(close);
+        builder.add(middle);
+        for (int i = 0; i < nesting; i++) {
+            builder.close();
         }
-        return sb.toString();
+        return builder.slice().toByteArray();
     }
+
+    private byte[] _createNestedObject(int nesting, String key, int value) {
+        VPackBuilder builder = new VPackBuilder();
+        builder.add(ValueType.OBJECT);
+        for (int i = 0; i < nesting - 1; i++) {
+            builder.add(key, ValueType.OBJECT);
+        }
+        builder.add(key, value);
+        for (int i = 0; i < nesting; i++) {
+            builder.close();
+        }
+        return builder.slice().toByteArray();
+    }
+
 }

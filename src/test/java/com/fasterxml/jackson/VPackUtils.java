@@ -19,24 +19,32 @@ package com.fasterxml.jackson;/*
  */
 
 
-import com.arangodb.velocypack.VPackParser;
-import com.arangodb.velocypack.VPackSlice;
+import com.arangodb.jackson.dataformat.velocypack.VPackMapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import java.io.IOException;
 
 /**
  * @author Michele Rastelli
  */
 public final class VPackUtils {
-    private static final VPackParser PARSER = new VPackParser.Builder().build();
+    private final static ObjectMapper JSON_MAPPER = new ObjectMapper();
+    private final static ObjectMapper VPACK_MAPPER = new VPackMapper();
 
     private VPackUtils() {
     }
 
     public static String toJson(byte[] bytes) {
-        return PARSER.toJson(new VPackSlice(bytes), true);
+        try {
+            return JSON_MAPPER.writeValueAsString(VPACK_MAPPER.readTree(bytes));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
-    public static byte[] toBytes(String json) {
-        return PARSER.fromJson(json, true).getBuffer();
+    public static byte[] toBytes(String json) throws JsonProcessingException {
+        return VPACK_MAPPER.writeValueAsBytes(JSON_MAPPER.readTree(json));
     }
 
 }

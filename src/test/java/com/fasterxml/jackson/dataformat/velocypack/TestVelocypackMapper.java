@@ -2,11 +2,10 @@ package com.fasterxml.jackson.dataformat.velocypack;
 
 import com.arangodb.jackson.dataformat.velocypack.VPackFactory;
 import com.arangodb.jackson.dataformat.velocypack.VPackMapper;
-import com.arangodb.velocypack.VPackParser;
+import com.fasterxml.jackson.VPackUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JavaType;
-import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.cfg.MapperBuilder;
 
 import java.io.IOException;
@@ -15,9 +14,6 @@ import java.io.IOException;
  * @author Michele Rastelli
  */
 public class TestVelocypackMapper extends VPackMapper {
-
-    private static final VPackParser PARSER = new VPackParser.Builder().build();
-
 
     private static final long serialVersionUID = 1L;
 
@@ -56,7 +52,7 @@ public class TestVelocypackMapper extends VPackMapper {
     @Override
     public <T> T readValue(String content, Class<T> valueType) throws JsonProcessingException {
         try {
-            return super.readValue(PARSER.fromJson(content, true).getBuffer(), valueType);
+            return super.readValue(VPackUtils.toBytes(content), valueType);
         } catch (JsonProcessingException e) {
             throw e;
         } catch (IOException e) {
@@ -65,9 +61,9 @@ public class TestVelocypackMapper extends VPackMapper {
     }
 
     @Override
-    public <T> T readValue(String content, TypeReference<T> valueTypeRef) throws JsonProcessingException, JsonMappingException {
+    public <T> T readValue(String content, TypeReference<T> valueTypeRef) throws JsonProcessingException {
         try {
-            return super.readValue(PARSER.fromJson(content, true).getBuffer(), valueTypeRef);
+            return super.readValue(VPackUtils.toBytes(content), valueTypeRef);
         } catch (JsonProcessingException e) {
             throw e;
         } catch (IOException e) {
@@ -76,9 +72,9 @@ public class TestVelocypackMapper extends VPackMapper {
     }
 
     @Override
-    public <T> T readValue(String content, JavaType valueType) throws JsonProcessingException, JsonMappingException {
+    public <T> T readValue(String content, JavaType valueType) throws JsonProcessingException {
         try {
-            return super.readValue(PARSER.fromJson(content, true).getBuffer(), valueType);
+            return super.readValue(VPackUtils.toBytes(content), valueType);
         } catch (JsonProcessingException e) {
             throw e;
         } catch (IOException e) {

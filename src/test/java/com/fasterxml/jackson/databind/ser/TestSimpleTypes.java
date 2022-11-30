@@ -85,9 +85,10 @@ public class TestSimpleTypes
         double[] values = new double[]{
                 0.0, 1.0, 0.1, -37.01, 999.99, 0.3, 33.3, Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY
         };
+        ObjectMapper jsonMapper = new ObjectMapper();
         for (double d : values) {
             float f = (float) d;
-            String expected = String.valueOf(f);
+            String expected = jsonMapper.writeValueAsString(f);
 
             String actual = serializeAsString(MAPPER, roundTwoDecimals(f));
             assertEquals(expected, actual);
