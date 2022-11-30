@@ -65,12 +65,10 @@ public class ExceptionDeserializationTest
     public void testWithCreator() throws IOException
     {
         final String MSG = "the message";
-        String json = com.fasterxml.jackson.VPackUtils.toJson( MAPPER.writeValueAsBytes(new MyException(MSG, 3)));
-
-        MyException result = MAPPER.readValue(json, MyException.class);
+        byte[] bytes = MAPPER.writeValueAsBytes(new MyException(MSG, 3));
+        MyException result = MAPPER.readValue(bytes, MyException.class);
         assertEquals(MSG, result.getMessage());
         assertEquals(3, result.value);
-        assertEquals(1, result.stuff.size());
         assertEquals(result.getFoo(), result.stuff.get("foo"));
     }
 

@@ -84,20 +84,4 @@ public class JsonIncludeCustomTest extends BaseMapTest
         assertEquals(aposToQuotes("{'stuff':{'a':'1','c':'2'}}"), com.fasterxml.jackson.VPackUtils.toJson( MAPPER.writeValueAsBytes(input)));
     }
 
-    /*
-    /**********************************************************
-    /* Test methods, fail handling
-    /**********************************************************
-     */
-    
-    public void testBrokenFilter() throws Exception
-    {
-        try {
-            String json = com.fasterxml.jackson.VPackUtils.toJson( MAPPER.writeValueAsBytes(new BrokenBean("foo")));
-            fail("Should not pass, produced: "+json);
-        } catch (InvalidDefinitionException e) {
-            verifyException(e, "Problem determining whether filter of type");
-            verifyException(e, "filter out `null`");
-        }
-    }
 }

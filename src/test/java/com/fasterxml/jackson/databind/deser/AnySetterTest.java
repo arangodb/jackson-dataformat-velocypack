@@ -326,13 +326,6 @@ public class AnySetterTest
 		assertEquals("New Jersey", result.other.get("city"));
 	}
 
-	public void testJsonAnySetterOnNullMap() throws Exception {
-		JsonAnySetterOnNullMap result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes("{\"id\":2,\"name\":\"Joe\", \"city\":\"New Jersey\"}"),
-		        JsonAnySetterOnNullMap.class);
-		assertEquals(2, result.id);
-		assertNull(result.other);
-    }
-
     // [databind#1035]
     public void testGenericAnySetter() throws Exception
     {

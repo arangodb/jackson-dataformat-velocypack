@@ -300,7 +300,7 @@ public class ObjectNodeTest
             root.with("prop");
             fail("Expected exception");
         } catch (UnsupportedOperationException e) {
-            verifyException(e, "not of type ObjectNode");
+            verifyException(e, "not of type", "ObjectNode");
         }
         // also: should fail of we already have non-object property
         ObjectNode root2 = MAPPER.createObjectNode();
@@ -320,7 +320,7 @@ public class ObjectNodeTest
             root.withArray("prop");
             fail("Expected exception");
         } catch (UnsupportedOperationException e) {
-            verifyException(e, "not of type ObjectNode");
+            verifyException(e, "not of type", "ObjectNode");
         }
         // also: should fail of we already have non-Array property
         ObjectNode root2 = MAPPER.createObjectNode();
