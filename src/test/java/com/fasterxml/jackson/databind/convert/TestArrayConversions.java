@@ -9,6 +9,8 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.dataformat.velocypack.TestVelocypackMapper;
 
+import static com.fasterxml.jackson.TestUtils.isAtLeastVersion;
+
 public class TestArrayConversions
     extends com.fasterxml.jackson.databind.BaseMapTest
 {
@@ -95,6 +97,8 @@ public class TestArrayConversions
 
     public void testOverflows()
     {
+        if(!isAtLeastVersion(2, 12)) return;
+
         // Byte overflow
         try {
             MAPPER.convertValue(new int[] { 1000 }, byte[].class);

@@ -13,6 +13,8 @@ import java.io.IOException;
 import java.lang.reflect.Array;
 import java.util.List;
 
+import static com.fasterxml.jackson.TestUtils.isAtLeastVersion;
+
 /**
  * Unit tests for verifying handling of simple basic non-structured
  * types; primitives (and/or their wrappers), Strings.
@@ -630,6 +632,8 @@ public class JDKScalarsTest
 
     public void testNullForPrimitives() throws IOException
     {
+        if(!isAtLeastVersion(2, 12)) return;
+
         // by default, ok to rely on defaults
         PrimitivesBean bean = MAPPER.readValue(
                 "{\"intValue\":null, \"booleanValue\":null, \"doubleValue\":null}",
@@ -715,6 +719,8 @@ public class JDKScalarsTest
     // [databind#2101]
     public void testNullForPrimitivesViaCreator() throws IOException
     {
+        if(!isAtLeastVersion(2, 12)) return;
+
         try {
             /*PrimitiveCreatorBean bean =*/ MAPPER
                     .readerFor(PrimitiveCreatorBean.class)
@@ -759,6 +765,8 @@ public class JDKScalarsTest
 
     public void testInvalidStringCoercionFail() throws IOException
     {
+        if(!isAtLeastVersion(2, 12)) return;
+
         _testInvalidStringCoercionFail(boolean[].class, "boolean");
         _testInvalidStringCoercionFail(byte[].class, "byte[]");
 

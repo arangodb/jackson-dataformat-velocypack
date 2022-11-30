@@ -14,6 +14,8 @@ import com.fasterxml.jackson.databind.exc.MismatchedInputException;
 import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import com.fasterxml.jackson.dataformat.velocypack.TestVelocypackMapper;
 
+import static com.fasterxml.jackson.TestUtils.isAtLeastVersion;
+
 public class DateDeserializationTest
     extends BaseMapTest
 {
@@ -693,6 +695,7 @@ public class DateDeserializationTest
     
     public void testCalendarArrayUnwrap() throws Exception
     {
+        if(!isAtLeastVersion(2, 12)) return;
         ObjectReader reader = new TestVelocypackMapper()
                 .readerFor(CalendarBean.class)
                 .without(DeserializationFeature.UNWRAP_SINGLE_VALUE_ARRAYS);

@@ -3,6 +3,8 @@ package com.fasterxml.jackson.databind.convert;
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.exc.MismatchedInputException;
 
+import static com.fasterxml.jackson.TestUtils.isAtLeastVersion;
+
 public class NumericConversionTest extends BaseMapTest
 {
     private final ObjectMapper MAPPER = sharedMapper();
@@ -10,6 +12,8 @@ public class NumericConversionTest extends BaseMapTest
 
     public void testDoubleToInt() throws Exception
     {
+        if(!isAtLeastVersion(2, 12)) return;
+
         // by default, should be ok
         Integer I = MAPPER.readValue(" 1.25 ", Integer.class);
         assertEquals(1, I.intValue());
@@ -46,6 +50,8 @@ public class NumericConversionTest extends BaseMapTest
 
     public void testDoubleToLong() throws Exception
     {
+        if(!isAtLeastVersion(2, 12)) return;
+
         // by default, should be ok
         Long L = MAPPER.readValue(" 3.33 ", Long.class);
         assertEquals(3L, L.longValue());

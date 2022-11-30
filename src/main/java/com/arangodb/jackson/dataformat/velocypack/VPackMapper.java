@@ -66,7 +66,7 @@ public class VPackMapper extends ObjectMapper {
 		Version version = version();
 		int major = version.getMajorVersion();
 		int minor = version.getMinorVersion();
-		if (major != 2 || minor < 10 || minor > 13) {
+		if (major != 2 || minor < 10 || minor > 14) {
 			Logger.getLogger(VPackMapper.class.getName())
 					.log(Level.WARNING, "Unsupported version of jackson-databind: {0}", version);
 		}

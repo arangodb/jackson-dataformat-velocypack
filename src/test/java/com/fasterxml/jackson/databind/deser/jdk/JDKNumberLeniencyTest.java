@@ -3,6 +3,8 @@ package com.fasterxml.jackson.databind.deser.jdk;
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.exc.MismatchedInputException;
 
+import static com.fasterxml.jackson.TestUtils.isAtLeastVersion;
+
 public class JDKNumberLeniencyTest extends BaseMapTest
 {
     final ObjectMapper VANILLA_MAPPER = sharedMapper();
@@ -14,6 +16,8 @@ public class JDKNumberLeniencyTest extends BaseMapTest
 
     public void testBooleanLeniencyInts() throws Exception
     {
+        if(!isAtLeastVersion(2, 12)) return;
+
         // First: read from integers fine by default
         assertEquals(Boolean.TRUE, VANILLA_MAPPER.readValue("1", Boolean.class));
         assertEquals(Boolean.TRUE,

@@ -4,12 +4,16 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.*;
 
+import com.arangodb.velocypack.VPackBuilder;
+import com.arangodb.velocypack.ValueType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonValue;
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.exc.MismatchedInputException;
+
+import static com.fasterxml.jackson.TestUtils.isAtLeastVersion;
 
 /**
  * Additional tests for {@link ObjectNode} container class.
@@ -298,7 +302,7 @@ public class ObjectNodeTest
             root.with("prop");
             fail("Expected exception");
         } catch (UnsupportedOperationException e) {
-            verifyException(e, "not of type ObjectNode");
+            verifyException(e, "not of type", "ObjectNode");
         }
         // also: should fail of we already have non-object property
         ObjectNode root2 = MAPPER.createObjectNode();
@@ -318,7 +322,7 @@ public class ObjectNodeTest
             root.withArray("prop");
             fail("Expected exception");
         } catch (UnsupportedOperationException e) {
-            verifyException(e, "not of type ObjectNode");
+            verifyException(e, "not of type", "ObjectNode");
         }
         // also: should fail of we already have non-Array property
         ObjectNode root2 = MAPPER.createObjectNode();
@@ -371,16 +375,22 @@ public class ObjectNodeTest
     // [databind#237] (databind): support DeserializationFeature#FAIL_ON_READING_DUP_TREE_KEY
     public void testFailOnDupKeys() throws Exception
     {
-        final String DUP_JSON = "{ \"a\":1, \"a\":2 }";
-        
+        VPackBuilder builder = new VPackBuilder();
+        builder.add(ValueType.OBJECT);
+        builder.add("a", 1);
+        builder.add("a", 2);
+        builder.close();
+
+        byte[] dupJsonBytes = builder.slice().toByteArray();
+
         // first: verify defaults:
         assertFalse(MAPPER.isEnabled(DeserializationFeature.FAIL_ON_READING_DUP_TREE_KEY));
-        ObjectNode root = (ObjectNode) MAPPER.readTree(com.fasterxml.jackson.VPackUtils.toBytes(DUP_JSON));
+        ObjectNode root = (ObjectNode) MAPPER.readTree(dupJsonBytes);
         assertEquals(2, root.path("a").asInt());
         
         // and then enable checks:
         try {
-            MAPPER.reader(DeserializationFeature.FAIL_ON_READING_DUP_TREE_KEY).readTree(com.fasterxml.jackson.VPackUtils.toBytes(DUP_JSON));
+            MAPPER.reader(DeserializationFeature.FAIL_ON_READING_DUP_TREE_KEY).readTree(dupJsonBytes);
             fail("Should have thrown exception!");
         } catch (JsonMappingException e) {
             verifyException(e, "duplicate field 'a'");
@@ -389,13 +399,29 @@ public class ObjectNodeTest
 
     public void testFailOnDupNestedKeys() throws Exception
     {
-        final String DOC = aposToQuotes(
-                "{'node' : { 'data' : [ 1, 2, { 'a':3 }, { 'foo' : 1, 'bar' : 2, 'foo': 3}]}}"
-        );
+        VPackBuilder builder = new VPackBuilder();
+        builder.add(ValueType.OBJECT);
+        builder.add("node", ValueType.OBJECT);
+        builder.add("data", ValueType.ARRAY);
+        builder.add(1);
+        builder.add(2);
+        builder.add(ValueType.OBJECT);
+        builder.add("a", 3);
+        builder.close();
+        builder.add(ValueType.OBJECT);
+        builder.add("foo", 1);
+        builder.add("bar", 2);
+        builder.add("foo", 3);
+        builder.close();
+        builder.close();
+        builder.close();
+        builder.close();
+        byte[] bytes = builder.slice().toByteArray();
+
         try {
             MAPPER.readerFor(ObNodeWrapper.class)
                 .with(DeserializationFeature.FAIL_ON_READING_DUP_TREE_KEY)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes(DOC));
+                .readValue(bytes);
             fail("Should have thrown exception!");
         } catch (JsonMappingException e) {
             verifyException(e, "duplicate field 'foo'");
@@ -458,6 +484,8 @@ public class ObjectNodeTest
 
     public void testSimpleMismatch() throws Exception
     {
+        if(!isAtLeastVersion(2, 12)) return;
+
         ObjectMapper mapper = objectMapper();
         try {
             mapper.readValue("[ 1, 2, 3 ]", ObjectNode.class);

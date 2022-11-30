@@ -13,6 +13,8 @@ import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.exc.MismatchedInputException;
 import com.fasterxml.jackson.dataformat.velocypack.TestVelocypackMapper;
 
+import static com.fasterxml.jackson.TestUtils.isAtLeastVersion;
+
 public class JDKNumberDeserTest extends BaseMapTest
 {
     /*
@@ -101,6 +103,8 @@ public class JDKNumberDeserTest extends BaseMapTest
 
     public void testTextualNullAsNumber() throws Exception
     {
+        if(!isAtLeastVersion(2, 12)) return;
+
         final String NULL_JSON = quote("null");
         assertNull(MAPPER.readValue(NULL_JSON, Byte.class));
         assertNull(MAPPER.readValue(NULL_JSON, Short.class));

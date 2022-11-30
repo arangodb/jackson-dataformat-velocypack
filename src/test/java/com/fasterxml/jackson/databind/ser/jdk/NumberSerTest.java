@@ -86,8 +86,9 @@ public class NumberSerTest extends BaseMapTest
         double[] values = new double[] {
             0.0, 1.0, 0.1, -37.01, 999.99, 0.3, 33.3, Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY
         };
+        ObjectMapper jsonMapper = new ObjectMapper();
         for (double d : values) {
-            String expected = String.valueOf(d);
+            String expected = jsonMapper.writeValueAsString(d);
             assertEquals(expected, com.fasterxml.jackson.VPackUtils.toJson( MAPPER.writeValueAsBytes(Double.valueOf(d))));
         }
     }

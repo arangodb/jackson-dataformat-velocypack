@@ -2,6 +2,7 @@ package com.fasterxml.jackson.databind.exc;
 
 import java.io.*;
 
+import com.arangodb.velocypack.VPackBuilder;
 import com.fasterxml.jackson.core.*;
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.dataformat.velocypack.TestVelocypackMapper;
@@ -61,7 +62,7 @@ public class DeserExceptionTypeTest
     public void testExceptionWithEmpty() throws Exception
     {
         try {
-            Object result = MAPPER.readValue("    ", Object.class);
+            Object result = MAPPER.readValue(new VPackBuilder().slice().toByteArray(), Object.class);
             fail("Expected an exception, but got result value: "+result);
         } catch (Exception e) {
             verifyException(e, MismatchedInputException.class, "No content");

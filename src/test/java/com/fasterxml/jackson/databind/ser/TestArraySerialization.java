@@ -84,7 +84,7 @@ public class TestArraySerialization
 
     public void testDoubleArray() throws Exception {
         String json = com.fasterxml.jackson.VPackUtils.toJson(MAPPER.writeValueAsBytes(new double[]{1.01, 2.0, -7, Double.NaN, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY}));
-        assertEquals("[1.01,2.0,-7.0,NaN,-Infinity,Infinity]", json);
+        assertEquals("[1.01,2.0,-7.0,\"NaN\",\"-Infinity\",\"Infinity\"]", json);
     }
 
     public void testFloatArray() throws Exception {

@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.exc.MismatchedInputException;
 import com.fasterxml.jackson.dataformat.velocypack.TestVelocypackMapper;
 
+import static com.fasterxml.jackson.TestUtils.isAtLeastVersion;
 import static java.util.Arrays.asList;
 
 /**
@@ -44,7 +45,7 @@ public class ArrayNodeTest
         assertTrue(n.hasNonNull(0));
         assertFalse(n.has(1));
         assertFalse(n.hasNonNull(1));
-        
+
         // add null node too
         n.add((JsonNode) null);
         assertEquals(2, n.size());
@@ -179,7 +180,7 @@ public class ArrayNodeTest
         array.add((String) null);
 
         assertEquals(10, array.size());
-        
+
         for (JsonNode node : array) {
             assertTrue(node.isNull());
         }
@@ -221,12 +222,12 @@ public class ArrayNodeTest
         array.insert(1, (String) null);
 
         assertEquals(10, array.size());
-        
+
         for (JsonNode node : array) {
             assertTrue(node.isNull());
         }
     }
-    
+
     public void testNullChecking()
     {
         ArrayNode a1 = JsonNodeFactory.instance.arrayNode();
@@ -249,7 +250,7 @@ public class ArrayNodeTest
         src.add("element");
         dest.addAll(src);
     }
-    
+
     public void testParser() throws Exception
     {
         ArrayNode n = new ArrayNode(JsonNodeFactory.instance);
@@ -352,6 +353,7 @@ public class ArrayNodeTest
 
     public void testSimpleMismatch() throws Exception
     {
+        if(!isAtLeastVersion(2, 12)) return;
         ObjectMapper mapper = objectMapper();
         try {
             mapper.readValue(" 123 ", ArrayNode.class);

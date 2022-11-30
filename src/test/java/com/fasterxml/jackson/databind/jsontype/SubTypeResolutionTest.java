@@ -8,6 +8,8 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
 import com.fasterxml.jackson.databind.*;
 
+import static com.fasterxml.jackson.TestUtils.isAtLeastVersion;
+
 /**
  * Originally test for [databind#1964], wherein slightly incompatible type hierarchy,
  * where `Map` key is downcast from `String` to `Object` (via use of "raw"
@@ -128,6 +130,8 @@ public class SubTypeResolutionTest extends BaseMapTest
 
     public void testSpecializeIncompatibleRawType() throws Exception
     {
+        if(!isAtLeastVersion(2, 12)) return;
+
         String json = com.fasterxml.jackson.VPackUtils.toJson( MAPPER.writeValueAsBytes(new Foo()));
         assertNotNull(json);
         assertEquals(aposToQuotes("{'either':{'@type':'right'}}"), json);
