@@ -4,7 +4,7 @@
 
     <groupId>com.arangodb</groupId>
     <artifactId>jackson-dataformat-velocypack_2.6</artifactId>
-    <version>0.0.1</version>
+    <version>0.1.0</version>
     <inceptionYear>2017</inceptionYear>
     <packaging>jar</packaging>
 
@@ -209,7 +209,7 @@
         <dependency>
             <groupId>com.arangodb</groupId>
             <artifactId>velocypack</artifactId>
-            <version>2.5.2</version>
+            <version>3.0.0</version>
         </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>
