@@ -6,7 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 ## [Unreleased]
 
-- explicit JPMS module name `com.arangodb.jackson.dataformat.velocypack`
+- explicit JPMS module name `com.arangodb.jackson.dataformat.velocypack` (DE-445)
+- set dependency on `com.arangodb:velocypack` as `provided` (#17)
 
 ## [3.1.0] - 2022-05-17
 

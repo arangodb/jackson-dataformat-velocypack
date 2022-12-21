@@ -242,6 +242,7 @@
             <groupId>com.arangodb</groupId>
             <artifactId>velocypack</artifactId>
             <version>3.0.0</version>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>
