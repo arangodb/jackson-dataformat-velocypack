@@ -10,9 +10,21 @@ import com.fasterxml.jackson.core.json.PackageVersion;
 
 import java.io.*;
 import java.net.URL;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class VPackFactory extends JsonFactory {
     private static final long serialVersionUID = 1;
+
+    static {
+        Version version = com.fasterxml.jackson.databind.cfg.PackageVersion.VERSION;
+        int major = version.getMajorVersion();
+        int minor = version.getMinorVersion();
+        if (major != 2 || minor < 10 || minor > 14) {
+            Logger.getLogger(VPackFactory.class.getName())
+                    .log(Level.WARNING, "Unsupported version of jackson-databind: {0}", version);
+        }
+    }
 
     /*
     /**********************************************************

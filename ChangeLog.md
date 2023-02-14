@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 ## [Unreleased]
 
+- export SPI for `JsonFactory` and `ObjectCodec`
 - explicit JPMS module name `com.arangodb.jackson.dataformat.velocypack` (DE-445)
 - set dependency on `com.arangodb:velocypack` as `provided` (#17)
 
