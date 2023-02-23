@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 ## [Unreleased]
 
+## [4.0.1] - 2023-02-23
+
+- fixed native image SPI config (DE-456)
+
 ## [4.0.0] - 2023-02-16
 
 - export SPI for `JsonFactory` and `ObjectCodec`
