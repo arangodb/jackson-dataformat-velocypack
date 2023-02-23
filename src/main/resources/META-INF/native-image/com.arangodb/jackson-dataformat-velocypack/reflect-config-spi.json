@@ -1,0 +1,20 @@
+[
+  {
+    "name": "com.arangodb.jackson.dataformat.velocypack.VPackFactory",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.arangodb.jackson.dataformat.velocypack.VPackMapper",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  }
+]

@@ -1,0 +1,16 @@
+{
+  "resources": {
+    "includes": [
+      {
+        "pattern": "META-INF/services/com.fasterxml.jackson.core.JsonFactory"
+      },
+      {
+        "pattern": "META-INF/services/com.fasterxml.jackson.core.ObjectCodec"
+      },
+      {
+        "pattern": "META-INF/services/com.fasterxml.jackson.core.TokenStreamFactory"
+      }
+    ]
+  },
+  "bundles": []
+}
