@@ -1,12 +1,5 @@
 package com.arangodb.jackson.dataformat.velocypack;
 
-import com.arangodb.velocypack.VPackBuilder;
-import com.arangodb.velocypack.VPackSlice;
-import com.arangodb.velocypack.ValueType;
-import com.arangodb.velocypack.exception.VPackBuilderException;
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -27,7 +20,6 @@ import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 import java.io.IOException;
-import java.io.StringWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -45,48 +37,30 @@ public class Bench {
     @State(Scope.Benchmark)
     public static class Data {
 
-        public final String str;
         public final byte[] vpack;
-        public final VPackSlice koko = buildKoko();
+        public final byte[] json;
+
+        public final JsonNode jsonNode;
+        public final JsonNode vpackNode;
+
         public final ObjectMapper jsonMapper = new ObjectMapper();
         public final ObjectMapper vpackMapper = new VPackMapper();
 
         public Data() {
             try {
-                this.str = new String(
-                    Files.readAllBytes(
-                        Paths.get(this.getClass().getResource("/api-docs.json").toURI())
-                    )
-                );
+                String str = new String(Files.readAllBytes(
+                        Paths.get(Bench.class.getResource("/api-docs.json").toURI())));
+                JsonNode jn = jsonMapper.readTree(str);
+
+                vpack = vpackMapper.writeValueAsBytes(jn);
+                json = jsonMapper.writeValueAsBytes(jn);
+
+                jsonNode = jsonMapper.readTree(json);
+                vpackNode = vpackMapper.readTree(vpack);
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
-
-            try {
-                JsonNode vpackNode = jsonMapper.readTree(str);
-                vpack = vpackMapper.writeValueAsBytes(vpackNode);
-            } catch (JsonProcessingException e) {
-                throw new RuntimeException(e);
-            }
-
         }
-
-        public VPackSlice buildKoko() {
-            VPackBuilder builder = new VPackBuilder();
-            builder.add(ValueType.OBJECT);
-            builder.add("name", "Koko");
-            builder.add("species", "Gorilla");
-            builder.add("language", "GSL");
-            builder.add("knownSigns", 1000);
-            builder.add("knownEnglishWords", 2000);
-            builder.add("age", 46);
-            builder.add("hairy", true);
-            builder.add("iq", 80);
-            builder.add("pet", "All Ball");
-            builder.close();
-            return builder.slice();
-        }
-
     }
 
     public static void main(String[] args) throws RunnerException, IOException {
@@ -101,68 +75,64 @@ public class Bench {
         }
 
         Options opt = new OptionsBuilder()
-            .include(Bench.class.getSimpleName())
-            .addProfiler(GCProfiler.class)
-            .jvmArgs(jvmArgs.toArray(new String[0]))
-            .resultFormat(ResultFormatType.JSON)
-            .result(target.resolve(datetime + ".json").toString())
-            .build();
+                .include(Bench.class.getSimpleName())
+                .addProfiler(GCProfiler.class)
+                .jvmArgs(jvmArgs.toArray(new String[0]))
+                .resultFormat(ResultFormatType.JSON)
+                .result(target.resolve(datetime + ".json").toString())
+                .build();
 
         new Runner(opt).run();
     }
 
-
-    @OutputTimeUnit(TimeUnit.NANOSECONDS)
     @Benchmark
-    public void builder(Data data, Blackhole bh) {
-        bh.consume(data.buildKoko());
-    }
-
-    @OutputTimeUnit(TimeUnit.NANOSECONDS)
-    @Benchmark
-    public void sliceGet(Data data, Blackhole bh) {
-        VPackSlice koko = data.koko;
-        bh.consume(koko.get("name"));
-        bh.consume(koko.get("species"));
-        bh.consume(koko.get("language"));
-        bh.consume(koko.get("knownSigns"));
-        bh.consume(koko.get("knownEnglishWords"));
-        bh.consume(koko.get("age"));
-        bh.consume(koko.get("hairy"));
-        bh.consume(koko.get("iq"));
-        bh.consume(koko.get("pet"));
+    public void readTreeJson(Data data, Blackhole bh) throws IOException {
+        readTree(data.json, bh, data.jsonMapper);
     }
 
     @Benchmark
-    public void fromJsonJackson(Data data, Blackhole bh) throws JsonProcessingException {
-        JsonNode vpackNode = data.jsonMapper.readTree(data.str);
-        byte[] vpack = data.vpackMapper.writeValueAsBytes(vpackNode);
-        bh.consume(vpack);
+    public void readTreeVPack(Data data, Blackhole bh) throws IOException {
+        readTree(data.vpack, bh, data.vpackMapper);
+    }
+
+    private void readTree(byte[] bytes, Blackhole bh, ObjectMapper mapper) throws IOException {
+        bh.consume(
+                mapper.readTree(bytes)
+        );
     }
 
     @Benchmark
-    public void toJsonJackson(Data data, Blackhole bh) throws IOException {
-        JsonNode vpackNode = data.vpackMapper.readTree(data.vpack);
-        String str = data.jsonMapper.writeValueAsString(vpackNode);
-        bh.consume(str);
+    public void writeValueAsBytesJson(Data data, Blackhole bh) throws IOException {
+        writeValueAsBytes(data.jsonNode, bh, data.jsonMapper);
     }
 
     @Benchmark
-    public void toJsonStringJackson(Data data, Blackhole bh) {
-        String json = toJSONStringJackson(data.str);
-        bh.consume(json);
+    public void writeValueAsBytesVPack(Data data, Blackhole bh) throws IOException {
+        writeValueAsBytes(data.vpackNode, bh, data.vpackMapper);
     }
 
-    private static String toJSONStringJackson(final String text) {
-        final StringWriter writer = new StringWriter();
-        try {
-            final JsonGenerator generator = new JsonFactory().createGenerator(writer);
-            generator.writeString(text);
-            generator.close();
-        } catch (final IOException e) {
-            throw new VPackBuilderException(e);
-        }
-        return writer.toString();
+    private void writeValueAsBytes(JsonNode node, Blackhole bh, ObjectMapper mapper) throws IOException {
+        bh.consume(
+                mapper.writeValueAsBytes(node)
+        );
+    }
+
+    @Benchmark
+    public void roundTripJson(Data data, Blackhole bh) throws IOException {
+        roundTrip(data.json, bh, data.jsonMapper);
+    }
+
+    @Benchmark
+    public void roundTripVPack(Data data, Blackhole bh) throws IOException {
+        roundTrip(data.vpack, bh, data.vpackMapper);
+    }
+
+    private void roundTrip(byte[] bytes, Blackhole bh, ObjectMapper mapper) throws IOException {
+        bh.consume(
+                mapper.writeValueAsBytes(
+                        mapper.readTree(bytes)
+                )
+        );
     }
 
 }
