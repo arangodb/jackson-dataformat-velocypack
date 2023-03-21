@@ -2,6 +2,7 @@ package com.arangodb.jackson.dataformat.velocypack;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.smile.databind.SmileMapper;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -29,7 +30,7 @@ import java.util.Date;
 import java.util.concurrent.TimeUnit;
 
 @Warmup(iterations = 8, time = 1)
-@Measurement(iterations = 30, time = 1)
+@Measurement(iterations = 10, time = 1)
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 @Fork(1)
@@ -39,12 +40,15 @@ public class Bench {
 
         public final byte[] vpack;
         public final byte[] json;
+        public final byte[] smile;
 
         public final JsonNode jsonNode;
         public final JsonNode vpackNode;
+        public final JsonNode smileNode;
 
         public final ObjectMapper jsonMapper = new ObjectMapper();
         public final ObjectMapper vpackMapper = new VPackMapper();
+        public final ObjectMapper smileMapper = new SmileMapper();
 
         public Data() {
             try {
@@ -54,9 +58,11 @@ public class Bench {
 
                 vpack = vpackMapper.writeValueAsBytes(jn);
                 json = jsonMapper.writeValueAsBytes(jn);
+                smile = smileMapper.writeValueAsBytes(jn);
 
                 jsonNode = jsonMapper.readTree(json);
                 vpackNode = vpackMapper.readTree(vpack);
+                smileNode = smileMapper.readTree(smile);
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
@@ -95,6 +101,11 @@ public class Bench {
         readTree(data.vpack, bh, data.vpackMapper);
     }
 
+    @Benchmark
+    public void readTreeSmile(Data data, Blackhole bh) throws IOException {
+        readTree(data.smile, bh, data.smileMapper);
+    }
+
     private void readTree(byte[] bytes, Blackhole bh, ObjectMapper mapper) throws IOException {
         bh.consume(
                 mapper.readTree(bytes)
@@ -111,6 +122,11 @@ public class Bench {
         writeValueAsBytes(data.vpackNode, bh, data.vpackMapper);
     }
 
+    @Benchmark
+    public void writeValueAsBytesSmile(Data data, Blackhole bh) throws IOException {
+        writeValueAsBytes(data.smileNode, bh, data.smileMapper);
+    }
+
     private void writeValueAsBytes(JsonNode node, Blackhole bh, ObjectMapper mapper) throws IOException {
         bh.consume(
                 mapper.writeValueAsBytes(node)
@@ -125,6 +141,11 @@ public class Bench {
     @Benchmark
     public void roundTripVPack(Data data, Blackhole bh) throws IOException {
         roundTrip(data.vpack, bh, data.vpackMapper);
+    }
+
+    @Benchmark
+    public void roundTripSmile(Data data, Blackhole bh) throws IOException {
+        roundTrip(data.smile, bh, data.smileMapper);
     }
 
     private void roundTrip(byte[] bytes, Blackhole bh, ObjectMapper mapper) throws IOException {
