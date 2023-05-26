@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 ## [Unreleased]
 
+## [4.1.0] - 2023-05-26
+
+- added support to Jackson 2.15
+- changed default Jackson dependencies versions to 2.15
+
 ## [4.0.1] - 2023-02-23
 
 - fixed native image SPI config (DE-456)
