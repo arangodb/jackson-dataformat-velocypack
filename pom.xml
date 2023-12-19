@@ -25,7 +25,7 @@
 
         <!-- javadoc-->
         <javadoc.opts/>
-        <kotlin.version>1.6.21</kotlin.version>
+        <kotlin.version>1.9.21</kotlin.version>
         <surefire.argLine/>
         <jackson.version>2.16.0</jackson.version>
     </properties>
