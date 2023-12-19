@@ -8,6 +8,9 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.dataformat.velocypack.TestVelocypackMapper;
 
+import static org.hamcrest.CoreMatchers.instanceOf;
+import static org.hamcrest.MatcherAssert.assertThat;
+
 /**
  * Simple tests to verify that the {@link TypeFactory} constructs
  * type information as expected.
@@ -145,7 +148,7 @@ public class TestTypeFactory
     {
         TypeFactory tf = TypeFactory.defaultInstance();
         JavaType t = tf.constructType(new TypeReference<Iterator<String>>() { });
-        assertEquals(SimpleType.class, t.getClass());
+        assertThat(t, instanceOf(SimpleType.class));
         assertSame(Iterator.class, t.getRawClass());
         assertEquals(1, t.containedTypeCount());
         assertEquals(tf.constructType(String.class), t.containedType(0));

@@ -19,7 +19,7 @@ public class VPackFactory extends JsonFactory {
         Version version = com.fasterxml.jackson.databind.cfg.PackageVersion.VERSION;
         int major = version.getMajorVersion();
         int minor = version.getMinorVersion();
-        if (major != 2 || minor < 10 || minor > 15) {
+        if (major != 2 || minor < 10 || minor > 16) {
             LoggerFactory.getLogger(VPackFactory.class)
                     .warn("Unsupported version of jackson-databind: {}", version);
         }

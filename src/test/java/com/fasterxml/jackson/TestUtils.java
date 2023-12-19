@@ -17,4 +17,8 @@ public final class TestUtils {
         return reqMinor <= minor;
     }
 
+    public static boolean isLessThanVersion(int reqMajor, int reqMinor) {
+        return !isAtLeastVersion(reqMajor, reqMinor);
+    }
+
 }

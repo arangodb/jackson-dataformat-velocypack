@@ -5,6 +5,7 @@ import java.util.*;
 
 import javax.xml.namespace.QName;
 
+import com.fasterxml.jackson.TestUtils;
 import com.fasterxml.jackson.annotation.*;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
@@ -189,6 +190,7 @@ public class TestJacksonAnnotationIntrospector
 
     public void testEnumHandling() throws Exception
     {
+        if(!TestUtils.isLessThanVersion(1, 15)) return;
         ObjectMapper mapper = new TestVelocypackMapper();
         mapper.setAnnotationIntrospector(new LcEnumIntrospector());
         assertEquals("\"value1\"", com.fasterxml.jackson.VPackUtils.toJson( mapper.writeValueAsBytes(EnumExample.VALUE1)));

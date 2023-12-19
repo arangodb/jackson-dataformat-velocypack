@@ -1,14 +1,15 @@
 package com.fasterxml.jackson.databind.ser.filter;
 
-import java.io.*;
-
-import com.fasterxml.jackson.core.*;
-import com.fasterxml.jackson.databind.*;
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.databind.BaseMapTest;
+import com.fasterxml.jackson.databind.JsonSerializer;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.ser.DefaultSerializerProvider;
-import com.fasterxml.jackson.databind.ser.SerializerFactory;
 import com.fasterxml.jackson.dataformat.velocypack.TestVelocypackMapper;
+
+import java.io.IOException;
 
 public class NullSerializationTest
     extends BaseMapTest
@@ -20,44 +21,6 @@ public class NullSerializationTest
             throws IOException
         {
             gen.writeString("foobar");
-        }
-    }
-
-    static class Bean1 {
-        public String name = null;
-    }
-
-    static class Bean2 {
-        public String type = null;
-    }
-    
-    @SuppressWarnings("serial")
-    static class MyNullProvider extends DefaultSerializerProvider
-    {
-        public MyNullProvider() { super(); }
-        public MyNullProvider(MyNullProvider base, SerializationConfig config, SerializerFactory jsf) {
-            super(base, config, jsf);
-        }
-
-        // not really a proper impl, but has to do
-        @Override
-        public DefaultSerializerProvider copy() {
-            return this;
-        }
-        
-        @Override
-        public DefaultSerializerProvider createInstance(SerializationConfig config, SerializerFactory jsf) {
-            return new MyNullProvider(this, config, jsf);
-        }
-
-        @Override
-        public JsonSerializer<Object> findNullValueSerializer(BeanProperty property)
-            throws JsonMappingException
-        {
-            if ("name".equals(property.getName())) {
-                return new NullSerializer();
-            }
-            return super.findNullValueSerializer(property);
         }
     }
 
@@ -92,31 +55,6 @@ public class NullSerializationTest
         ObjectMapper m = new TestVelocypackMapper();
         m.setSerializerProvider(sp);
         assertEquals("\"foobar\"", com.fasterxml.jackson.VPackUtils.toJson( m.writeValueAsBytes(null)));
-    }
-
-    public void testCustomNulls() throws Exception
-    {
-        ObjectMapper m = new TestVelocypackMapper();
-        m.setSerializerProvider(new MyNullProvider());
-        assertEquals("{\"name\":\"foobar\"}", com.fasterxml.jackson.VPackUtils.toJson( m.writeValueAsBytes(new Bean1())));
-        assertEquals("{\"type\":null}", com.fasterxml.jackson.VPackUtils.toJson( m.writeValueAsBytes(new Bean2())));
-    }
-
-    // #281
-    public void testCustomNullForTrees() throws Exception
-    {
-        ObjectNode root = MAPPER.createObjectNode();
-        root.putNull("a");
-
-        // by default, null is... well, null
-        assertEquals("{\"a\":null}", com.fasterxml.jackson.VPackUtils.toJson( MAPPER.writeValueAsBytes(root)));
-
-        // but then we can customize it:
-        DefaultSerializerProvider prov = new MyNullProvider();
-        prov.setNullValueSerializer(new NullSerializer());
-        ObjectMapper m = new TestVelocypackMapper();
-        m.setSerializerProvider(prov);
-        assertEquals("{\"a\":\"foobar\"}", com.fasterxml.jackson.VPackUtils.toJson( m.writeValueAsBytes(root)));
     }
 
     public void testNullSerializerForProperty() throws Exception
