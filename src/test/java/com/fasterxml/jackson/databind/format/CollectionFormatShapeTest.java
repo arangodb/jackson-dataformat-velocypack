@@ -40,7 +40,7 @@ public class CollectionFormatShapeTest extends BaseMapTest
     /**********************************************************
      */
 
-    private final static ObjectMapper MAPPER = newJsonMapper();    
+    private final static ObjectMapper MAPPER = newJsonMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);;
 
     public void testListAsObjectRoundtrip() throws Exception
     {
@@ -48,12 +48,18 @@ public class CollectionFormatShapeTest extends BaseMapTest
         CollectionAsPOJO list = new CollectionAsPOJO();
         list.add("a");
         list.add("b");
-        String json = com.fasterxml.jackson.VPackUtils.toJson( MAPPER.writeValueAsBytes(list));
-        assertEquals("{\"size\":2,\"values\":[\"a\",\"b\"]}", json);
+        byte[] bytes = MAPPER.writeValueAsBytes(list);
+
+        // 2023-10-17, tatu: JDK 21 introduced new properties, so check
+        //  just that we have certain things, ignore extra
+        JsonNode doc = MAPPER.readTree(bytes);
+        //assertEquals("{\"size\":2,\"values\":[\"a\",\"b\"]}", json);
+
+        assertEquals(2, doc.path("size").intValue());
+        assertEquals("[\"a\",\"b\"]", doc.path("values").toString());
 
         // and then bring it back!
-        CollectionAsPOJO result = MAPPER.readValue(json, CollectionAsPOJO.class);
+        CollectionAsPOJO result = MAPPER.readValue(bytes, CollectionAsPOJO.class);
         assertEquals(2, result.size());
     }
-
 }
