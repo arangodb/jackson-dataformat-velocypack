@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 ## [Unreleased]
 
+## [4.3.0] - 2024-04-22
+
+- added support to Jackson 2.17
+- changed default Jackson dependencies versions to 2.17
+
 ## [4.2.0] - 2023-12-19
 
 - added support to Jackson 2.16
