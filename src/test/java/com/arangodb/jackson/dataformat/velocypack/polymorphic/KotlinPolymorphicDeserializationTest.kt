@@ -48,7 +48,8 @@ class KotlinPolymorphicDeserializationTest {
         )
 
         val mapper = VPackMapper().apply {
-            registerModule(KotlinModule())
+            // since Jackson 2.17 KotlinModule default constructor is hidden (DeprecationLevel = HIDDEN)
+            registerModule(KotlinModule::class.java.getConstructor().newInstance())
         }
 
         val bytes = mapper.writeValueAsBytes(container)
