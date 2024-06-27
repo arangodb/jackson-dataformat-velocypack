@@ -1,10 +1,5 @@
 version: 2.1
 
-parameters:
-  docker-img:
-    type: 'string'
-    default: ''
-
 commands:
   timeout:
     parameters:
