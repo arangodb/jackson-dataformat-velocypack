@@ -19,20 +19,6 @@ commands:
             sleep <<parameters.duration>>
             echo "Cancelling job as <<parameters.duration>> has elapsed"
             curl --fail -X POST -H "Circle-Token: ${CIRCLE_TOKEN}" "https://circleci.com/api/v1.1/project/github/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}/${CIRCLE_BUILD_NUM}/cancel"
-  mvn-info:
-    parameters:
-      working_directory:
-        type: 'string'
-        default: '.'
-    steps:
-      - run:
-          name: mvn version
-          working_directory: <<parameters.working_directory>>
-          command: mvn --version
-      - run:
-          name: mvn dependency:tree
-          working_directory: <<parameters.working_directory>>
-          command: mvn dependency:tree
   report:
     parameters:
       working_directory:
@@ -106,7 +92,12 @@ jobs:
       - checkout
       - setup_remote_docker
       - load_cache
-      - mvn-info
+      - run:
+          name: mvn version
+          command: mvn --version
+      - run:
+          name: mvn dependency:tree
+          command: mvn dependency:tree <<parameters.args>>
       - run:
           name: Test
           command: mvn test <<parameters.args>>
@@ -119,7 +110,6 @@ jobs:
       - timeout
       - checkout
       - load_cache
-      - mvn-info
       - config_gpg
       - deploy
       - store_cache
@@ -130,7 +120,6 @@ jobs:
       - timeout
       - checkout
       - load_cache
-      - mvn-info
       - config_gpg
       - deploy
       - release
