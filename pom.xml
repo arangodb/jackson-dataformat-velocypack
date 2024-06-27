@@ -55,15 +55,6 @@
 
     <profiles>
         <profile>
-            <id>doclint-java8-disable</id>
-            <activation>
-                <jdk>[1.8,)</jdk>
-            </activation>
-            <properties>
-                <javadoc.opts>-Xdoclint:none</javadoc.opts>
-            </properties>
-        </profile>
-        <profile>
             <id>open-modules</id>
             <activation>
                 <jdk>[17,)</jdk>
@@ -184,10 +175,9 @@
             </plugin>
 
             <plugin>
-                <inherited>true</inherited>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-enforcer-plugin</artifactId>
-                <version>3.4.1</version>
+                <version>3.5.0</version>
                 <executions>
                     <execution>
                         <id>enforce</id>
@@ -196,8 +186,9 @@
                         </goals>
                         <configuration>
                             <rules>
+                                <requireExplicitDependencyScope/>
                                 <requireMavenVersion>
-                                    <version>3.0.5</version>
+                                    <version>3.6</version>
                                 </requireMavenVersion>
                                 <dependencyConvergence/>
                             </rules>
@@ -248,23 +239,27 @@
             <groupId>com.arangodb</groupId>
             <artifactId>velocypack</artifactId>
             <version>3.0.0</version>
-            <scope>provided</scope>
+            <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
+            <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-core</artifactId>
+            <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
+            <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
+            <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>ch.qos.logback</groupId>
