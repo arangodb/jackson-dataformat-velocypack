@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 ## [Unreleased]
 
+## [4.3.1] - 2024-09-20
+
+- updated dependency `com.arangodb:velocypack:3.1.0`
+
 ## [4.3.0] - 2024-04-22
 
 - added support to Jackson 2.17
