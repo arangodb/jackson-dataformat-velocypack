@@ -151,12 +151,12 @@ public class VPackParser extends ParserMinimalBase {
 
     @Override
     public JsonLocation getTokenLocation() {
-        return new JsonLocation(ioContext.contentReference(), currentValue.getStart(), -1L, -1, -1);
+        return new JsonLocation(ioContext.getSourceReference(), currentValue.getStart(), -1L, -1, -1);
     }
 
     @Override
     public JsonLocation getCurrentLocation() {
-        return new JsonLocation(ioContext.contentReference(), currentValue.getStart() + currentValue.getByteSize() + 1, -1L, -1, -1);
+        return new JsonLocation(ioContext.getSourceReference(), currentValue.getStart() + currentValue.getByteSize() + 1, -1L, -1, -1);
     }
 
     /**
