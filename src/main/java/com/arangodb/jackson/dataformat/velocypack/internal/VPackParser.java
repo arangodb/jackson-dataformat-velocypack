@@ -151,12 +151,12 @@ public class VPackParser extends ParserMinimalBase {
 
     @Override
     public JsonLocation getTokenLocation() {
-        return null;
+        return new JsonLocation(ioContext.contentReference(), currentValue.getStart(), -1L, -1, -1);
     }
 
     @Override
     public JsonLocation getCurrentLocation() {
-        return null;
+        return new JsonLocation(ioContext.contentReference(), currentValue.getStart() + currentValue.getByteSize() + 1, -1L, -1, -1);
     }
 
     /**
@@ -269,32 +269,32 @@ public class VPackParser extends ParserMinimalBase {
     private JsonToken getToken(final ValueType type, final VPackSlice value) {
         final JsonToken token;
         switch (type) {
-        case OBJECT:
-            token = JsonToken.START_OBJECT;
-            break;
-        case ARRAY:
-            token = JsonToken.START_ARRAY;
-            break;
-        case STRING:
-            token = JsonToken.VALUE_STRING;
-            break;
-        case BOOL:
-            token = value.isTrue() ? JsonToken.VALUE_TRUE : JsonToken.VALUE_FALSE;
-            break;
-        case DOUBLE:
-            token = JsonToken.VALUE_NUMBER_FLOAT;
-            break;
-        case INT:
-        case SMALLINT:
-        case UINT:
-            token = JsonToken.VALUE_NUMBER_INT;
-            break;
-        case NULL:
-            token = JsonToken.VALUE_NULL;
-            break;
-        default:
-            token = null;
-            break;
+            case OBJECT:
+                token = JsonToken.START_OBJECT;
+                break;
+            case ARRAY:
+                token = JsonToken.START_ARRAY;
+                break;
+            case STRING:
+                token = JsonToken.VALUE_STRING;
+                break;
+            case BOOL:
+                token = value.isTrue() ? JsonToken.VALUE_TRUE : JsonToken.VALUE_FALSE;
+                break;
+            case DOUBLE:
+                token = JsonToken.VALUE_NUMBER_FLOAT;
+                break;
+            case INT:
+            case SMALLINT:
+            case UINT:
+                token = JsonToken.VALUE_NUMBER_INT;
+                break;
+            case NULL:
+                token = JsonToken.VALUE_NULL;
+                break;
+            default:
+                token = null;
+                break;
         }
         return token;
     }
@@ -377,21 +377,21 @@ public class VPackParser extends ParserMinimalBase {
     @Override
     public Number getNumberValue() {
         switch (currentValue.getType()) {
-        case SMALLINT:
-            return currentValue.getAsInt();
-        case INT:
-            long longValue = currentValue.getAsLong();
-            if (longValue < Integer.MIN_VALUE || longValue > Integer.MAX_VALUE) {
-                return longValue;
-            } else {
+            case SMALLINT:
                 return currentValue.getAsInt();
-            }
-        case UINT:
-            return currentValue.getAsBigInteger();
-        case DOUBLE:
-            return currentValue.getAsDouble();
-        default:
-            throw new UnsupportedOperationException("Cannot get number from " + currentValue.getType());
+            case INT:
+                long longValue = currentValue.getAsLong();
+                if (longValue < Integer.MIN_VALUE || longValue > Integer.MAX_VALUE) {
+                    return longValue;
+                } else {
+                    return currentValue.getAsInt();
+                }
+            case UINT:
+                return currentValue.getAsBigInteger();
+            case DOUBLE:
+                return currentValue.getAsDouble();
+            default:
+                throw new UnsupportedOperationException("Cannot get number from " + currentValue.getType());
         }
     }
 
@@ -399,26 +399,26 @@ public class VPackParser extends ParserMinimalBase {
     public NumberType getNumberType() {
         final NumberType type;
         switch (currentValue.getType()) {
-        case SMALLINT:
-            type = NumberType.INT;
-            break;
-        case INT:
-            long longValue = currentValue.getAsLong();
-            if (longValue < Integer.MIN_VALUE || longValue > Integer.MAX_VALUE) {
-                type = NumberType.LONG;
-            } else {
+            case SMALLINT:
                 type = NumberType.INT;
-            }
-            break;
-        case UINT:
-            type = NumberType.BIG_INTEGER;
-            break;
-        case DOUBLE:
-            type = NumberType.DOUBLE;
-            break;
-        default:
-            type = null;
-            break;
+                break;
+            case INT:
+                long longValue = currentValue.getAsLong();
+                if (longValue < Integer.MIN_VALUE || longValue > Integer.MAX_VALUE) {
+                    type = NumberType.LONG;
+                } else {
+                    type = NumberType.INT;
+                }
+                break;
+            case UINT:
+                type = NumberType.BIG_INTEGER;
+                break;
+            case DOUBLE:
+                type = NumberType.DOUBLE;
+                break;
+            default:
+                type = null;
+                break;
         }
         return type;
     }
