@@ -116,7 +116,7 @@ public class EnumMapDeserializationTest extends BaseMapTest
                 .with(DeserializationFeature.READ_ENUMS_USING_TO_STRING);
         EnumMap<LowerCaseEnum,String> value = r.forType(
             new TypeReference<EnumMap<LowerCaseEnum,String>>() { })
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes("{\"a\":\"value\"}"));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack("{\"a\":\"value\"}"));
         assertEquals("value", value.get(LowerCaseEnum.A));
     }
 
@@ -209,14 +209,14 @@ public class EnumMapDeserializationTest extends BaseMapTest
         EnumMap<TestEnumWithDefault,String> value = MAPPER
                 .readerFor(new TypeReference<EnumMap<TestEnumWithDefault,String>>() { })
                 .with(DeserializationFeature.READ_UNKNOWN_ENUM_VALUES_USING_DEFAULT_VALUE)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes("{\"unknown\":\"value\"}"));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack("{\"unknown\":\"value\"}"));
         assertEquals(1, value.size());
         assertEquals("value", value.get(TestEnumWithDefault.OK));
 
         Map<TestEnumWithDefault,String> value2 = MAPPER
                 .readerFor(new TypeReference<Map<TestEnumWithDefault,String>>() { })
                 .with(DeserializationFeature.READ_UNKNOWN_ENUM_VALUES_USING_DEFAULT_VALUE)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes("{\"unknown\":\"value\"}"));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack("{\"unknown\":\"value\"}"));
         assertEquals(1, value2.size());
         assertEquals("value", value2.get(TestEnumWithDefault.OK));
     }
@@ -228,14 +228,14 @@ public class EnumMapDeserializationTest extends BaseMapTest
         EnumMap<TestEnumWithDefault,String> value = MAPPER
                 .readerFor(new TypeReference<EnumMap<TestEnumWithDefault,String>>() { })
                 .with(DeserializationFeature.READ_UNKNOWN_ENUM_VALUES_AS_NULL)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes("{\"unknown\":\"value\"}"));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack("{\"unknown\":\"value\"}"));
         assertEquals(0, value.size());
 
         // then regular Map
         Map<TestEnumWithDefault,String> value2 = MAPPER
                 .readerFor(new TypeReference<Map<TestEnumWithDefault,String>>() { })
                 .with(DeserializationFeature.READ_UNKNOWN_ENUM_VALUES_AS_NULL)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes("{\"unknown\":\"value\"}"));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack("{\"unknown\":\"value\"}"));
         // 04-Jan-2017, tatu: Not sure if this is weird or not, but since `null`s are typically
         //    ok for "regular" JDK Maps...
         assertEquals(1, value2.size());

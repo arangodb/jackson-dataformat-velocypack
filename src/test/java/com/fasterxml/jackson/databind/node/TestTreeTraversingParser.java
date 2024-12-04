@@ -46,7 +46,7 @@ public class TestTreeTraversingParser
         // For convenience, parse tree from JSON first
         final String JSON =
             "{ \"a\" : 123, \"list\" : [ 12.25, null, true, { }, [ ] ] }";
-        JsonNode tree = MAPPER.readTree(com.fasterxml.jackson.VPackUtils.toBytes(JSON));
+        JsonNode tree = MAPPER.readTree(com.fasterxml.jackson.VPackUtils.toVPack(JSON));
         JsonParser p = tree.traverse();
 
         assertNull(p.getCurrentToken());
@@ -111,19 +111,19 @@ public class TestTreeTraversingParser
     public void testArray() throws Exception
     {
         // For convenience, parse tree from JSON first
-        JsonParser p = MAPPER.readTree(com.fasterxml.jackson.VPackUtils.toBytes("[]")).traverse();
+        JsonParser p = MAPPER.readTree(com.fasterxml.jackson.VPackUtils.toVPack("[]")).traverse();
         assertToken(JsonToken.START_ARRAY, p.nextToken());
         assertToken(JsonToken.END_ARRAY, p.nextToken());
         p.close();
 
-        p = MAPPER.readTree(com.fasterxml.jackson.VPackUtils.toBytes("[[]]")).traverse();
+        p = MAPPER.readTree(com.fasterxml.jackson.VPackUtils.toVPack("[[]]")).traverse();
         assertToken(JsonToken.START_ARRAY, p.nextToken());
         assertToken(JsonToken.START_ARRAY, p.nextToken());
         assertToken(JsonToken.END_ARRAY, p.nextToken());
         assertToken(JsonToken.END_ARRAY, p.nextToken());
         p.close();
 
-        p = MAPPER.readTree(com.fasterxml.jackson.VPackUtils.toBytes("[[ 12.1 ]]")).traverse();
+        p = MAPPER.readTree(com.fasterxml.jackson.VPackUtils.toVPack("[[ 12.1 ]]")).traverse();
         assertToken(JsonToken.START_ARRAY, p.nextToken());
         assertToken(JsonToken.START_ARRAY, p.nextToken());
         assertToken(JsonToken.VALUE_NUMBER_FLOAT, p.nextToken());
@@ -138,7 +138,7 @@ public class TestTreeTraversingParser
         final String JSON =
             "{\"coordinates\":[[[-3,\n1],[179.859681,51.175092]]]}"
             ;
-        JsonNode tree = MAPPER.readTree(com.fasterxml.jackson.VPackUtils.toBytes(JSON));
+        JsonNode tree = MAPPER.readTree(com.fasterxml.jackson.VPackUtils.toVPack(JSON));
         JsonParser p = tree.traverse();
         assertToken(JsonToken.START_OBJECT, p.nextToken());
         assertToken(JsonToken.FIELD_NAME, p.nextToken());
@@ -169,7 +169,7 @@ public class TestTreeTraversingParser
      */
     public void testSpecDoc() throws Exception
     {
-        JsonNode tree = MAPPER.readTree(com.fasterxml.jackson.VPackUtils.toBytes(SAMPLE_DOC_JSON_SPEC));
+        JsonNode tree = MAPPER.readTree(com.fasterxml.jackson.VPackUtils.toVPack(SAMPLE_DOC_JSON_SPEC));
         JsonParser p = tree.traverse();
         verifyJsonSpecSampleDoc(p, true);
         p.close();
@@ -244,7 +244,7 @@ public class TestTreeTraversingParser
     public void testDataBind() throws Exception
     {
         JsonNode tree = MAPPER.readTree
-            (com.fasterxml.jackson.VPackUtils.toBytes("{ \"name\" : \"Tatu\", \n"
+            (com.fasterxml.jackson.VPackUtils.toVPack("{ \"name\" : \"Tatu\", \n"
                     +"\"magicNumber\" : 42,"
                     +"\"kids\" : [ \"Leo\", \"Lila\", \"Leia\" ] \n"
                     +"}"));
@@ -274,7 +274,7 @@ public class TestTreeTraversingParser
     public void testNumberOverflowInt() throws IOException
     {
         final long tooBig = 1L + Integer.MAX_VALUE;
-        try (final JsonParser p = MAPPER.readTree(com.fasterxml.jackson.VPackUtils.toBytes("[ "+tooBig+" ]")).traverse()) {
+        try (final JsonParser p = MAPPER.readTree(com.fasterxml.jackson.VPackUtils.toVPack("[ "+tooBig+" ]")).traverse()) {
             assertToken(JsonToken.START_ARRAY, p.nextToken());
             assertToken(JsonToken.VALUE_NUMBER_INT, p.nextToken());
             assertEquals(NumberType.LONG, p.getNumberType());
@@ -285,7 +285,7 @@ public class TestTreeTraversingParser
                 verifyException(e, "Numeric value ("+tooBig+") out of range of int");
             }
         }
-        try (final JsonParser p = MAPPER.readTree(com.fasterxml.jackson.VPackUtils.toBytes("{ \"value\" : "+tooBig+" }")).traverse()) {
+        try (final JsonParser p = MAPPER.readTree(com.fasterxml.jackson.VPackUtils.toVPack("{ \"value\" : "+tooBig+" }")).traverse()) {
             assertToken(JsonToken.START_OBJECT, p.nextToken());
             assertToken(JsonToken.FIELD_NAME, p.nextToken());
             assertToken(JsonToken.VALUE_NUMBER_INT, p.nextToken());
@@ -299,7 +299,7 @@ public class TestTreeTraversingParser
         }
         // But also from floating-point
         final String tooBig2 = "1.0e10";
-        try (final JsonParser p = MAPPER.readTree(com.fasterxml.jackson.VPackUtils.toBytes("[ "+tooBig2+" ]")).traverse()) {
+        try (final JsonParser p = MAPPER.readTree(com.fasterxml.jackson.VPackUtils.toVPack("[ "+tooBig2+" ]")).traverse()) {
             assertToken(JsonToken.START_ARRAY, p.nextToken());
             assertToken(JsonToken.VALUE_NUMBER_FLOAT, p.nextToken());
             assertEquals(NumberType.DOUBLE, p.getNumberType());
@@ -317,7 +317,7 @@ public class TestTreeTraversingParser
         final long[] okValues = new long[] { 1L+Integer.MAX_VALUE, -1L + Integer.MIN_VALUE,
                 Long.MAX_VALUE, Long.MIN_VALUE };
         for (long okValue : okValues) {
-            try (final JsonParser p = MAPPER.readTree(com.fasterxml.jackson.VPackUtils.toBytes("{ \"value\" : "+okValue+" }")).traverse()) {
+            try (final JsonParser p = MAPPER.readTree(com.fasterxml.jackson.VPackUtils.toVPack("{ \"value\" : "+okValue+" }")).traverse()) {
                 assertToken(JsonToken.START_OBJECT, p.nextToken());
                 assertToken(JsonToken.FIELD_NAME, p.nextToken());
                 assertToken(JsonToken.VALUE_NUMBER_INT, p.nextToken());

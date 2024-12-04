@@ -38,7 +38,7 @@ public class RecursiveIgnorePropertiesTest extends BaseMapTest
         String st = aposToQuotes("{ 'name': 'admin',\n"
                 + "    'person_z': { 'name': 'wyatt' }"
                 + "}");
-        Person result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(st), Person.class);
+        Person result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(st), Person.class);
         assertEquals("admin", result.name);
         assertNotNull(result.personZ);
         assertEquals("wyatt", result.personZ.name);
@@ -49,7 +49,7 @@ public class RecursiveIgnorePropertiesTest extends BaseMapTest
         String st = aposToQuotes("{ 'name': 'admin',\n"
                 + "    'person_z': [ { 'name': 'Foor' }, { 'name' : 'Bar' } ]"
                 + "}");
-        Persons result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(st), Persons.class);
+        Persons result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(st), Persons.class);
         assertEquals("admin", result.name);
         assertNotNull(result.personZ);
         assertEquals(2, result.personZ.size());

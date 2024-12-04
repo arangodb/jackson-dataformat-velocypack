@@ -8,7 +8,7 @@ import com.fasterxml.jackson.annotation.JsonAnySetter;
 import com.fasterxml.jackson.databind.type.TypeFactory;
 import com.fasterxml.jackson.databind.util.LRUMap;
 
-import static com.fasterxml.jackson.VPackUtils.toBytes;
+import static com.fasterxml.jackson.VPackUtils.toVPack;
 
 /**
  * Tests to verify that most core Jackson components can be serialized
@@ -141,7 +141,7 @@ public class TestJDKSerialization extends BaseMapTest
     public void testObjectReader() throws IOException
     {
         ObjectReader origReader = MAPPER.readerFor(MyPojo.class);
-        byte[] bytes = toBytes("{\"x\":1,\"y\":2}");
+        byte[] bytes = toVPack("{\"x\":1,\"y\":2}");
         MyPojo p1 = origReader.readValue(bytes);
         assertEquals(2, p1.y);
         ObjectReader anyReader = MAPPER.readerFor(AnyBean.class);
@@ -169,7 +169,7 @@ public class TestJDKSerialization extends BaseMapTest
         byte[] bytes = jdkSerialize(MAPPER);
         ObjectMapper mapper2 = jdkDeserialize(bytes);
         assertEquals(EXP_JSON, com.fasterxml.jackson.VPackUtils.toJson( mapper2.writeValueAsBytes(p)));
-        MyPojo p2 = mapper2.readValue(toBytes(EXP_JSON), MyPojo.class);
+        MyPojo p2 = mapper2.readValue(toVPack(EXP_JSON), MyPojo.class);
         assertEquals(p.x, p2.x);
         assertEquals(p.y, p2.y);
 

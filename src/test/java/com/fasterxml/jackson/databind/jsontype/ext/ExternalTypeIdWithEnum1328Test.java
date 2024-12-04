@@ -86,7 +86,7 @@ public class ExternalTypeIdWithEnum1328Test extends BaseMapTest
         String json = com.fasterxml.jackson.VPackUtils.toJson( mapper.writerWithDefaultPrettyPrinter()
                 .writeValueAsBytes(Arrays.asList(new AnimalAndType(AnimalType.Dog, new Dog()))));
         List<AnimalAndType> list = mapper.readerFor(new TypeReference<List<AnimalAndType>>() { })
-            .readValue(com.fasterxml.jackson.VPackUtils.toBytes(json));
+            .readValue(com.fasterxml.jackson.VPackUtils.toVPack(json));
         assertNotNull(list);
     }
 }

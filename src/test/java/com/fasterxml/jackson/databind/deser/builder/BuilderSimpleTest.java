@@ -370,7 +370,7 @@ public class BuilderSimpleTest extends BaseMapTest
 
     public void testSelfBuilder777() throws Exception
     {
-        byte[] bytes = VPackUtils.toBytes(aposToQuotes("{'x':3}"));
+        byte[] bytes = VPackUtils.toVPack(aposToQuotes("{'x':3}"));
         SelfBuilder777 result = MAPPER.readValue(bytes,
                 SelfBuilder777.class);
         assertNotNull(result);

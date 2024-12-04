@@ -31,20 +31,20 @@ public class FullStreamReadTest extends BaseMapTest
         assertFalse(MAPPER.isEnabled(DeserializationFeature.FAIL_ON_TRAILING_TOKENS));
 
         // by default, should be ok to read, all
-        _verifyArray(MAPPER.readTree(com.fasterxml.jackson.VPackUtils.toBytes(JSON_OK_ARRAY)));
-        _verifyArray(MAPPER.readTree(com.fasterxml.jackson.VPackUtils.toBytes(JSON_FAIL_ARRAY)));
+        _verifyArray(MAPPER.readTree(com.fasterxml.jackson.VPackUtils.toVPack(JSON_OK_ARRAY)));
+        _verifyArray(MAPPER.readTree(com.fasterxml.jackson.VPackUtils.toVPack(JSON_FAIL_ARRAY)));
 
         // and also via "untyped"
-        _verifyCollection(MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(JSON_OK_ARRAY), List.class));
-        _verifyCollection(MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(JSON_FAIL_ARRAY), List.class));
+        _verifyCollection(MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(JSON_OK_ARRAY), List.class));
+        _verifyCollection(MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(JSON_FAIL_ARRAY), List.class));
 
         // ditto for getting `null` and some other token
 
-        assertTrue(MAPPER.readTree(com.fasterxml.jackson.VPackUtils.toBytes(JSON_OK_NULL)).isNull());
-        assertTrue(MAPPER.readTree(com.fasterxml.jackson.VPackUtils.toBytes(JSON_FAIL_NULL)).isNull());
+        assertTrue(MAPPER.readTree(com.fasterxml.jackson.VPackUtils.toVPack(JSON_OK_NULL)).isNull());
+        assertTrue(MAPPER.readTree(com.fasterxml.jackson.VPackUtils.toVPack(JSON_FAIL_NULL)).isNull());
 
-        assertNull(MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(JSON_OK_NULL), Object.class));
-        assertNull(MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(JSON_FAIL_NULL), Object.class));
+        assertNull(MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(JSON_OK_NULL), Object.class));
+        assertNull(MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(JSON_FAIL_NULL), Object.class));
     }
 
     public void testMapperFailOnTrailing() throws Exception
@@ -55,8 +55,8 @@ public class FullStreamReadTest extends BaseMapTest
         assertTrue(strict.isEnabled(DeserializationFeature.FAIL_ON_TRAILING_TOKENS));
 
         // some still ok
-        _verifyArray(strict.readTree(com.fasterxml.jackson.VPackUtils.toBytes(JSON_OK_ARRAY)));
-        _verifyCollection(strict.readValue(com.fasterxml.jackson.VPackUtils.toBytes(JSON_OK_ARRAY), List.class));
+        _verifyArray(strict.readTree(com.fasterxml.jackson.VPackUtils.toVPack(JSON_OK_ARRAY)));
+        _verifyCollection(strict.readValue(com.fasterxml.jackson.VPackUtils.toVPack(JSON_OK_ARRAY), List.class));
 
     }
 
@@ -66,7 +66,7 @@ public class FullStreamReadTest extends BaseMapTest
                 .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
 
         // some still ok
-        JsonNode n = strict.readTree(com.fasterxml.jackson.VPackUtils.toBytes(JSON_OK_NULL));
+        JsonNode n = strict.readTree(com.fasterxml.jackson.VPackUtils.toVPack(JSON_OK_NULL));
         assertNotNull(n);
         assertTrue(n.isNull());
 
@@ -77,26 +77,26 @@ public class FullStreamReadTest extends BaseMapTest
         ObjectReader R = MAPPER.reader();
         assertFalse(R.isEnabled(DeserializationFeature.FAIL_ON_TRAILING_TOKENS));
 
-        _verifyArray(R.readTree(com.fasterxml.jackson.VPackUtils.toBytes(JSON_OK_ARRAY)));
-        _verifyArray(R.readTree(com.fasterxml.jackson.VPackUtils.toBytes(JSON_FAIL_ARRAY)));
+        _verifyArray(R.readTree(com.fasterxml.jackson.VPackUtils.toVPack(JSON_OK_ARRAY)));
+        _verifyArray(R.readTree(com.fasterxml.jackson.VPackUtils.toVPack(JSON_FAIL_ARRAY)));
         ObjectReader rColl = R.forType(List.class);
-        _verifyCollection((List<?>)rColl.readValue(com.fasterxml.jackson.VPackUtils.toBytes(JSON_OK_ARRAY)));
-        _verifyCollection((List<?>)rColl.readValue(com.fasterxml.jackson.VPackUtils.toBytes(JSON_FAIL_ARRAY)));
+        _verifyCollection((List<?>)rColl.readValue(com.fasterxml.jackson.VPackUtils.toVPack(JSON_OK_ARRAY)));
+        _verifyCollection((List<?>)rColl.readValue(com.fasterxml.jackson.VPackUtils.toVPack(JSON_FAIL_ARRAY)));
     }
 
     public void testReaderFailOnTrailing() throws Exception
     {
         ObjectReader strictR = MAPPER.reader().with(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
         ObjectReader strictRForList = strictR.forType(List.class);
-        _verifyArray(strictR.readTree(com.fasterxml.jackson.VPackUtils.toBytes(JSON_OK_ARRAY)));
-        _verifyCollection((List<?>)strictRForList.readValue(com.fasterxml.jackson.VPackUtils.toBytes(JSON_OK_ARRAY)));
+        _verifyArray(strictR.readTree(com.fasterxml.jackson.VPackUtils.toVPack(JSON_OK_ARRAY)));
+        _verifyCollection((List<?>)strictRForList.readValue(com.fasterxml.jackson.VPackUtils.toVPack(JSON_OK_ARRAY)));
     }
 
     public void testReaderFailOnTrailingWithNull() throws Exception
     {
         ObjectReader strictR = MAPPER.reader().with(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
         ObjectReader strictRForList = strictR.forType(List.class);
-        JsonNode n = strictR.readTree(com.fasterxml.jackson.VPackUtils.toBytes(JSON_OK_NULL));
+        JsonNode n = strictR.readTree(com.fasterxml.jackson.VPackUtils.toVPack(JSON_OK_NULL));
         assertTrue(n.isNull());
     }
     

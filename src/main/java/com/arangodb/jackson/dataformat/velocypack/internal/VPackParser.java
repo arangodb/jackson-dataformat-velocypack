@@ -156,7 +156,7 @@ public class VPackParser extends ParserMinimalBase {
 
     @Override
     public JsonLocation getCurrentLocation() {
-        return new JsonLocation(ioContext.getSourceReference(), currentValue.getStart() + currentValue.getByteSize() + 1, -1L, -1, -1);
+        return new JsonLocation(ioContext.getSourceReference(), currentValue.getStart() + currentValue.getByteSize(), -1L, -1, -1);
     }
 
     /**

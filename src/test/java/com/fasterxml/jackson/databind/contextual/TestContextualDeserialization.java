@@ -194,12 +194,12 @@ public class TestContextualDeserialization extends BaseMapTest
         SimpleModule module = new SimpleModule("test", Version.unknownVersion());
         module.addDeserializer(StringValue.class, new MyContextualDeserializer());
         mapper.registerModule(module);
-        ContextualBean bean = mapper.readValue(com.fasterxml.jackson.VPackUtils.toBytes("{\"a\":\"1\",\"b\":\"2\"}"), ContextualBean.class);
+        ContextualBean bean = mapper.readValue(com.fasterxml.jackson.VPackUtils.toVPack("{\"a\":\"1\",\"b\":\"2\"}"), ContextualBean.class);
         assertEquals("a=1", bean.a.value);
         assertEquals("b=2", bean.b.value);
 
         // try again, to ensure caching etc works
-        bean = mapper.readValue(com.fasterxml.jackson.VPackUtils.toBytes("{\"a\":\"3\",\"b\":\"4\"}"), ContextualBean.class);
+        bean = mapper.readValue(com.fasterxml.jackson.VPackUtils.toVPack("{\"a\":\"3\",\"b\":\"4\"}"), ContextualBean.class);
         assertEquals("a=3", bean.a.value);
         assertEquals("b=4", bean.b.value);
     }
@@ -207,12 +207,12 @@ public class TestContextualDeserialization extends BaseMapTest
     public void testSimpleWithAnnotations() throws Exception
     {
         ObjectMapper mapper = _mapperWithAnnotatedContextual();
-        ContextualBean bean = mapper.readValue(com.fasterxml.jackson.VPackUtils.toBytes("{\"a\":\"1\",\"b\":\"2\"}"), ContextualBean.class);
+        ContextualBean bean = mapper.readValue(com.fasterxml.jackson.VPackUtils.toVPack("{\"a\":\"1\",\"b\":\"2\"}"), ContextualBean.class);
         assertEquals("NameA=1", bean.a.value);
         assertEquals("NameB=2", bean.b.value);
 
         // try again, to ensure caching etc works
-        bean = mapper.readValue(com.fasterxml.jackson.VPackUtils.toBytes("{\"a\":\"x\",\"b\":\"y\"}"), ContextualBean.class);
+        bean = mapper.readValue(com.fasterxml.jackson.VPackUtils.toVPack("{\"a\":\"x\",\"b\":\"y\"}"), ContextualBean.class);
         assertEquals("NameA=x", bean.a.value);
         assertEquals("NameB=y", bean.b.value);
     }
@@ -220,11 +220,11 @@ public class TestContextualDeserialization extends BaseMapTest
     public void testSimpleWithClassAnnotations() throws Exception
     {
         ObjectMapper mapper = _mapperWithAnnotatedContextual();
-        ContextualClassBean bean = mapper.readValue(com.fasterxml.jackson.VPackUtils.toBytes("{\"a\":\"1\",\"b\":\"2\"}"), ContextualClassBean.class);
+        ContextualClassBean bean = mapper.readValue(com.fasterxml.jackson.VPackUtils.toVPack("{\"a\":\"1\",\"b\":\"2\"}"), ContextualClassBean.class);
         assertEquals("Class=1", bean.a.value);
         assertEquals("NameB=2", bean.b.value);
         // and again
-        bean = mapper.readValue(com.fasterxml.jackson.VPackUtils.toBytes("{\"a\":\"123\",\"b\":\"345\"}"), ContextualClassBean.class);
+        bean = mapper.readValue(com.fasterxml.jackson.VPackUtils.toVPack("{\"a\":\"123\",\"b\":\"345\"}"), ContextualClassBean.class);
         assertEquals("Class=123", bean.a.value);
         assertEquals("NameB=345", bean.b.value);
     }
@@ -232,11 +232,11 @@ public class TestContextualDeserialization extends BaseMapTest
     public void testAnnotatedCtor() throws Exception
     {
         ObjectMapper mapper = _mapperWithAnnotatedContextual();
-        ContextualCtorBean bean = mapper.readValue(com.fasterxml.jackson.VPackUtils.toBytes("{\"a\":\"foo\",\"b\":\"bar\"}"), ContextualCtorBean.class);
+        ContextualCtorBean bean = mapper.readValue(com.fasterxml.jackson.VPackUtils.toVPack("{\"a\":\"foo\",\"b\":\"bar\"}"), ContextualCtorBean.class);
         assertEquals("CtorA=foo", bean.a);
         assertEquals("CtorB=bar", bean.b);
 
-        bean = mapper.readValue(com.fasterxml.jackson.VPackUtils.toBytes("{\"a\":\"1\",\"b\":\"0\"}"), ContextualCtorBean.class);
+        bean = mapper.readValue(com.fasterxml.jackson.VPackUtils.toVPack("{\"a\":\"1\",\"b\":\"0\"}"), ContextualCtorBean.class);
         assertEquals("CtorA=1", bean.a);
         assertEquals("CtorB=0", bean.b);
     }
@@ -244,11 +244,11 @@ public class TestContextualDeserialization extends BaseMapTest
     public void testAnnotatedArray() throws Exception
     {
         ObjectMapper mapper = _mapperWithAnnotatedContextual();
-        ContextualArrayBean bean = mapper.readValue(com.fasterxml.jackson.VPackUtils.toBytes("{\"beans\":[\"x\"]}"), ContextualArrayBean.class);
+        ContextualArrayBean bean = mapper.readValue(com.fasterxml.jackson.VPackUtils.toVPack("{\"beans\":[\"x\"]}"), ContextualArrayBean.class);
         assertEquals(1, bean.beans.length);
         assertEquals("array=x", bean.beans[0].value);
 
-        bean = mapper.readValue(com.fasterxml.jackson.VPackUtils.toBytes("{\"beans\":[\"a\",\"b\"]}"), ContextualArrayBean.class);
+        bean = mapper.readValue(com.fasterxml.jackson.VPackUtils.toVPack("{\"beans\":[\"a\",\"b\"]}"), ContextualArrayBean.class);
         assertEquals(2, bean.beans.length);
         assertEquals("array=a", bean.beans[0].value);
         assertEquals("array=b", bean.beans[1].value);
@@ -257,11 +257,11 @@ public class TestContextualDeserialization extends BaseMapTest
     public void testAnnotatedList() throws Exception
     {
         ObjectMapper mapper = _mapperWithAnnotatedContextual();
-        ContextualListBean bean = mapper.readValue(com.fasterxml.jackson.VPackUtils.toBytes("{\"beans\":[\"x\"]}"), ContextualListBean.class);
+        ContextualListBean bean = mapper.readValue(com.fasterxml.jackson.VPackUtils.toVPack("{\"beans\":[\"x\"]}"), ContextualListBean.class);
         assertEquals(1, bean.beans.size());
         assertEquals("list=x", bean.beans.get(0).value);
 
-        bean = mapper.readValue(com.fasterxml.jackson.VPackUtils.toBytes("{\"beans\":[\"x\",\"y\",\"z\"]}"), ContextualListBean.class);
+        bean = mapper.readValue(com.fasterxml.jackson.VPackUtils.toVPack("{\"beans\":[\"x\",\"y\",\"z\"]}"), ContextualListBean.class);
         assertEquals(3, bean.beans.size());
         assertEquals("list=x", bean.beans.get(0).value);
         assertEquals("list=y", bean.beans.get(1).value);
@@ -271,13 +271,13 @@ public class TestContextualDeserialization extends BaseMapTest
     public void testAnnotatedMap() throws Exception
     {
         ObjectMapper mapper = _mapperWithAnnotatedContextual();
-        ContextualMapBean bean = mapper.readValue(com.fasterxml.jackson.VPackUtils.toBytes("{\"beans\":{\"a\":\"b\"}}"), ContextualMapBean.class);
+        ContextualMapBean bean = mapper.readValue(com.fasterxml.jackson.VPackUtils.toVPack("{\"beans\":{\"a\":\"b\"}}"), ContextualMapBean.class);
         assertEquals(1, bean.beans.size());
         Map.Entry<String,StringValue> entry = bean.beans.entrySet().iterator().next();
         assertEquals("a", entry.getKey());
         assertEquals("map=b", entry.getValue().value);
 
-        bean = mapper.readValue(com.fasterxml.jackson.VPackUtils.toBytes("{\"beans\":{\"x\":\"y\",\"1\":\"2\"}}"), ContextualMapBean.class);
+        bean = mapper.readValue(com.fasterxml.jackson.VPackUtils.toVPack("{\"beans\":{\"x\":\"y\",\"1\":\"2\"}}"), ContextualMapBean.class);
         assertEquals(2, bean.beans.size());
         Iterator<Map.Entry<String,StringValue>> it = bean.beans.entrySet().iterator();
         entry = it.next();
@@ -290,7 +290,7 @@ public class TestContextualDeserialization extends BaseMapTest
 
     // for [databind#165]
     public void testContextualType() throws Exception {
-        GenericBean bean = new TestVelocypackMapper().readValue(com.fasterxml.jackson.VPackUtils.toBytes(aposToQuotes("{'stuff':{'1':'b'}}")),
+        GenericBean bean = new TestVelocypackMapper().readValue(com.fasterxml.jackson.VPackUtils.toVPack(aposToQuotes("{'stuff':{'1':'b'}}")),
                 GenericBean.class);
         assertNotNull(bean.stuff);
         assertEquals(1, bean.stuff.size());

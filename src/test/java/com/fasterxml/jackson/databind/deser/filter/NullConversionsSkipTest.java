@@ -87,7 +87,7 @@ public class NullConversionsSkipTest extends BaseMapTest
     {    
         Pojo2015 p = MAPPER.readerFor(Pojo2015.class)
                 .with(DeserializationFeature.READ_UNKNOWN_ENUM_VALUES_AS_NULL)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes("{\"number\":\"THREE\"}"));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack("{\"number\":\"THREE\"}"));
         assertEquals(NUMS2015.TWO, p.number);
     }
 

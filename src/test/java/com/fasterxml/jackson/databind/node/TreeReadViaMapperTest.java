@@ -27,7 +27,7 @@ public class TreeReadViaMapperTest extends BaseMapTest
         for (int type = 0; type < 2; ++type) {
             JsonNode result;
 
-            result = MAPPER.readTree(com.fasterxml.jackson.VPackUtils.toBytes(JSON));
+            result = MAPPER.readTree(com.fasterxml.jackson.VPackUtils.toVPack(JSON));
 
             assertType(result, ObjectNode.class);
             assertEquals(1, result.size());

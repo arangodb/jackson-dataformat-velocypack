@@ -529,7 +529,7 @@ public class ExternalTypeIdTest extends BaseMapTest
         
         Wrapper965 w2 = MAPPER.readerFor(Wrapper965.class)
                 .with(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes(json));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack(json));
 
         assertEquals(w.typeEnum, w2.typeEnum);
         assertTrue(String.format("Expected %s = %s; got back %s = %s",

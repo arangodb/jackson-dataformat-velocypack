@@ -283,7 +283,7 @@ public class TestPOJOAsArray extends BaseMapTest
         // but actually fine if skip-unknown set
         PojoAsArrayWrapper v = MAPPER.readerFor(PojoAsArrayWrapper.class)
                 .without(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes(json));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack(json));
         assertNotNull(v);
         // note: +1 for both so
         assertEquals(v.value.x, 42);

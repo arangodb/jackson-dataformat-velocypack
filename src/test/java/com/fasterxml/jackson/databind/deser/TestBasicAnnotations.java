@@ -129,7 +129,7 @@ public class TestBasicAnnotations
     public void testSimpleSetter() throws Exception
     {
         SizeClassSetter result = MAPPER.readValue
-            (com.fasterxml.jackson.VPackUtils.toBytes("{ \"other\":3, \"size\" : 2, \"length\" : -999 }"),
+            (com.fasterxml.jackson.VPackUtils.toVPack("{ \"other\":3, \"size\" : 2, \"length\" : -999 }"),
              SizeClassSetter.class);
                                              
         assertEquals(3, result._other);
@@ -140,7 +140,7 @@ public class TestBasicAnnotations
     // Test for checking [JACKSON-64]
     public void testSimpleSetter2() throws Exception
     {
-        SizeClassSetter2 result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes("{ \"x\": -3 }"),
+        SizeClassSetter2 result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack("{ \"x\": -3 }"),
              SizeClassSetter2.class);
         assertEquals(-3, result._x);
     }
@@ -149,7 +149,7 @@ public class TestBasicAnnotations
     public void testSimpleSetter3() throws Exception
     {
         SizeClassSetter3 result = MAPPER.readValue
-            (com.fasterxml.jackson.VPackUtils.toBytes("{ \"x\": 128 }"),
+            (com.fasterxml.jackson.VPackUtils.toVPack("{ \"x\": 128 }"),
              SizeClassSetter3.class);
         assertEquals(128, result._x);
     }
@@ -161,7 +161,7 @@ public class TestBasicAnnotations
     public void testSetterInheritance() throws Exception
     {
         BeanSubClass result = MAPPER.readValue
-            (com.fasterxml.jackson.VPackUtils.toBytes("{ \"x\":1, \"z\" : 3, \"y\" : 2 }"),
+            (com.fasterxml.jackson.VPackUtils.toVPack("{ \"x\":1, \"z\" : 3, \"y\" : 2 }"),
              BeanSubClass.class);
         assertEquals(1, result._x);
         assertEquals(2, result._y);
@@ -170,7 +170,7 @@ public class TestBasicAnnotations
 
     public void testImpliedProperty() throws Exception
     {
-        BeanWithDeserialize bean = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes("{\"a\":3}"), BeanWithDeserialize.class);
+        BeanWithDeserialize bean = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack("{\"a\":3}"), BeanWithDeserialize.class);
         assertNotNull(bean);
         assertEquals(3, bean.a);
     }
@@ -178,7 +178,7 @@ public class TestBasicAnnotations
     // [databind#442]
     public void testIssue442PrivateUnwrapped() throws Exception
     {
-        Issue442Bean bean = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes("{\"i\":5}"), Issue442Bean.class);
+        Issue442Bean bean = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack("{\"i\":5}"), Issue442Bean.class);
         assertEquals(5, bean.w.i);
     }
 
@@ -193,27 +193,27 @@ public class TestBasicAnnotations
         // first: verify that annotation introspection is enabled by default
         assertTrue(MAPPER.getDeserializationConfig().isEnabled(MapperFeature.USE_ANNOTATIONS));
         // with annotations, property is renamed
-        AnnoBean bean = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes("{ \"y\" : 0 }"), AnnoBean.class);
+        AnnoBean bean = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack("{ \"y\" : 0 }"), AnnoBean.class);
         assertEquals(0, bean.value);
 
         ObjectMapper m = jsonMapperBuilder()
                 .configure(MapperFeature.USE_ANNOTATIONS, false)
                 .build();
         // without annotations, should default to default bean-based name...
-        bean = m.readValue(com.fasterxml.jackson.VPackUtils.toBytes("{ \"x\" : 0 }"), AnnoBean.class);
+        bean = m.readValue(com.fasterxml.jackson.VPackUtils.toVPack("{ \"x\" : 0 }"), AnnoBean.class);
         assertEquals(0, bean.value);
     }
 
     public void testEnumsWhenDisabled() throws Exception
     {
         ObjectMapper m = new TestVelocypackMapper();
-        assertEquals(Alpha.B, m.readValue(com.fasterxml.jackson.VPackUtils.toBytes(quote("B")), Alpha.class));
+        assertEquals(Alpha.B, m.readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote("B")), Alpha.class));
 
         m = jsonMapperBuilder()
                 .configure(MapperFeature.USE_ANNOTATIONS, false)
                 .build();
         // should still use the basic name handling here
-        assertEquals(Alpha.B, m.readValue(com.fasterxml.jackson.VPackUtils.toBytes(quote("B")), Alpha.class));
+        assertEquals(Alpha.B, m.readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote("B")), Alpha.class));
     }
 
     public void testNoAccessOverrides() throws Exception
@@ -221,7 +221,7 @@ public class TestBasicAnnotations
         ObjectMapper m = jsonMapperBuilder()
                 .disable(MapperFeature.CAN_OVERRIDE_ACCESS_MODIFIERS)
                 .build();
-        SimpleBean bean = m.readValue(com.fasterxml.jackson.VPackUtils.toBytes("{\"x\":1,\"y\":2}"), SimpleBean.class);
+        SimpleBean bean = m.readValue(com.fasterxml.jackson.VPackUtils.toVPack("{\"x\":1,\"y\":2}"), SimpleBean.class);
         assertEquals(1, bean.x);
         assertEquals(2, bean.y);
     }    

@@ -84,7 +84,7 @@ public class RaceCondition738Test extends BaseMapTest
 
         for (Future<String> jsonFuture : jsonFutures) {
             String json = jsonFuture.get();
-            JsonNode tree = mapper.readTree(com.fasterxml.jackson.VPackUtils.toBytes(json));
+            JsonNode tree = mapper.readTree(com.fasterxml.jackson.VPackUtils.toVPack(json));
             JsonNode wrapped = tree.get("hasSubTypes");
 
             if (!wrapped.has("one")) {

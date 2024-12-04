@@ -283,7 +283,7 @@ public class TestValueAnnotations
         // should fail due to incompatible Annotation
         try {
             BrokenCollectionHolder result = MAPPER.readValue
-                (com.fasterxml.jackson.VPackUtils.toBytes("{ \"strings\" : [ ] }"), BrokenCollectionHolder.class);
+                (com.fasterxml.jackson.VPackUtils.toVPack("{ \"strings\" : [ ] }"), BrokenCollectionHolder.class);
             fail("Expected a failure, but got results: "+result);
         } catch (JsonMappingException jme) {
             verifyException(jme, "not subtype of");
@@ -353,7 +353,7 @@ public class TestValueAnnotations
         // should fail due to incompatible Annotation
         try {
             BrokenMapKeyHolder result = MAPPER.readValue
-                (com.fasterxml.jackson.VPackUtils.toBytes("{ \"123\" : \"xxx\" }"), BrokenMapKeyHolder.class);
+                (com.fasterxml.jackson.VPackUtils.toVPack("{ \"123\" : \"xxx\" }"), BrokenMapKeyHolder.class);
             fail("Expected a failure, but got results: "+result);
         } catch (JsonMappingException jme) {
             verifyException(jme, "not subtype of");

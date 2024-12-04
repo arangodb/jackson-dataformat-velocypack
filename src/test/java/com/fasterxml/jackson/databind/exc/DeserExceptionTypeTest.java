@@ -71,7 +71,7 @@ public class DeserExceptionTypeTest
 
     public void testExceptionWithEOF() throws Exception
     {
-        JsonParser p = MAPPER.getFactory().createParser(com.fasterxml.jackson.VPackUtils.toBytes("  3"));
+        JsonParser p = MAPPER.getFactory().createParser(com.fasterxml.jackson.VPackUtils.toVPack("  3"));
 
         Integer I = MAPPER.readValue(p, Integer.class);
         assertEquals(3, I.intValue());

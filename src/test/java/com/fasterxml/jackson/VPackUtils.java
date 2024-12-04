@@ -43,7 +43,7 @@ public final class VPackUtils {
         }
     }
 
-    public static byte[] toBytes(String json) throws JsonProcessingException {
+    public static byte[] toVPack(String json) throws JsonProcessingException {
         return VPACK_MAPPER.writeValueAsBytes(JSON_MAPPER.readTree(json));
     }
 

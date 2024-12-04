@@ -71,7 +71,7 @@ public class ExceptionSerializationTest
     // to double-check [databind#1413]
     public void testSimpleOther() throws Exception
     {
-        JsonParser p = MAPPER.getFactory().createParser(com.fasterxml.jackson.VPackUtils.toBytes("{ }"));
+        JsonParser p = MAPPER.getFactory().createParser(com.fasterxml.jackson.VPackUtils.toVPack("{ }"));
         InvalidFormatException exc = InvalidFormatException.from(p, "Test", getClass(), String.class);
         String json = com.fasterxml.jackson.VPackUtils.toJson( MAPPER.writeValueAsBytes(exc));
         p.close();
@@ -126,7 +126,7 @@ public class ExceptionSerializationTest
         }
         // but should be able to serialize new exception we got
         String json = com.fasterxml.jackson.VPackUtils.toJson( MAPPER.writeValueAsBytes(e));
-        JsonNode root = MAPPER.readTree(com.fasterxml.jackson.VPackUtils.toBytes(json));
+        JsonNode root = MAPPER.readTree(com.fasterxml.jackson.VPackUtils.toVPack(json));
         String msg = root.path("message").asText();
         String MATCH = "cannot construct instance";
         if (!msg.toLowerCase().contains(MATCH)) {

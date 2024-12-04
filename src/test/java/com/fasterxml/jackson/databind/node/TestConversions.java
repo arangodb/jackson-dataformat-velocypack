@@ -161,7 +161,7 @@ public class TestConversions extends BaseMapTest
         String JSON = "{\"leaf\":{\"value\":13}}";
         ObjectMapper mapper = new TestVelocypackMapper();
         mapper.addMixIn(Leaf.class, LeafMixIn.class);
-        JsonNode root = mapper.readTree(com.fasterxml.jackson.VPackUtils.toBytes(JSON));
+        JsonNode root = mapper.readTree(com.fasterxml.jackson.VPackUtils.toVPack(JSON));
         // Ok, try converting to bean using two mechanisms
         Root r1 = mapper.treeToValue(root, Root.class);
         assertNotNull(r1);
@@ -312,7 +312,7 @@ public class TestConversions extends BaseMapTest
     // [databind#1940]: losing of precision due to coercion
     public void testBufferedLongViaCoercion() throws Exception {
         long EXP = 1519348261000L;
-        JsonNode tree = MAPPER.readTree(com.fasterxml.jackson.VPackUtils.toBytes("{\"longObj\": "+EXP+".0, \"_class\": \""+LongContainer1940.class.getName()+"\"}"));
+        JsonNode tree = MAPPER.readTree(com.fasterxml.jackson.VPackUtils.toVPack("{\"longObj\": "+EXP+".0, \"_class\": \""+LongContainer1940.class.getName()+"\"}"));
         LongContainer1940 obj = MAPPER.treeToValue(tree, LongContainer1940.class);
         assertEquals(Long.valueOf(EXP), obj.longObj);
     }

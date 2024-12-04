@@ -51,7 +51,7 @@ public class TestJacksonTypes
         String json = com.fasterxml.jackson.VPackUtils.toJson( MAPPER.writeValueAsBytes(tf.constructType(String.class)));
         assertEquals(quote(java.lang.String.class.getName()), json);
         // and back
-        JavaType t = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(json), JavaType.class);
+        JavaType t = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(json), JavaType.class);
         assertNotNull(t);
         assertEquals(String.class, t.getRawClass());
     }
@@ -63,7 +63,7 @@ public class TestJacksonTypes
     public void testTokenBufferWithSample() throws Exception
     {
         // First, try standard sample doc:
-        TokenBuffer result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(SAMPLE_DOC_JSON_SPEC), TokenBuffer.class);
+        TokenBuffer result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(SAMPLE_DOC_JSON_SPEC), TokenBuffer.class);
         verifyJsonSpecSampleDoc(result.asParser(), true);
         result.close();
     }
@@ -72,7 +72,7 @@ public class TestJacksonTypes
     public void testTokenBufferWithSequence() throws Exception
     {
         // and then sequence of other things
-        JsonParser jp = MAPPER.getFactory().createParser(com.fasterxml.jackson.VPackUtils.toBytes("[ 32, [ 1 ], \"abc\", { \"a\" : true } ]"));
+        JsonParser jp = MAPPER.getFactory().createParser(com.fasterxml.jackson.VPackUtils.toVPack("[ 32, [ 1 ], \"abc\", { \"a\" : true } ]"));
         assertToken(JsonToken.START_ARRAY, jp.nextToken());
 
         assertToken(JsonToken.VALUE_NUMBER_INT, jp.nextToken());

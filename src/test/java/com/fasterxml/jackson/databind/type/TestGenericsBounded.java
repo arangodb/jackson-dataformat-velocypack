@@ -112,7 +112,7 @@ public class TestGenericsBounded
 
     public void testLowerBound() throws Exception
     {
-        IntBeanWrapper<?> result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes("{\"wrapped\":{\"x\":3}}"),
+        IntBeanWrapper<?> result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack("{\"wrapped\":{\"x\":3}}"),
                 IntBeanWrapper.class);
         assertNotNull(result);
         assertEquals(IntBean.class, result.wrapped.getClass());
@@ -123,7 +123,7 @@ public class TestGenericsBounded
     public void testBounded() throws Exception
     {
         BoundedWrapper<IntBean> result = MAPPER.readValue
-            (com.fasterxml.jackson.VPackUtils.toBytes("{\"values\":[ {\"x\":3} ] } "), new TypeReference<BoundedWrapper<IntBean>>() {});
+            (com.fasterxml.jackson.VPackUtils.toVPack("{\"values\":[ {\"x\":3} ] } "), new TypeReference<BoundedWrapper<IntBean>>() {});
         List<?> list = result.values;
         assertEquals(1, list.size());
         Object ob = list.get(0);
@@ -162,7 +162,7 @@ public class TestGenericsBounded
         assertEquals(MyDoc.class, docType.getRawClass());
 
         // type passed is correct, but somehow it gets mangled when passed...
-        ResultSetWithDoc<MyDoc> rs = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(json), type);
+        ResultSetWithDoc<MyDoc> rs = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(json), type);
         Document d = rs.rows.iterator().next().d;
     
         assertEquals(MyDoc.class, d.getClass()); //expected MyDoc but was Document

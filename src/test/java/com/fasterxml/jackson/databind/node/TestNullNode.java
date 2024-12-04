@@ -1,6 +1,5 @@
 package com.fasterxml.jackson.databind.node;
 
-import java.io.StringWriter;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 
@@ -64,7 +63,7 @@ public class TestNullNode extends NodeTestBase
     public void testNullHandling() throws Exception
     {
         // First, a stand-alone null
-        JsonNode n = MAPPER.readTree(com.fasterxml.jackson.VPackUtils.toBytes("null"));
+        JsonNode n = MAPPER.readTree(com.fasterxml.jackson.VPackUtils.toVPack("null"));
         assertNotNull(n);
         assertTrue(n.isNull());
         assertFalse(n.isNumber());
@@ -72,12 +71,12 @@ public class TestNullNode extends NodeTestBase
         assertEquals("null", n.asText());
         assertEquals(n, NullNode.instance);
 
-        n = objectMapper().readTree(com.fasterxml.jackson.VPackUtils.toBytes("null"));
+        n = objectMapper().readTree(com.fasterxml.jackson.VPackUtils.toVPack("null"));
         assertNotNull(n);
         assertTrue(n.isNull());
         
         // Then object property
-        ObjectNode root = (ObjectNode) objectReader().readTree(com.fasterxml.jackson.VPackUtils.toBytes("{\"x\":null}"));
+        ObjectNode root = (ObjectNode) objectReader().readTree(com.fasterxml.jackson.VPackUtils.toVPack("{\"x\":null}"));
         assertEquals(1, root.size());
         n = root.get("x");
         assertNotNull(n);

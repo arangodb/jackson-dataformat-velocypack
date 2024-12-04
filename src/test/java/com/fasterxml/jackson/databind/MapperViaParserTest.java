@@ -83,7 +83,7 @@ public class MapperViaParserTest  extends BaseMapTest
         VPackMapper mapper = new TestVelocypackMapper(jf);
         jf.setCodec(mapper);
         final String JSON = "{ \"x\" : 9 }";
-        JsonParser jp = jf.createParser(com.fasterxml.jackson.VPackUtils.toBytes(JSON));
+        JsonParser jp = jf.createParser(com.fasterxml.jackson.VPackUtils.toVPack(JSON));
 
         // let's try first by advancing:
         assertToken(JsonToken.START_OBJECT, jp.nextToken());
@@ -92,7 +92,7 @@ public class MapperViaParserTest  extends BaseMapTest
         jp.close();
 
         // and without
-        jp = jf.createParser(com.fasterxml.jackson.VPackUtils.toBytes(JSON));
+        jp = jf.createParser(com.fasterxml.jackson.VPackUtils.toVPack(JSON));
         p = jp.readValueAs(Pojo.class);
         assertEquals(9, p._x);
         jp.close();
@@ -106,7 +106,7 @@ public class MapperViaParserTest  extends BaseMapTest
         VPackMapper mapper = new TestVelocypackMapper(jf);
         jf.setCodec(mapper);
         final String JSON = "[ 1, true, null, \"abc\" ]";
-        JsonParser p = jf.createParser(com.fasterxml.jackson.VPackUtils.toBytes(JSON));
+        JsonParser p = jf.createParser(com.fasterxml.jackson.VPackUtils.toVPack(JSON));
 
         // let's advance past array start to prevent full binding
         assertToken(JsonToken.START_ARRAY, p.nextToken());

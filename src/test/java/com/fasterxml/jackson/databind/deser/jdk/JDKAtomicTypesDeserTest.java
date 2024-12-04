@@ -289,12 +289,12 @@ public class JDKAtomicTypesDeserTest
     public void testNullWithinNested() throws Exception
     {
         final ObjectReader r = MAPPER.readerFor(MyBean2303.class);
-        MyBean2303 intRef = r.readValue(com.fasterxml.jackson.VPackUtils.toBytes(" {\"refRef\": 2 } "));
+        MyBean2303 intRef = r.readValue(com.fasterxml.jackson.VPackUtils.toVPack(" {\"refRef\": 2 } "));
         assertNotNull(intRef.refRef);
         assertNotNull(intRef.refRef.get());
         assertEquals(intRef.refRef.get().get(), new Integer(2));
 
-        MyBean2303 nullRef = r.readValue(com.fasterxml.jackson.VPackUtils.toBytes(" {\"refRef\": null } "));
+        MyBean2303 nullRef = r.readValue(com.fasterxml.jackson.VPackUtils.toVPack(" {\"refRef\": null } "));
         assertNotNull(nullRef.refRef);
         assertNotNull(nullRef.refRef.get());
         assertNull(nullRef.refRef.get().get());

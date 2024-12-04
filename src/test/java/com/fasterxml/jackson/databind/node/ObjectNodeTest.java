@@ -78,7 +78,7 @@ public class ObjectNodeTest
     public void testSimpleObject() throws Exception
     {
         String JSON = "{ \"key\" : 1, \"b\" : \"x\" }";
-        JsonNode root = MAPPER.readTree(com.fasterxml.jackson.VPackUtils.toBytes(JSON));
+        JsonNode root = MAPPER.readTree(com.fasterxml.jackson.VPackUtils.toVPack(JSON));
 
         // basic properties first:
         assertFalse(root.isValueNode());
@@ -449,7 +449,7 @@ public class ObjectNodeTest
 
     public void testSimplePath() throws Exception
     {
-        JsonNode root = MAPPER.readTree(com.fasterxml.jackson.VPackUtils.toBytes("{ \"results\" : { \"a\" : 3 } }"));
+        JsonNode root = MAPPER.readTree(com.fasterxml.jackson.VPackUtils.toVPack("{ \"results\" : { \"a\" : 3 } }"));
         assertTrue(root.isObject());
         JsonNode rnode = root.path("results");
         assertNotNull(rnode);

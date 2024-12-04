@@ -120,7 +120,7 @@ public class TestPOJOAsArrayWithBuilder extends BaseMapTest
         try {
             /*value =*/ MAPPER.readerFor(ValueClassXY.class)
                     .withValueToUpdate(new ValueClassXY(6, 7))
-                    .readValue(com.fasterxml.jackson.VPackUtils.toBytes("[1,2]"));
+                    .readValue(com.fasterxml.jackson.VPackUtils.toVPack("[1,2]"));
             fail("Should not pass");
         } catch (InvalidDefinitionException e) {
             verifyException(e, "Deserialization of");
@@ -166,13 +166,13 @@ public class TestPOJOAsArrayWithBuilder extends BaseMapTest
         CreatorValue value;
 
         // First including values in view
-        value = reader.withView(String.class).readValue(com.fasterxml.jackson.VPackUtils.toBytes("[1,2,3]"));
+        value = reader.withView(String.class).readValue(com.fasterxml.jackson.VPackUtils.toVPack("[1,2,3]"));
         assertEquals(1, value.a);
         assertEquals(2, value.b);
         assertEquals(3, value.c);
 
         // then not including view
-        value = reader.withView(Character.class).readValue(com.fasterxml.jackson.VPackUtils.toBytes("[1,2,3]"));
+        value = reader.withView(Character.class).readValue(com.fasterxml.jackson.VPackUtils.toVPack("[1,2,3]"));
         assertEquals(1, value.a);
         assertEquals(2, value.b);
         assertEquals(0, value.c);
@@ -197,7 +197,7 @@ public class TestPOJOAsArrayWithBuilder extends BaseMapTest
         // but actually fine if skip-unknown set
         ValueClassXY v = MAPPER.readerFor(ValueClassXY.class)
                 .without(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes(json));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack(json));
         assertNotNull(v);
         // note: +1 for both so
         assertEquals(v._x, 2);

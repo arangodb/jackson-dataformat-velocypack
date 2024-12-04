@@ -95,7 +95,7 @@ public class TestFieldDeserialization
     public void testSimpleAutoDetect() throws Exception
     {
         ObjectMapper m = new TestVelocypackMapper();
-        SimpleFieldBean result = m.readValue(com.fasterxml.jackson.VPackUtils.toBytes("{ \"x\" : -13 }"),
+        SimpleFieldBean result = m.readValue(com.fasterxml.jackson.VPackUtils.toVPack("{ \"x\" : -13 }"),
                                            SimpleFieldBean.class);
         assertEquals(-13, result.x);
         assertEquals(0, result.y);
@@ -104,7 +104,7 @@ public class TestFieldDeserialization
     public void testSimpleAnnotation() throws Exception
     {
         ObjectMapper m = new TestVelocypackMapper();
-        SimpleFieldBean2 bean = m.readValue(com.fasterxml.jackson.VPackUtils.toBytes("{ \"values\" : [ \"x\", \"y\" ] }"),
+        SimpleFieldBean2 bean = m.readValue(com.fasterxml.jackson.VPackUtils.toVPack("{ \"values\" : [ \"x\", \"y\" ] }"),
                 SimpleFieldBean2.class);
         String[] values = bean.values;
         assertNotNull(values);
@@ -116,7 +116,7 @@ public class TestFieldDeserialization
     public void testNoAutoDetect() throws Exception
     {
         ObjectMapper m = new TestVelocypackMapper();
-        NoAutoDetectBean bean = m.readValue(com.fasterxml.jackson.VPackUtils.toBytes("{ \"z\" : 7 }"),
+        NoAutoDetectBean bean = m.readValue(com.fasterxml.jackson.VPackUtils.toVPack("{ \"z\" : 7 }"),
                                             NoAutoDetectBean.class);
         assertEquals(7, bean._z);
     }
@@ -124,7 +124,7 @@ public class TestFieldDeserialization
     public void testTypeAnnotation() throws Exception
     {
         ObjectMapper m = new TestVelocypackMapper();
-        AbstractWrapper w = m.readValue(com.fasterxml.jackson.VPackUtils.toBytes("{ \"value\" : \"abc\" }"),
+        AbstractWrapper w = m.readValue(com.fasterxml.jackson.VPackUtils.toVPack("{ \"value\" : \"abc\" }"),
                                         AbstractWrapper.class);
         Abstract bean = w.value;
         assertNotNull(bean);
@@ -154,7 +154,7 @@ public class TestFieldDeserialization
     public void testOkFieldOverride() throws Exception
     {
         ObjectMapper m = new TestVelocypackMapper();
-        OkDupFieldBean result = m.readValue(com.fasterxml.jackson.VPackUtils.toBytes("{ \"x\" : 1, \"y\" : 2 }"),
+        OkDupFieldBean result = m.readValue(com.fasterxml.jackson.VPackUtils.toVPack("{ \"x\" : 1, \"y\" : 2 }"),
                 OkDupFieldBean.class);
         assertEquals(1, result.myX);
         assertEquals(2, result.y);

@@ -42,7 +42,7 @@ public class UpdateValueTest extends BaseMapTest
     public void testValueUpdateWithCreator() throws Exception
     {
         Bean bean = new Bean("abc", "def");
-        MAPPER.readerFor(Bean.class).withValueToUpdate(bean).readValue(com.fasterxml.jackson.VPackUtils.toBytes("{\"a\":\"ghi\",\"b\":\"jkl\"}"));
+        MAPPER.readerFor(Bean.class).withValueToUpdate(bean).readValue(com.fasterxml.jackson.VPackUtils.toVPack("{\"a\":\"ghi\",\"b\":\"jkl\"}"));
         assertEquals("ghi", bean.getA());
         assertEquals("jkl", bean.getB());
     }
@@ -54,7 +54,7 @@ public class UpdateValueTest extends BaseMapTest
         // but, changed our minds, no update
         r = r.withValueToUpdate(null);
         // should be safe to read regardless
-        Bean result = r.readValue(com.fasterxml.jackson.VPackUtils.toBytes(aposToQuotes("{'a':'x'}")));
+        Bean result = r.readValue(com.fasterxml.jackson.VPackUtils.toVPack(aposToQuotes("{'a':'x'}")));
         assertNotNull(result);
     }
 }

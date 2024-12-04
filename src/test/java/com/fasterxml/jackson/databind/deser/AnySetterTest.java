@@ -227,7 +227,7 @@ public class AnySetterTest
     public void testSimpleMapImitation() throws Exception
     {
         MapImitator mapHolder = MAPPER.readValue
-            (com.fasterxml.jackson.VPackUtils.toBytes("{ \"a\" : 3, \"b\" : true, \"c\":[1,2,3] }"), MapImitator.class);
+            (com.fasterxml.jackson.VPackUtils.toVPack("{ \"a\" : 3, \"b\" : true, \"c\":[1,2,3] }"), MapImitator.class);
         Map<String,Object> result = mapHolder._map;
         assertEquals(3, result.size());
         assertEquals(Integer.valueOf(3), result.get("a"));
@@ -242,7 +242,7 @@ public class AnySetterTest
     public void testAnySetterDisable() throws Exception
     {
         try {
-            MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(aposToQuotes("{'value':3}")),
+            MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(aposToQuotes("{'value':3}")),
                     MapImitatorDisabled.class);
             fail("Should not pass");
         } catch (JsonMappingException e) {
@@ -254,7 +254,7 @@ public class AnySetterTest
     public void testSimpleTyped() throws Exception
     {
         MapImitatorWithValue mapHolder = MAPPER.readValue
-            (com.fasterxml.jackson.VPackUtils.toBytes("{ \"a\" : [ 3, -1 ], \"b\" : [ ] }"), MapImitatorWithValue.class);
+            (com.fasterxml.jackson.VPackUtils.toVPack("{ \"a\" : [ 3, -1 ], \"b\" : [ ] }"), MapImitatorWithValue.class);
         Map<String,int[]> result = mapHolder._map;
         assertEquals(2, result.size());
         assertEquals(new int[] { 3, -1 }, result.get("a"));
@@ -265,7 +265,7 @@ public class AnySetterTest
     {
         try {
             @SuppressWarnings("unused")
-            Broken b = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes("{ \"a\" : 3 }"), Broken.class);
+            Broken b = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack("{ \"a\" : 3 }"), Broken.class);
             fail("Should have gotten an exception");
         } catch (JsonMappingException e) {
             verifyException(e, "Multiple 'any-setter' methods");
@@ -288,7 +288,7 @@ public class AnySetterTest
 
     public void testProblem744() throws Exception
     {
-        Bean744 bean = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes("{\"name\":\"Bob\"}"), Bean744.class);
+        Bean744 bean = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack("{\"name\":\"Bob\"}"), Bean744.class);
         assertNotNull(bean.additionalProperties);
         assertEquals(1, bean.additionalProperties.size());
         assertEquals("Bob", bean.additionalProperties.get("name"));
@@ -319,7 +319,7 @@ public class AnySetterTest
     }
     
 	public void testJsonAnySetterOnMap() throws Exception {
-		JsonAnySetterOnMap result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes("{\"id\":2,\"name\":\"Joe\", \"city\":\"New Jersey\"}"),
+		JsonAnySetterOnMap result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack("{\"id\":2,\"name\":\"Joe\", \"city\":\"New Jersey\"}"),
 		        JsonAnySetterOnMap.class);
 		assertEquals(2, result.id);
 		assertEquals("Joe", result.other.get("name"));
@@ -336,7 +336,7 @@ public class AnySetterTest
         Map<Integer, Integer> integerGenericMap = new HashMap<Integer, Integer>();
         integerGenericMap.put(111, 6);
 
-        MyWrapper deserialized = mapper.readValue(com.fasterxml.jackson.VPackUtils.toBytes(aposToQuotes(
+        MyWrapper deserialized = mapper.readValue(com.fasterxml.jackson.VPackUtils.toVPack(aposToQuotes(
                 "{'myStringGeneric':{'staticallyMappedProperty':'Test','testStringKey':5},'myIntegerGeneric':{'staticallyMappedProperty':'Test2','111':6}}"
         )), MyWrapper.class);
         MyGeneric<String> stringGeneric = deserialized.getMyStringGeneric();
@@ -369,7 +369,7 @@ public class AnySetterTest
 
     private void _testIgnorals(ObjectMapper mapper) throws Exception
     {
-        Ignored bean = mapper.readValue(com.fasterxml.jackson.VPackUtils.toBytes("{\"name\":\"Bob\", \"bogus\": [ 1, 2, 3], \"dummy\" : 13 }"), Ignored.class);
+        Ignored bean = mapper.readValue(com.fasterxml.jackson.VPackUtils.toVPack("{\"name\":\"Bob\", \"bogus\": [ 1, 2, 3], \"dummy\" : 13 }"), Ignored.class);
         // as of 2.0, @JsonIgnoreProperties does block; @JsonIgnore not
         assertNull(bean.map.get("dummy"));
         assertEquals("[1, 2, 3]", ""+bean.map.get("bogus"));

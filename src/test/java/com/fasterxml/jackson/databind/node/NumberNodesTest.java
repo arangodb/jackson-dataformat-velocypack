@@ -44,7 +44,7 @@ public class NumberNodesTest extends NodeTestBase
     public void testIntViaMapper() throws Exception
     {
         int value = -90184;
-        JsonNode result = MAPPER.readTree(com.fasterxml.jackson.VPackUtils.toBytes(String.valueOf(value)));
+        JsonNode result = MAPPER.readTree(com.fasterxml.jackson.VPackUtils.toVPack(String.valueOf(value)));
         assertTrue(result.isNumber());
         assertTrue(result.isIntegralNumber());
         assertTrue(result.isInt());
@@ -125,7 +125,7 @@ public class NumberNodesTest extends NodeTestBase
     {
         // need to use something being 32-bit value space
         long value = 12345678L << 32;
-        JsonNode result = MAPPER.readTree(com.fasterxml.jackson.VPackUtils.toBytes(String.valueOf(value)));
+        JsonNode result = MAPPER.readTree(com.fasterxml.jackson.VPackUtils.toVPack(String.valueOf(value)));
         assertTrue(result.isNumber());
         assertTrue(result.isIntegralNumber());
         assertTrue(result.isLong());
@@ -171,7 +171,7 @@ public class NumberNodesTest extends NodeTestBase
         assertTrue(DoubleNode.valueOf(Long.MAX_VALUE).canConvertToLong());
         assertTrue(DoubleNode.valueOf(Long.MIN_VALUE).canConvertToLong());
 
-        JsonNode num = objectMapper().readTree(com.fasterxml.jackson.VPackUtils.toBytes(" -0.0"));
+        JsonNode num = objectMapper().readTree(com.fasterxml.jackson.VPackUtils.toVPack(" -0.0"));
         assertTrue(num.isDouble());
         n = (DoubleNode) num;
         assertEquals(-0.0, n.doubleValue());
@@ -181,7 +181,7 @@ public class NumberNodesTest extends NodeTestBase
     public void testDoubleViaMapper() throws Exception
     {
         double value = 3.04;
-        JsonNode result = MAPPER.readTree(com.fasterxml.jackson.VPackUtils.toBytes(String.valueOf(value)));
+        JsonNode result = MAPPER.readTree(com.fasterxml.jackson.VPackUtils.toVPack(String.valueOf(value)));
         assertTrue(result.isNumber());
         assertFalse(result.isNull());
         assertType(result, DoubleNode.class);
@@ -343,7 +343,7 @@ public class NumberNodesTest extends NodeTestBase
         assertEquals(Long.MAX_VALUE, n.longValue());
 
         ObjectMapper mapper = new TestVelocypackMapper();
-        JsonNode n2 = mapper.readTree(com.fasterxml.jackson.VPackUtils.toBytes(maxLong.toString()));
+        JsonNode n2 = mapper.readTree(com.fasterxml.jackson.VPackUtils.toVPack(maxLong.toString()));
         assertEquals(Long.MAX_VALUE, n2.longValue());
 
         // then over long limit:

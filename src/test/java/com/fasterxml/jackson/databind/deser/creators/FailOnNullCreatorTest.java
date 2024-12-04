@@ -29,19 +29,19 @@ public class FailOnNullCreatorTest extends BaseMapTest
     {
         Person p;
         // First: fine if feature is not enabled
-        p = POINT_READER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(aposToQuotes("{}")));
+        p = POINT_READER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(aposToQuotes("{}")));
         assertEquals(null, p.name);
         assertEquals(Integer.valueOf(0), p.age);
 
         // Second: fine if feature is enabled but default value is not null
         ObjectReader r = POINT_READER.with(DeserializationFeature.FAIL_ON_NULL_CREATOR_PROPERTIES);
-        p = POINT_READER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(aposToQuotes("{'name':'John', 'age': null}")));
+        p = POINT_READER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(aposToQuotes("{'name':'John', 'age': null}")));
         assertEquals("John", p.name);
         assertEquals(Integer.valueOf(0), p.age);
 
         // Third: throws exception if property is missing
         try {
-            r.readValue(com.fasterxml.jackson.VPackUtils.toBytes(aposToQuotes("{}")));
+            r.readValue(com.fasterxml.jackson.VPackUtils.toVPack(aposToQuotes("{}")));
             fail("Should not pass third test");
         } catch (JsonMappingException e) {
             verifyException(e, "Null value for creator property 'name'");
@@ -49,7 +49,7 @@ public class FailOnNullCreatorTest extends BaseMapTest
 
         // Fourth: throws exception if property is set to null explicitly
         try {
-            r.readValue(com.fasterxml.jackson.VPackUtils.toBytes(aposToQuotes("{'age': 5, 'name': null}")));
+            r.readValue(com.fasterxml.jackson.VPackUtils.toVPack(aposToQuotes("{'age': 5, 'name': null}")));
             fail("Should not pass fourth test");
         } catch (JsonMappingException e) {
             verifyException(e, "Null value for creator property 'name'");

@@ -81,7 +81,7 @@ public class PolymorphicWithObjectId1551Test extends BaseMapTest
 +"'numberOfDoors':2}},{'ownedVehicle':'123'}]"
                 );
         try {
-            objectMapper.readValue(com.fasterxml.jackson.VPackUtils.toBytes(JSON), VehicleOwnerBroken[].class);
+            objectMapper.readValue(com.fasterxml.jackson.VPackUtils.toVPack(JSON), VehicleOwnerBroken[].class);
             fail("Should not pass");
         } catch (InvalidDefinitionException e) {
             assertEquals(Vehicle.class, e.getType().getRawClass());

@@ -56,7 +56,7 @@ public class EmptyArrayAsNullTest extends BaseMapTest
         // first, verify default settings which do not accept empty Array
         try {
             DEFAULT_READER.forType(Bean.class)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes(EMPTY_ARRAY));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack(EMPTY_ARRAY));
             fail("Should not accept Empty Array for POJO by default");
         } catch (JsonMappingException e) {
             verifyException(e, "JsonToken.START_ARRAY");
@@ -64,7 +64,7 @@ public class EmptyArrayAsNullTest extends BaseMapTest
 
         // should be ok to enable dynamically:
         Bean result = READER_WITH_ARRAYS.forType(Bean.class)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes(EMPTY_ARRAY));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack(EMPTY_ARRAY));
         assertNull(result);
     }
 
@@ -81,14 +81,14 @@ public class EmptyArrayAsNullTest extends BaseMapTest
         // first, verify default settings which do not accept empty Array
         try {
             DEFAULT_READER.forType(Map.class)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes(EMPTY_ARRAY));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack(EMPTY_ARRAY));
             fail("Should not accept Empty Array for Map by default");
         } catch (JsonMappingException e) {
             verifyException(e, "JsonToken.START_ARRAY");
         }
         // should be ok to enable dynamically:
         Map<?,?> result = READER_WITH_ARRAYS.forType(Map.class)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes(EMPTY_ARRAY));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack(EMPTY_ARRAY));
         assertNull(result);
     }
 
@@ -96,7 +96,7 @@ public class EmptyArrayAsNullTest extends BaseMapTest
     {
     
         EnumMap<?,?> result2 = READER_WITH_ARRAYS.forType(new TypeReference<EnumMap<ABC,String>>() { })
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes(EMPTY_ARRAY));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack(EMPTY_ARRAY));
         assertNull(result2);
     }
 
@@ -151,7 +151,7 @@ public class EmptyArrayAsNullTest extends BaseMapTest
     
     private void _testNullWrapper(Class<?> cls) throws Exception
     {
-        Object result = READER_WITH_ARRAYS.forType(cls).readValue(com.fasterxml.jackson.VPackUtils.toBytes(EMPTY_ARRAY));
+        Object result = READER_WITH_ARRAYS.forType(cls).readValue(com.fasterxml.jackson.VPackUtils.toVPack(EMPTY_ARRAY));
         assertNull(result);
     }
 }

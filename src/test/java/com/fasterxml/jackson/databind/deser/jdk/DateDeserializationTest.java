@@ -102,11 +102,11 @@ public class DateDeserializationTest
         java.util.Date value = new java.util.Date(now);
 
         // First from long
-        assertEquals(value, MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(""+now), java.util.Date.class));
+        assertEquals(value, MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(""+now), java.util.Date.class));
 
         // then from String
         String dateStr = dateToString(value);
-        java.util.Date result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes("\""+dateStr+"\""), java.util.Date.class);
+        java.util.Date result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack("\""+dateStr+"\""), java.util.Date.class);
 
         assertEquals("Date: expect "+value+" ("+value.getTime()+"), got "+result+" ("+result.getTime()+")",
                 value.getTime(), result.getTime());
@@ -119,13 +119,13 @@ public class DateDeserializationTest
          * as it is plain timestamp (all numbers, 64-bit)
          */
         String json = quote(String.valueOf(now));
-        java.util.Date value = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(json), java.util.Date.class);
+        java.util.Date value = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(json), java.util.Date.class);
         assertEquals(now, value.getTime());
 
         // #267: should handle negative timestamps too; like 12 hours before 1.1.1970
         long before = - (24 * 3600 * 1000L);
         json = quote(String.valueOf(before));
-        value = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(json), java.util.Date.class);
+        value = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(json), java.util.Date.class);
         assertEquals(before, value.getTime());
     }
 
@@ -135,7 +135,7 @@ public class DateDeserializationTest
         // let's use an arbitrary value...
         String inputStr = "Sat, 17 Jan 2009 06:13:58 +0000";
         java.util.Date inputDate = fmt.parse(inputStr);
-        assertEquals(inputDate, MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes("\""+inputStr+"\""), java.util.Date.class));
+        assertEquals(inputDate, MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack("\""+inputStr+"\""), java.util.Date.class));
     }
 
     public void testDateUtilRFC1123OnNonUSLocales() throws Exception
@@ -146,7 +146,7 @@ public class DateDeserializationTest
         // let's use an arbitrary value...
         String inputStr = "Sat, 17 Jan 2009 06:13:58 +0000";
         java.util.Date inputDate = fmt.parse(inputStr);
-        assertEquals(inputDate, MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes("\""+inputStr+"\""), java.util.Date.class));
+        assertEquals(inputDate, MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack("\""+inputStr+"\""), java.util.Date.class));
         Locale.setDefault(old);
     }
 
@@ -159,7 +159,7 @@ public class DateDeserializationTest
          * using the standard notation
          */
         String inputStr = "1972-12-28T00:00:00.000+0000";
-        Date inputDate = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes("\""+inputStr+"\""), java.util.Date.class);
+        Date inputDate = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack("\""+inputStr+"\""), java.util.Date.class);
         Calendar c = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
         c.setTime(inputDate);
         assertEquals(1972, c.get(Calendar.YEAR));
@@ -168,7 +168,7 @@ public class DateDeserializationTest
 
         // And then the same, but using 'Z' as alias for +0000 (very common)
         inputStr = "1972-12-28T00:00:00.000Z";
-        inputDate = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(quote(inputStr)), java.util.Date.class);
+        inputDate = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote(inputStr)), java.util.Date.class);
         c.setTime(inputDate);
         assertEquals(1972, c.get(Calendar.YEAR));
         assertEquals(Calendar.DECEMBER, c.get(Calendar.MONTH));
@@ -176,7 +176,7 @@ public class DateDeserializationTest
 
         // Same but using colon in timezone
         inputStr = "1972-12-28T00:00:00.000+00:00";
-        inputDate = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(quote(inputStr)), java.util.Date.class);
+        inputDate = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote(inputStr)), java.util.Date.class);
         c.setTime(inputDate);
         assertEquals(1972, c.get(Calendar.YEAR));
         assertEquals(Calendar.DECEMBER, c.get(Calendar.MONTH));
@@ -184,14 +184,14 @@ public class DateDeserializationTest
 
         // Same but only passing hour difference as timezone
         inputStr = "1972-12-28T00:00:00.000+00";
-        inputDate = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(quote(inputStr)), java.util.Date.class);
+        inputDate = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote(inputStr)), java.util.Date.class);
         c.setTime(inputDate);
         assertEquals(1972, c.get(Calendar.YEAR));
         assertEquals(Calendar.DECEMBER, c.get(Calendar.MONTH));
         assertEquals(28, c.get(Calendar.DAY_OF_MONTH));
 
         inputStr = "1984-11-30T00:00:00.000Z";
-        inputDate = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(quote(inputStr)), java.util.Date.class);
+        inputDate = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote(inputStr)), java.util.Date.class);
         c.setTime(inputDate);
         assertEquals(1984, c.get(Calendar.YEAR));
         assertEquals(Calendar.NOVEMBER, c.get(Calendar.MONTH));
@@ -206,7 +206,7 @@ public class DateDeserializationTest
         Calendar c = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
         
         inputStr = "2014-10-03T18:00:00.6-05:00";
-        inputDate = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(quote(inputStr)), java.util.Date.class);
+        inputDate = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote(inputStr)), java.util.Date.class);
         c.setTime(inputDate);
         assertEquals(2014, c.get(Calendar.YEAR));
         assertEquals(Calendar.OCTOBER, c.get(Calendar.MONTH));
@@ -214,7 +214,7 @@ public class DateDeserializationTest
         assertEquals(600, c.get(Calendar.MILLISECOND));
 
         inputStr = "2014-10-03T18:00:00.61-05:00";
-        inputDate = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(quote(inputStr)), java.util.Date.class);
+        inputDate = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote(inputStr)), java.util.Date.class);
         c.setTime(inputDate);
         assertEquals(2014, c.get(Calendar.YEAR));
         assertEquals(Calendar.OCTOBER, c.get(Calendar.MONTH));
@@ -225,7 +225,7 @@ public class DateDeserializationTest
         assertEquals(610, c.get(Calendar.MILLISECOND));
 
         inputStr = "1997-07-16T19:20:30.45+01:00";
-        inputDate = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(quote(inputStr)), java.util.Date.class);
+        inputDate = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote(inputStr)), java.util.Date.class);
         c.setTime(inputDate);
         assertEquals(1997, c.get(Calendar.YEAR));
         assertEquals(Calendar.JULY, c.get(Calendar.MONTH));
@@ -237,7 +237,7 @@ public class DateDeserializationTest
 
         // 14-Sep-2015, tatu: Colon for timezone offset is optional, verify
         inputStr = "1997-07-16T19:20:30.45+0100";
-        inputDate = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(quote(inputStr)), java.util.Date.class);
+        inputDate = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote(inputStr)), java.util.Date.class);
         c.setTime(inputDate);
         assertEquals(1997, c.get(Calendar.YEAR));
         assertEquals(Calendar.JULY, c.get(Calendar.MONTH));
@@ -249,7 +249,7 @@ public class DateDeserializationTest
 
         // plus may also just have hour part
         inputStr = "1997-07-16T19:20:30.45+01";
-        inputDate = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(quote(inputStr)), java.util.Date.class);
+        inputDate = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote(inputStr)), java.util.Date.class);
         c.setTime(inputDate);
         assertEquals(1997, c.get(Calendar.YEAR));
         assertEquals(Calendar.JULY, c.get(Calendar.MONTH));
@@ -264,7 +264,7 @@ public class DateDeserializationTest
     public void testISO8601FractionalTimezoneOffset() throws Exception
     {
         String inputStr = "1997-07-16T19:20:30.45+01:30";
-        java.util.Date inputDate = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(quote(inputStr)), java.util.Date.class);
+        java.util.Date inputDate = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote(inputStr)), java.util.Date.class);
         Calendar c = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
         c.setTime(inputDate);
         assertEquals(1997, c.get(Calendar.YEAR));
@@ -284,7 +284,7 @@ public class DateDeserializationTest
         Calendar c = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
 
         inputStr = "2014-10-03T18:00:00.3456-05:00";
-        inputDate = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(quote(inputStr)), java.util.Date.class);
+        inputDate = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote(inputStr)), java.util.Date.class);
         c.setTime(inputDate);
         assertEquals(2014, c.get(Calendar.YEAR));
         assertEquals(Calendar.OCTOBER, c.get(Calendar.MONTH));
@@ -294,7 +294,7 @@ public class DateDeserializationTest
 
         // But! Still limit to 9 digits (nanoseconds)
         try {
-            MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(quote("2014-10-03T18:00:00.1234567890-05:00")), java.util.Date.class);
+            MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote("2014-10-03T18:00:00.1234567890-05:00")), java.util.Date.class);
         } catch (InvalidFormatException e) {
             verifyException(e, "invalid fractional seconds");
             verifyException(e, "can use at most 9 digits");
@@ -310,7 +310,7 @@ public class DateDeserializationTest
         Calendar c = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
 
         inputStr = "1997-07-16T19:20+01:00";
-        inputDate = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(quote(inputStr)), java.util.Date.class);
+        inputDate = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote(inputStr)), java.util.Date.class);
         c.setTime(inputDate);
         assertEquals(1997, c.get(Calendar.YEAR));
         assertEquals(Calendar.JULY, c.get(Calendar.MONTH));
@@ -321,7 +321,7 @@ public class DateDeserializationTest
 
         // 14-Sep-2015, tatu: Colon for timezone offset is optional, verify
         inputStr = "1997-07-16T19:20+0200";
-        inputDate = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(quote(inputStr)), java.util.Date.class);
+        inputDate = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote(inputStr)), java.util.Date.class);
         c.setTime(inputDate);
         assertEquals(1997, c.get(Calendar.YEAR));
         assertEquals(Calendar.JULY, c.get(Calendar.MONTH));
@@ -332,7 +332,7 @@ public class DateDeserializationTest
 
         // or just hour
         inputStr = "1997-07-16T19:20+04";
-        inputDate = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(quote(inputStr)), java.util.Date.class);
+        inputDate = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote(inputStr)), java.util.Date.class);
         c.setTime(inputDate);
         assertEquals(1997, c.get(Calendar.YEAR));
         assertEquals(Calendar.JULY, c.get(Calendar.MONTH));
@@ -346,7 +346,7 @@ public class DateDeserializationTest
     {
         // Timezone itself is optional as well... 
         String inputStr = "1984-11-13T00:00:09";
-        Date inputDate = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(quote(inputStr)), java.util.Date.class);
+        Date inputDate = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote(inputStr)), java.util.Date.class);
         Calendar c = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
         c.setTime(inputDate);
         assertEquals(1984, c.get(Calendar.YEAR));
@@ -365,10 +365,10 @@ public class DateDeserializationTest
         ObjectReader r = MAPPER.readerFor(Date.class);
         TimeZone tz = TimeZone.getTimeZone("GMT-2");
         Date date1 = r.with(tz)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes(quote("1970-01-01T00:00:00.000")));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote("1970-01-01T00:00:00.000")));
         // Second case, should use specified timezone, not configured
         Date date2 = r.with(TimeZone.getTimeZone("GMT+5"))
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes(quote("1970-01-01T00:00:00.000-02:00")));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote("1970-01-01T00:00:00.000-02:00")));
         assertEquals(date1, date2);
 
         // also verify actual value, in GMT
@@ -396,7 +396,7 @@ public class DateDeserializationTest
         Date inputDate;
         Calendar c;
         
-        inputDate = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(quote(INPUT_STR)), java.util.Date.class);
+        inputDate = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote(INPUT_STR)), java.util.Date.class);
         c = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
         c.setTime(inputDate);
         assertEquals(2013, c.get(Calendar.YEAR));
@@ -427,7 +427,7 @@ public class DateDeserializationTest
     {
         // Plain date (no time)
         String inputStr = "1972-12-28";
-        Date inputDate = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(quote(inputStr)), java.util.Date.class);
+        Date inputDate = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote(inputStr)), java.util.Date.class);
         Calendar c = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
         c.setTime(inputDate);
         assertEquals(1972, c.get(Calendar.YEAR));
@@ -445,11 +445,11 @@ public class DateDeserializationTest
         long now = value.getTime();
 
         // First from long
-        assertEquals(value, MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(String.valueOf(now)), java.sql.Date.class));
+        assertEquals(value, MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(String.valueOf(now)), java.sql.Date.class));
 
         // then from default java.sql.Date String serialization:
         
-        java.sql.Date result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(quote(value.toString())), java.sql.Date.class);
+        java.sql.Date result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote(value.toString())), java.sql.Date.class);
         Calendar c = gmtCalendar(result.getTime());
         assertEquals(1999, c.get(Calendar.YEAR));
         assertEquals(Calendar.APRIL, c.get(Calendar.MONTH));
@@ -459,7 +459,7 @@ public class DateDeserializationTest
          *   formats as well
          */
         String expStr = "1981-07-13";
-        result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(quote(expStr)), java.sql.Date.class);
+        result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote(expStr)), java.sql.Date.class);
         c.setTimeInMillis(result.getTime());
         assertEquals(1981, c.get(Calendar.YEAR));
         assertEquals(Calendar.JULY, c.get(Calendar.MONTH));
@@ -481,12 +481,12 @@ public class DateDeserializationTest
         value.setTimeInMillis(l);
 
         // First from long
-        Calendar result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(""+l), Calendar.class);
+        Calendar result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(""+l), Calendar.class);
         assertEquals(l, result.getTimeInMillis());
 
         // Then from serialized String
         String dateStr = dateToString(new Date(l));
-        result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(quote(dateStr)), Calendar.class);
+        result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote(dateStr)), Calendar.class);
 
         // note: representation may differ (wrt timezone etc), but underlying value must remain the same:
         if (l != result.getTimeInMillis()) {
@@ -504,7 +504,7 @@ public class DateDeserializationTest
 
         String dateStr = "1972-12-28X15:45:00";
         java.util.Date exp = df.parse(dateStr);
-        java.util.Date result = mapper.readValue(com.fasterxml.jackson.VPackUtils.toBytes("\""+dateStr+"\""), java.util.Date.class);
+        java.util.Date result = mapper.readValue(com.fasterxml.jackson.VPackUtils.toVPack("\""+dateStr+"\""), java.util.Date.class);
         assertEquals(exp, result);
     }
 
@@ -514,9 +514,9 @@ public class DateDeserializationTest
      */
     public void testDatesWithEmptyStrings() throws Exception
     {
-        assertNull(MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(quote("")), java.util.Date.class));
-        assertNull(MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(quote("")), java.util.Calendar.class));
-        assertNull(MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(quote("")), java.sql.Date.class));
+        assertNull(MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote("")), java.util.Date.class));
+        assertNull(MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote("")), java.util.Calendar.class));
+        assertNull(MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote("")), java.sql.Date.class));
     }
 
     public void test8601DateTimeNoMilliSecs() throws Exception
@@ -528,7 +528,7 @@ public class DateDeserializationTest
                "2010-06-28T23:34:22+00:00",
                "2010-06-28T23:34:22+00",
         }) {
-            Date inputDate = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(quote(inputStr)), java.util.Date.class);
+            Date inputDate = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote(inputStr)), java.util.Date.class);
             Calendar c = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
             c.setTime(inputDate);
             assertEquals(2010, c.get(Calendar.YEAR));
@@ -543,13 +543,13 @@ public class DateDeserializationTest
 
     public void testTimeZone() throws Exception
     {
-        TimeZone result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(quote("PST")), TimeZone.class);
+        TimeZone result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote("PST")), TimeZone.class);
         assertEquals("PST", result.getID());
     }
 
     public void testCustomDateWithAnnotation() throws Exception
     {
-        final byte[] INPUT = VPackUtils.toBytes("{\"date\":\"/2005/05/25/\"}");
+        final byte[] INPUT = VPackUtils.toVPack("{\"date\":\"/2005/05/25/\"}");
         DateAsStringBean result = MAPPER.readValue(INPUT, DateAsStringBean.class);
         assertNotNull(result);
         assertNotNull(result.date);
@@ -595,7 +595,7 @@ public class DateDeserializationTest
 
     public void testCustomCalendarWithAnnotation() throws Exception
     {
-        CalendarAsStringBean cbean = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes("{\"cal\":\";2007/07/13;\"}"),
+        CalendarAsStringBean cbean = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack("{\"cal\":\";2007/07/13;\"}"),
                 CalendarAsStringBean.class);
         assertNotNull(cbean);
         assertNotNull(cbean.cal);
@@ -608,7 +608,7 @@ public class DateDeserializationTest
     public void testCustomCalendarWithTimeZone() throws Exception
     {
         // And then with different TimeZone: CET is +01:00 from GMT -- read as CET
-        DateInCETBean cet = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes("{\"date\":\"2001-01-01,10\"}"),
+        DateInCETBean cet = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack("{\"date\":\"2001-01-01,10\"}"),
                 DateInCETBean.class);
         Calendar c = Calendar.getInstance(getUTCTimeZone());
         c.setTimeInMillis(cet.date.getTime());
@@ -622,7 +622,7 @@ public class DateDeserializationTest
     // [databind#1651]
     public void testDateEndingWithZNonDefTZ1651() throws Exception
     {
-        byte[] json = VPackUtils.toBytes(quote("1970-01-01T00:00:00.000Z"));
+        byte[] json = VPackUtils.toVPack(quote("1970-01-01T00:00:00.000Z"));
 
         // Standard mapper with timezone UTC: shared instance should be ok.
         // ... but, Travis manages to have fails, so insist on newly created
@@ -658,7 +658,7 @@ public class DateDeserializationTest
                 .with(TimeZone.getTimeZone(tzId));
 
         // by default use contextual timezone:
-        Calendar cal = r.readValue(com.fasterxml.jackson.VPackUtils.toBytes(quote(inputStr)));
+        Calendar cal = r.readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote(inputStr)));
         TimeZone tz = cal.getTimeZone();
         assertEquals(tzId, tz.getID());
 
@@ -673,7 +673,7 @@ public class DateDeserializationTest
 
         // but if disabled, should use what's been sent in:
         cal = r.without(DeserializationFeature.ADJUST_DATES_TO_CONTEXT_TIME_ZONE)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes(quote(inputStr)));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote(inputStr)));
 
         // 23-Jun-2017, tatu: Actually turns out to be hard if not impossible to do ...
         //    problem being SimpleDateFormat does not really retain timezone offset.
@@ -702,7 +702,7 @@ public class DateDeserializationTest
         final String inputDate = "1972-12-28T00:00:00.000+0000";
         final String input = aposToQuotes("{'v':['"+inputDate+"']}");
         try {
-            reader.readValue(com.fasterxml.jackson.VPackUtils.toBytes(input));
+            reader.readValue(com.fasterxml.jackson.VPackUtils.toVPack(input));
             fail("Did not throw exception when reading a value from a single value array with the UNWRAP_SINGLE_VALUE_ARRAYS feature disabled");
         } catch (MismatchedInputException exp) {
             verifyException(exp, "Cannot deserialize");
@@ -710,13 +710,13 @@ public class DateDeserializationTest
         }
 
         reader = reader.with(DeserializationFeature.UNWRAP_SINGLE_VALUE_ARRAYS);
-        CalendarBean bean = reader.readValue(com.fasterxml.jackson.VPackUtils.toBytes(input));
+        CalendarBean bean = reader.readValue(com.fasterxml.jackson.VPackUtils.toVPack(input));
         assertNotNull(bean._v);
         assertEquals(1972, bean._v.get(Calendar.YEAR));
 
         // and finally, a fail due to multiple values:
         try {
-            reader.readValue(com.fasterxml.jackson.VPackUtils.toBytes(aposToQuotes("{'v':['"+inputDate+"','"+inputDate+"']}")));
+            reader.readValue(com.fasterxml.jackson.VPackUtils.toVPack(aposToQuotes("{'v':['"+inputDate+"','"+inputDate+"']}")));
             fail("Did not throw exception while reading a value from a multi value array with UNWRAP_SINGLE_VALUE_ARRAY feature enabled");
         } catch (JsonMappingException exp) {
             verifyException(exp, "Attempted to unwrap");
@@ -731,7 +731,7 @@ public class DateDeserializationTest
 
     public void testLenientJDKDateTypes() throws Exception
     {
-        final byte[] JSON = VPackUtils.toBytes(aposToQuotes("{'value':'2015-11-32'}"));
+        final byte[] JSON = VPackUtils.toVPack(aposToQuotes("{'value':'2015-11-32'}"));
 
         // with lenient, can parse fine
         LenientCalendarBean lenBean = MAPPER.readValue(JSON, LenientCalendarBean.class);
@@ -755,7 +755,7 @@ public class DateDeserializationTest
         mapper.configOverride(java.util.Date.class)
             .setFormat(JsonFormat.Value.forLeniency(Boolean.FALSE));
         try {
-            mapper.readValue(com.fasterxml.jackson.VPackUtils.toBytes(quote("2015-11-32")), java.util.Date.class);
+            mapper.readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote("2015-11-32")), java.util.Date.class);
             fail("Should not pass with invalid (with strict) date value");
         } catch (MismatchedInputException e) {
             verifyException(e, "Cannot deserialize value of type `java.util.Date`");
@@ -766,7 +766,7 @@ public class DateDeserializationTest
 
     public void testLenientJDKDateTypesViaGlobal() throws Exception
     {
-        final byte[] JSON = VPackUtils.toBytes(quote("2015-11-32"));
+        final byte[] JSON = VPackUtils.toVPack(quote("2015-11-32"));
 
         // with lenient, can parse fine
         Calendar value = MAPPER.readValue(JSON, Calendar.class);
@@ -805,7 +805,7 @@ public class DateDeserializationTest
     public void testInvalidFormat() throws Exception
     {
         try {
-            MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(quote("foobar")), Date.class);
+            MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote("foobar")), Date.class);
             fail("Should have failed with an exception");
         } catch (InvalidFormatException e) {
             verifyException(e, "Cannot deserialize value of type `java.util.Date` from String");

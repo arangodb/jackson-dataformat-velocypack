@@ -134,7 +134,7 @@ public class TestUnknownPropertyDeserialization
     public void testUnknownHandlingDefault() throws Exception
     {
         try {
-            MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(JSON_UNKNOWN_FIELD), TestBean.class);
+            MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(JSON_UNKNOWN_FIELD), TestBean.class);
         } catch (JsonMappingException jex) {
             verifyException(jex, "Unrecognized field \"foo\"");
         }
@@ -149,7 +149,7 @@ public class TestUnknownPropertyDeserialization
         ObjectMapper mapper = newJsonMapper();
         mapper.clearProblemHandlers();
         mapper.addHandler(new MyHandler());
-        TestBean result = mapper.readValue(com.fasterxml.jackson.VPackUtils.toBytes(JSON_UNKNOWN_FIELD), TestBean.class);
+        TestBean result = mapper.readValue(com.fasterxml.jackson.VPackUtils.toVPack(JSON_UNKNOWN_FIELD), TestBean.class);
         assertNotNull(result);
         assertEquals(1, result._a);
         assertEquals(-1, result._b);
@@ -164,7 +164,7 @@ public class TestUnknownPropertyDeserialization
     {
         ObjectMapper mapper = newJsonMapper();
         mapper.clearProblemHandlers();
-        TestBean result = mapper.readerFor(TestBean.class).withHandler(new MyHandler()).readValue(com.fasterxml.jackson.VPackUtils.toBytes(JSON_UNKNOWN_FIELD));
+        TestBean result = mapper.readerFor(TestBean.class).withHandler(new MyHandler()).readValue(com.fasterxml.jackson.VPackUtils.toVPack(JSON_UNKNOWN_FIELD));
         assertNotNull(result);
         assertEquals(1, result._a);
         assertEquals(-1, result._b);
@@ -181,7 +181,7 @@ public class TestUnknownPropertyDeserialization
         mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         TestBean result = null;
         try {
-            result = mapper.readValue(com.fasterxml.jackson.VPackUtils.toBytes(JSON_UNKNOWN_FIELD), TestBean.class);
+            result = mapper.readValue(com.fasterxml.jackson.VPackUtils.toVPack(JSON_UNKNOWN_FIELD), TestBean.class);
         } catch (JsonMappingException jex) {
             fail("Did not expect a problem, got: "+jex.getMessage());
         }

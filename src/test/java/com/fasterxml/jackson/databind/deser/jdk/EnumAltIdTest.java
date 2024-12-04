@@ -53,7 +53,7 @@ public class EnumAltIdTest extends BaseMapTest
 
     public void testFailWhenCaseSensitiveAndNameIsNotUpperCase() throws IOException {
         try {
-            READER_DEFAULT.forType(TestEnum.class).readValue(com.fasterxml.jackson.VPackUtils.toBytes("\"Jackson\""));
+            READER_DEFAULT.forType(TestEnum.class).readValue(com.fasterxml.jackson.VPackUtils.toVPack("\"Jackson\""));
             fail("InvalidFormatException expected");
         } catch (InvalidFormatException e) {
             verifyException(e, "not one of the values accepted for Enum class");
@@ -65,7 +65,7 @@ public class EnumAltIdTest extends BaseMapTest
         ObjectReader r = READER_DEFAULT.forType(LowerCaseEnum.class)
                 .with(DeserializationFeature.READ_ENUMS_USING_TO_STRING);
         try {
-            r.readValue(com.fasterxml.jackson.VPackUtils.toBytes("\"A\""));
+            r.readValue(com.fasterxml.jackson.VPackUtils.toVPack("\"A\""));
             fail("InvalidFormatException expected");
         } catch (InvalidFormatException e) {
             verifyException(e, "not one of the values accepted for Enum class");
@@ -75,13 +75,13 @@ public class EnumAltIdTest extends BaseMapTest
 
     public void testEnumDesIgnoringCaseWithLowerCaseContent() throws IOException {
         assertEquals(TestEnum.JACKSON,
-                READER_IGNORE_CASE.forType(TestEnum.class).readValue(com.fasterxml.jackson.VPackUtils.toBytes(quote("jackson"))));
+                READER_IGNORE_CASE.forType(TestEnum.class).readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote("jackson"))));
     }
 
     public void testEnumDesIgnoringCaseWithUpperCaseToString() throws IOException {
         ObjectReader r = MAPPER_IGNORE_CASE.readerFor(LowerCaseEnum.class)
                 .with(DeserializationFeature.READ_ENUMS_USING_TO_STRING);
-        assertEquals(LowerCaseEnum.A, r.readValue(com.fasterxml.jackson.VPackUtils.toBytes("\"A\"")));
+        assertEquals(LowerCaseEnum.A, r.readValue(com.fasterxml.jackson.VPackUtils.toVPack("\"A\"")));
     }
 
     /*
@@ -92,7 +92,7 @@ public class EnumAltIdTest extends BaseMapTest
 
     public void testIgnoreCaseInEnumList() throws Exception {
         TestEnum[] enums = READER_IGNORE_CASE.forType(TestEnum[].class)
-            .readValue(com.fasterxml.jackson.VPackUtils.toBytes("[\"jacksON\", \"ruLes\"]"));
+            .readValue(com.fasterxml.jackson.VPackUtils.toVPack("[\"jacksON\", \"ruLes\"]"));
 
         assertEquals(2, enums.length);
         assertEquals(TestEnum.JACKSON, enums[0]);
@@ -101,7 +101,7 @@ public class EnumAltIdTest extends BaseMapTest
 
     public void testIgnoreCaseInEnumSet() throws IOException {
         ObjectReader r = READER_IGNORE_CASE.forType(new TypeReference<EnumSet<TestEnum>>() { });
-        EnumSet<TestEnum> set = r.readValue(com.fasterxml.jackson.VPackUtils.toBytes("[\"jackson\"]"));
+        EnumSet<TestEnum> set = r.readValue(com.fasterxml.jackson.VPackUtils.toVPack("[\"jackson\"]"));
         assertEquals(1, set.size());
         assertTrue(set.contains(TestEnum.JACKSON));
     }
@@ -118,13 +118,13 @@ public class EnumAltIdTest extends BaseMapTest
 
         // should be able to allow on per-case basis:
         EnumBean pojo = READER_DEFAULT.forType(EnumBean.class)
-            .readValue(com.fasterxml.jackson.VPackUtils.toBytes(JSON));
+            .readValue(com.fasterxml.jackson.VPackUtils.toVPack(JSON));
         assertEquals(TestEnum.OK, pojo.value);
 
         // including disabling acceptance
         try {
             READER_DEFAULT.forType(StrictCaseBean.class)
-                    .readValue(com.fasterxml.jackson.VPackUtils.toBytes(JSON));
+                    .readValue(com.fasterxml.jackson.VPackUtils.toVPack(JSON));
             fail("Should not pass");
         } catch (InvalidFormatException e) {
             verifyException(e, "not one of the values accepted for Enum class");

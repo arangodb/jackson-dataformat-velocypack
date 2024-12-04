@@ -1,6 +1,5 @@
 package com.fasterxml.jackson.databind.node;
 
-import java.io.StringReader;
 import java.util.Iterator;
 
 import com.fasterxml.jackson.core.JsonToken;
@@ -38,7 +37,7 @@ public class TestMissingNode extends NodeTestBase
     public void testMissingViaMapper() throws Exception
     {
         String JSON = "[ { }, [ ] ]";
-        JsonNode result = objectMapper().readTree(com.fasterxml.jackson.VPackUtils.toBytes(JSON));
+        JsonNode result = objectMapper().readTree(com.fasterxml.jackson.VPackUtils.toVPack(JSON));
 
         assertTrue(result.isContainerNode());
         assertTrue(result.isArray());

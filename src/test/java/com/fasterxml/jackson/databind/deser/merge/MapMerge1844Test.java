@@ -53,8 +53,8 @@ public class MapMerge1844Test extends BaseMapTest
 +"  '1': 2, '2': 3, '4': 5\n"
 +"} }"
 );
-        TestMap1844 testMap = mapper.readerFor(TestMap1844.class).readValue(com.fasterxml.jackson.VPackUtils.toBytes(f1));
-        testMap = mapper.readerForUpdating(testMap).readValue(com.fasterxml.jackson.VPackUtils.toBytes(f2));
+        TestMap1844 testMap = mapper.readerFor(TestMap1844.class).readValue(com.fasterxml.jackson.VPackUtils.toVPack(f1));
+        testMap = mapper.readerForUpdating(testMap).readValue(com.fasterxml.jackson.VPackUtils.toVPack(f2));
 
         assertEquals(Integer.valueOf(2), testMap.getMapStringInteger().get("1"));
         assertEquals(Integer.valueOf(3), testMap.getMapStringInteger().get("2"));

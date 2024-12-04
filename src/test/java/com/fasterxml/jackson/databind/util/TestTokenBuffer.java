@@ -1,14 +1,12 @@
 package com.fasterxml.jackson.databind.util;
 
 import java.io.*;
-import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.UUID;
 
 import com.fasterxml.jackson.core.*;
 import com.fasterxml.jackson.core.JsonParser.NumberType;
 import com.fasterxml.jackson.core.exc.InputCoercionException;
-import com.fasterxml.jackson.core.io.SerializedString;
 import com.fasterxml.jackson.core.util.JsonParserSequence;
 
 import com.fasterxml.jackson.databind.*;
@@ -312,7 +310,7 @@ public class TestTokenBuffer extends BaseMapTest
     public void testWithJSONSampleDoc() throws Exception
     {
         // First, copy events from known good source (StringReader)
-        JsonParser p = MAPPER.getFactory().createParser(com.fasterxml.jackson.VPackUtils.toBytes(SAMPLE_DOC_JSON_SPEC));
+        JsonParser p = MAPPER.getFactory().createParser(com.fasterxml.jackson.VPackUtils.toVPack(SAMPLE_DOC_JSON_SPEC));
         TokenBuffer tb = new TokenBuffer(null, false);
         while (p.nextToken() != null) {
             tb.copyCurrentEvent(p);
@@ -467,7 +465,7 @@ public class TestTokenBuffer extends BaseMapTest
         TokenBuffer buf = new TokenBuffer(null, false);
         buf.writeStartArray();
         buf.writeString("test");
-        JsonParser p = MAPPER.getFactory().createParser(com.fasterxml.jackson.VPackUtils.toBytes("[ true, null ]"));
+        JsonParser p = MAPPER.getFactory().createParser(com.fasterxml.jackson.VPackUtils.toVPack("[ true, null ]"));
         
         JsonParserSequence seq = JsonParserSequence.createFlattened(false, buf.asParser(), p);
         assertEquals(2, seq.containedParsersCount());

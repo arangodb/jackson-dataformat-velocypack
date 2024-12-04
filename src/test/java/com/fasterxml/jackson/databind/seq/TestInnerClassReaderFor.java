@@ -32,11 +32,11 @@ public class TestInnerClassReaderFor extends BaseMapTest {
     public void testReaderFor() throws IOException {
 
         X x = new X("dummy");
-        objectMapper().readerForUpdating(x).readValue(com.fasterxml.jackson.VPackUtils.toBytes("{\"value\": \"updatedX\"}"));
+        objectMapper().readerForUpdating(x).readValue(com.fasterxml.jackson.VPackUtils.toVPack("{\"value\": \"updatedX\"}"));
         assertEquals(x.getValue(), "updatedX");
 
         Y y = new Y("dummy");
-        objectMapper().readerForUpdating(y).readValue(com.fasterxml.jackson.VPackUtils.toBytes("{\"value\": \"updatedY\"}"));
+        objectMapper().readerForUpdating(y).readValue(com.fasterxml.jackson.VPackUtils.toVPack("{\"value\": \"updatedY\"}"));
         assertEquals(y.getValue(), "updatedY");
 
     }

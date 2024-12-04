@@ -23,7 +23,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 
-import static com.fasterxml.jackson.VPackUtils.toBytes;
+import static com.fasterxml.jackson.VPackUtils.toVPack;
 import static com.fasterxml.jackson.VPackUtils.toJson;
 
 public class ObjectMapperTest extends BaseMapTest
@@ -268,7 +268,7 @@ public class ObjectMapperTest extends BaseMapTest
 
         assertEquals(0, m._deserializationContext._cache.cachedDeserializersCount());
         // and then should get one constructed for:
-        Bean bean = m.readValue(toBytes(JSON), Bean.class);
+        Bean bean = m.readValue(toVPack(JSON), Bean.class);
         assertNotNull(bean);
         // Since 2.6, serializer for int also cached:
         assertEquals(2, m._deserializationContext._cache.cachedDeserializersCount());
@@ -277,7 +277,7 @@ public class ObjectMapperTest extends BaseMapTest
 
         // 07-Nov-2014, tatu: As per [databind#604] verify that Maps also get cached
         m = new TestVelocypackMapper();
-        List<?> stuff = m.readValue(toBytes("[ ]"), List.class);
+        List<?> stuff = m.readValue(toVPack("[ ]"), List.class);
         assertNotNull(stuff);
         // may look odd, but due to "Untyped" deserializer thing, we actually have
         // 4 deserializers (int, List<?>, Map<?,?>, Object)

@@ -41,7 +41,7 @@ public class NodeMergeTest extends BaseMapTest
         base.put("first", "foo");
         assertSame(base,
                 MAPPER.readerForUpdating(base)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes(aposToQuotes("{'second':'bar', 'third':5, 'fourth':true}"))));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack(aposToQuotes("{'second':'bar', 'third':5, 'fourth':true}"))));
         assertEquals(4, base.size());
         assertEquals("bar", base.path("second").asText());
         assertEquals("foo", base.path("first").asText());
@@ -69,7 +69,7 @@ public class NodeMergeTest extends BaseMapTest
         base.putNull("misc");
         assertSame(base,
                 MAPPER.readerForUpdating(base)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes(aposToQuotes(
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack(aposToQuotes(
                         "{'props':{'value':true, 'extra':25.5, 'array' : [ 3 ]}}"))));
         assertEquals(2, base.size());
         ObjectNode resultProps = (ObjectNode) base.get("props");
@@ -90,7 +90,7 @@ public class NodeMergeTest extends BaseMapTest
         base.add("first");
         assertSame(base,
                 MAPPER.readerForUpdating(base)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes(aposToQuotes("['second',false,null]"))));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack(aposToQuotes("['second',false,null]"))));
         assertEquals(4, base.size());
         assertEquals("first", base.path(0).asText());
         assertEquals("second", base.path(1).asText());

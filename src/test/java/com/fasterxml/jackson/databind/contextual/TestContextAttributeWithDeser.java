@@ -50,13 +50,13 @@ public class TestContextAttributeWithDeser extends BaseMapTest
     public void testSimplePerCall() throws Exception
     {
         final String INPUT = aposToQuotes("[{'value':'a'},{'value':'b'}]");
-        TestPOJO[] pojos = MAPPER.readerFor(TestPOJO[].class).readValue(com.fasterxml.jackson.VPackUtils.toBytes(INPUT));
+        TestPOJO[] pojos = MAPPER.readerFor(TestPOJO[].class).readValue(com.fasterxml.jackson.VPackUtils.toVPack(INPUT));
         assertEquals(2, pojos.length);
         assertEquals("a/0", pojos[0].value);
         assertEquals("b/1", pojos[1].value);
 
         // and verify that state does not linger
-        TestPOJO[] pojos2 = MAPPER.readerFor(TestPOJO[].class).readValue(com.fasterxml.jackson.VPackUtils.toBytes(INPUT));
+        TestPOJO[] pojos2 = MAPPER.readerFor(TestPOJO[].class).readValue(com.fasterxml.jackson.VPackUtils.toVPack(INPUT));
         assertEquals(2, pojos2.length);
         assertEquals("a/0", pojos2[0].value);
         assertEquals("b/1", pojos2[1].value);
@@ -67,13 +67,13 @@ public class TestContextAttributeWithDeser extends BaseMapTest
         final String INPUT = aposToQuotes("{'value':'x'}");
         TestPOJO pojo = MAPPER.readerFor(TestPOJO.class)
                 .withAttribute(KEY, Integer.valueOf(3))
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes(INPUT));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack(INPUT));
         assertEquals("x/3", pojo.value);
 
         // as above, should not carry on state
         TestPOJO pojo2 = MAPPER.readerFor(TestPOJO.class)
                 .withAttribute(KEY, Integer.valueOf(5))
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes(INPUT));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack(INPUT));
         assertEquals("x/5", pojo2.value);
     }
 
@@ -81,13 +81,13 @@ public class TestContextAttributeWithDeser extends BaseMapTest
     {
         final String INPUT = aposToQuotes("[{'value':'x'},{'value':'y'}]");
         ObjectReader r = MAPPER.readerFor(TestPOJO[].class).withAttribute(KEY, Integer.valueOf(2));
-        TestPOJO[] pojos = r.readValue(com.fasterxml.jackson.VPackUtils.toBytes(INPUT));
+        TestPOJO[] pojos = r.readValue(com.fasterxml.jackson.VPackUtils.toVPack(INPUT));
         assertEquals(2, pojos.length);
         assertEquals("x/2", pojos[0].value);
         assertEquals("y/3", pojos[1].value);
 
         // and once more to verify transiency of per-call state
-        TestPOJO[] pojos2 = r.readValue(com.fasterxml.jackson.VPackUtils.toBytes(INPUT));
+        TestPOJO[] pojos2 = r.readValue(com.fasterxml.jackson.VPackUtils.toVPack(INPUT));
         assertEquals(2, pojos2.length);
         assertEquals("x/2", pojos2[0].value);
         assertEquals("y/3", pojos2[1].value);

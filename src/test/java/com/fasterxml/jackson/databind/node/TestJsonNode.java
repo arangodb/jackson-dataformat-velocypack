@@ -42,7 +42,7 @@ public class TestJsonNode extends NodeTestBase
         assertNodeNumbers(f, 0, 0.0);
         assertNodeNumbers(t, 1, 1.0);
 
-        JsonNode result = objectMapper().readTree(com.fasterxml.jackson.VPackUtils.toBytes("true\n"));
+        JsonNode result = objectMapper().readTree(com.fasterxml.jackson.VPackUtils.toVPack("true\n"));
         assertFalse(result.isNull());
         assertFalse(result.isNumber());
         assertFalse(result.isTextual());
@@ -171,11 +171,11 @@ public class TestJsonNode extends NodeTestBase
         ObjectMapper mapper = new TestVelocypackMapper()
             .activateDefaultTyping(NoCheckSubTypeValidator.instance);
 
-        JsonNode array = mapper.readTree(com.fasterxml.jackson.VPackUtils.toBytes("[ 1, 2 ]"));
+        JsonNode array = mapper.readTree(com.fasterxml.jackson.VPackUtils.toVPack("[ 1, 2 ]"));
         assertTrue(array.isArray());
         assertEquals(2, array.size());
 
-        JsonNode obj = mapper.readTree(com.fasterxml.jackson.VPackUtils.toBytes("{ \"a\" : 2 }"));
+        JsonNode obj = mapper.readTree(com.fasterxml.jackson.VPackUtils.toVPack("{ \"a\" : 2 }"));
         assertTrue(obj.isObject());
         assertEquals(1, obj.size());
         assertEquals(2, obj.path("a").asInt());

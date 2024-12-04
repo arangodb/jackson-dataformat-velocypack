@@ -85,14 +85,14 @@ public class DelegatingArrayCreatorsTest extends BaseMapTest
     // [databind#2324]
     public void testDeserializeBagOfStrings() throws Exception {
         WithBagOfStrings2324 result = MAPPER.readerFor(WithBagOfStrings2324.class)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes("{\"strings\": [ \"a\", \"b\", \"c\"]}"));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack("{\"strings\": [ \"a\", \"b\", \"c\"]}"));
         assertEquals(3, result.getStrings().size());
     }
 
     // [databind#2324]
     public void testDeserializeBagOfPOJOs() throws Exception {
         WithBagOfValues2324 result = MAPPER.readerFor(WithBagOfValues2324.class)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes("{\"values\": [ \"a\", \"b\", \"c\"]}"));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack("{\"values\": [ \"a\", \"b\", \"c\"]}"));
         assertEquals(3, result.getValues().size());
         assertEquals(new Value2324("a"),  result.getValues().iterator().next());
     }

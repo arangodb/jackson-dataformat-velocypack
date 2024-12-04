@@ -112,7 +112,7 @@ public class TestInjectables extends BaseMapTest
         CtorBean bean = MAPPER.readerFor(CtorBean.class)
             .with(new InjectableValues.Std()
                 .addValue(String.class, "Bubba"))
-            .readValue(com.fasterxml.jackson.VPackUtils.toBytes("{\"age\":55}"));
+            .readValue(com.fasterxml.jackson.VPackUtils.toVPack("{\"age\":55}"));
         assertEquals(55, bean.age);
         assertEquals("Bubba", bean.name);
     }
@@ -123,7 +123,7 @@ public class TestInjectables extends BaseMapTest
                 .with(new InjectableValues.Std()
                     .addValue(String.class, "Bob")
                     .addValue("number", Integer.valueOf(13))
-                ).readValue(com.fasterxml.jackson.VPackUtils.toBytes("{ }"));
+                ).readValue(com.fasterxml.jackson.VPackUtils.toVPack("{ }"));
         assertEquals(Integer.valueOf(13), bean.age);
         assertEquals("Bob", bean.name);
     }
@@ -164,7 +164,7 @@ public class TestInjectables extends BaseMapTest
         TransientBean bean = MAPPER.readerFor(TransientBean.class)
                 .with(new InjectableValues.Std()
                         .addValue("transient", "Injected!"))
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes("{\"value\":28}"));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack("{\"value\":28}"));
         assertEquals(28, bean.value);
         assertEquals("Injected!", bean.injected);
     }

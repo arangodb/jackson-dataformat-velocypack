@@ -485,13 +485,13 @@ public class TestTypeFactory
     public void testSneakyBeanProperties() throws Exception
     {
         ObjectMapper mapper = new TestVelocypackMapper();
-        StringLongMapBean bean = mapper.readValue(com.fasterxml.jackson.VPackUtils.toBytes("{\"value\":{\"a\":123}}"), StringLongMapBean.class);
+        StringLongMapBean bean = mapper.readValue(com.fasterxml.jackson.VPackUtils.toVPack("{\"value\":{\"a\":123}}"), StringLongMapBean.class);
         assertNotNull(bean);
         Map<String,Long> map = bean.value;
         assertEquals(1, map.size());
         assertEquals(Long.valueOf(123), map.get("a"));
 
-        StringListBean bean2 = mapper.readValue(com.fasterxml.jackson.VPackUtils.toBytes("{\"value\":[\"...\"]}"), StringListBean.class);
+        StringListBean bean2 = mapper.readValue(com.fasterxml.jackson.VPackUtils.toVPack("{\"value\":[\"...\"]}"), StringListBean.class);
         assertNotNull(bean2);
         List<String> list = bean2.value;
         assertSame(GenericList.class, list.getClass());

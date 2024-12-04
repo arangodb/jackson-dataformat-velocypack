@@ -135,7 +135,7 @@ public class TestPolymorphicCreators
 
          AbstractRoot input = AbstractRoot.make(1, "oh hai!");
          String json = com.fasterxml.jackson.VPackUtils.toJson( w.writeValueAsBytes(input));
-         AbstractRoot result = r.readValue(com.fasterxml.jackson.VPackUtils.toBytes(json));
+         AbstractRoot result = r.readValue(com.fasterxml.jackson.VPackUtils.toVPack(json));
          assertNotNull(result);
          assertEquals("oh hai!", result.getOpt());
     }

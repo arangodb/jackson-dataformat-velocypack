@@ -36,7 +36,7 @@ public class TestJacksonTypes
     public void testTokenBuffer() throws Exception
     {
         // First, copy events from known good source (StringReader)
-        JsonParser jp = sharedMapper().getFactory().createParser(com.fasterxml.jackson.VPackUtils.toBytes(SAMPLE_DOC_JSON_SPEC));
+        JsonParser jp = sharedMapper().getFactory().createParser(com.fasterxml.jackson.VPackUtils.toVPack(SAMPLE_DOC_JSON_SPEC));
         TokenBuffer tb = new TokenBuffer(null, false);
         while (jp.nextToken() != null) {
             tb.copyCurrentEvent(jp);
@@ -46,6 +46,6 @@ public class TestJacksonTypes
         String str = serializeAsString(tb);
         tb.close();
         // and verify it looks ok
-        verifyJsonSpecSampleDoc(sharedMapper().getFactory().createParser(com.fasterxml.jackson.VPackUtils.toBytes(str)), true);
+        verifyJsonSpecSampleDoc(sharedMapper().getFactory().createParser(com.fasterxml.jackson.VPackUtils.toVPack(str)), true);
     }
 }

@@ -241,7 +241,7 @@ public class TestTypeModifiers extends BaseMapTest
                 context.addTypeModifier(new MyTypeModifier());
             }
         });
-        assertNotNull(mapper.readTree(com.fasterxml.jackson.VPackUtils.toBytes("{}")));
+        assertNotNull(mapper.readTree(com.fasterxml.jackson.VPackUtils.toVPack("{}")));
     }
 
     public void testCollectionLikeTypeConstruction() throws Exception

@@ -128,7 +128,7 @@ public class ArrayNodeTest
     {
         final String JSON = "[[[-0.027512,51.503221],[-0.008497,51.503221],[-0.008497,51.509744],[-0.027512,51.509744]]]";
 
-        JsonNode n = objectMapper().readTree(com.fasterxml.jackson.VPackUtils.toBytes(JSON));
+        JsonNode n = objectMapper().readTree(com.fasterxml.jackson.VPackUtils.toVPack(JSON));
         assertNotNull(n);
         assertTrue(n.isArray());
         ArrayNode an = (ArrayNode) n;

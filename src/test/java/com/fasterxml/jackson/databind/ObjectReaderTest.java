@@ -30,7 +30,7 @@ public class ObjectReaderTest extends BaseMapTest
     public void testSimpleViaParser() throws Exception
     {
         final String JSON = "[1]";
-        JsonParser p = MAPPER.getFactory().createParser(com.fasterxml.jackson.VPackUtils.toBytes(JSON));
+        JsonParser p = MAPPER.getFactory().createParser(com.fasterxml.jackson.VPackUtils.toVPack(JSON));
         Object ob = MAPPER.readerFor(Object.class)
                 .readValue(p);
         p.close();
@@ -40,7 +40,7 @@ public class ObjectReaderTest extends BaseMapTest
     public void testSimpleAltSources() throws Exception
     {
         final String JSON = "[1]";
-        final byte[] BYTES = VPackUtils.toBytes(JSON);
+        final byte[] BYTES = VPackUtils.toVPack(JSON);
         Object ob = MAPPER.readerFor(Object.class)
                 .readValue(BYTES);
         assertTrue(ob instanceof List<?>);
@@ -154,7 +154,7 @@ public class ObjectReaderTest extends BaseMapTest
     {
         ObjectReader r = MAPPER.reader()
                 .without(DeserializationFeature.EAGER_DESERIALIZER_FETCH);
-        Number n = r.forType(Integer.class).readValue(com.fasterxml.jackson.VPackUtils.toBytes("123 "));
+        Number n = r.forType(Integer.class).readValue(com.fasterxml.jackson.VPackUtils.toVPack("123 "));
         assertEquals(Integer.valueOf(123), n);
     }
 
@@ -177,7 +177,7 @@ public class ObjectReaderTest extends BaseMapTest
     public void testNoPointerLoading() throws Exception {
         final String source = "{\"foo\":{\"bar\":{\"caller\":{\"name\":{\"value\":1234}}}}}";
 
-        JsonNode tree = MAPPER.readTree(com.fasterxml.jackson.VPackUtils.toBytes(source));
+        JsonNode tree = MAPPER.readTree(com.fasterxml.jackson.VPackUtils.toVPack(source));
         JsonNode node = tree.at("/foo/bar/caller");
         POJO pojo = MAPPER.treeToValue(node, POJO.class);
         assertTrue(pojo.name.containsKey("value"));
@@ -189,7 +189,7 @@ public class ObjectReaderTest extends BaseMapTest
 
         ObjectReader reader = MAPPER.readerFor(POJO.class).at("/foo/bar/caller");
 
-        POJO pojo = reader.readValue(com.fasterxml.jackson.VPackUtils.toBytes(source));
+        POJO pojo = reader.readValue(com.fasterxml.jackson.VPackUtils.toVPack(source));
         assertTrue(pojo.name.containsKey("value"));
         assertEquals(1234, pojo.name.get("value"));
     }
@@ -199,7 +199,7 @@ public class ObjectReaderTest extends BaseMapTest
 
         ObjectReader reader = MAPPER.readerFor(POJO.class).at(JsonPointer.compile("/foo/bar/caller"));
 
-        JsonNode node = reader.readTree(com.fasterxml.jackson.VPackUtils.toBytes(source));
+        JsonNode node = reader.readTree(com.fasterxml.jackson.VPackUtils.toVPack(source));
         assertTrue(node.has("name"));
         assertEquals("{\"value\":1234}", node.get("name").toString());
     }
@@ -209,7 +209,7 @@ public class ObjectReaderTest extends BaseMapTest
 
         ObjectReader reader = MAPPER.readerFor(POJO.class).at("/foo/bar/caller");
 
-        MappingIterator<POJO> itr = reader.readValues(com.fasterxml.jackson.VPackUtils.toBytes(source));
+        MappingIterator<POJO> itr = reader.readValues(com.fasterxml.jackson.VPackUtils.toVPack(source));
 
         POJO pojo = itr.next();
 
@@ -224,7 +224,7 @@ public class ObjectReaderTest extends BaseMapTest
 
         ObjectReader reader = MAPPER.readerFor(POJO.class).at("/foo/bar/caller");
 
-        MappingIterator<POJO> itr = reader.readValues(com.fasterxml.jackson.VPackUtils.toBytes(source));
+        MappingIterator<POJO> itr = reader.readValues(com.fasterxml.jackson.VPackUtils.toVPack(source));
 
         POJO pojo = itr.next();
 
@@ -255,7 +255,7 @@ public class ObjectReaderTest extends BaseMapTest
 
         final Pojo1637 testObject = MAPPER.readerFor(Pojo1637.class)
                 .at("/wrapper1")
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes(json));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack(json));
         assertNotNull(testObject);
 
         assertNotNull(testObject.set1);
@@ -317,7 +317,7 @@ public class ObjectReaderTest extends BaseMapTest
     {
         ObjectReader r = MAPPER.reader();
         try {
-            r.readValue(com.fasterxml.jackson.VPackUtils.toBytes("1"));
+            r.readValue(com.fasterxml.jackson.VPackUtils.toVPack("1"));
             fail("Should not pass");
         } catch (JsonMappingException e) {
             verifyException(e, "No value type configured");
@@ -352,7 +352,7 @@ public class ObjectReaderTest extends BaseMapTest
                 return true;
             }
         }).build();
-        A aObject = mapper.readValue(com.fasterxml.jackson.VPackUtils.toBytes("{\"unknownField\" : 1, \"knownField\": \"test\"}"), A.class);
+        A aObject = mapper.readValue(com.fasterxml.jackson.VPackUtils.toVPack("{\"unknownField\" : 1, \"knownField\": \"test\"}"), A.class);
 
         assertEquals("test", aObject.knownField);
     }

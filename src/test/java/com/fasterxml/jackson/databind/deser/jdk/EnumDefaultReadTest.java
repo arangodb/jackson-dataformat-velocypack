@@ -212,7 +212,7 @@ public class EnumDefaultReadTest extends BaseMapTest
             Class<T> toValueType, T expValue)
         throws IOException
     {
-        assertEquals(expValue, reader.forType(toValueType).readValue(com.fasterxml.jackson.VPackUtils.toBytes(quote(fromValue))));
+        assertEquals(expValue, reader.forType(toValueType).readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote(fromValue))));
     }
 
     private <T> void _verifyFailingDeserialization(final ObjectReader reader,
@@ -220,7 +220,7 @@ public class EnumDefaultReadTest extends BaseMapTest
         throws IOException
     {
         try {
-            reader.forType(toValueType).readValue(com.fasterxml.jackson.VPackUtils.toBytes(quote(fromValue)));
+            reader.forType(toValueType).readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote(fromValue)));
             fail("Deserialization should have failed");
         } catch (InvalidFormatException e) {
             verifyException(e, "Cannot deserialize value of type");

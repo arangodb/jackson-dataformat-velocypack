@@ -217,7 +217,7 @@ public class TestCustomTypeIdResolver extends BaseMapTest
         Top1270 top = new Top1270();
         top.b = req;
         String json = com.fasterxml.jackson.VPackUtils.toJson( MAPPER.writeValueAsBytes(top));
-        JsonNode tree = MAPPER.readTree(com.fasterxml.jackson.VPackUtils.toBytes(json));
+        JsonNode tree = MAPPER.readTree(com.fasterxml.jackson.VPackUtils.toVPack(json));
         assertNotNull(tree.get("b"));
         assertNotNull(tree.get("b").get("options"));
         assertNotNull(tree.get("b").get("options").get("val"));

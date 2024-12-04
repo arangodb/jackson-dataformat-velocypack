@@ -125,7 +125,7 @@ public class PropertyMergeTest extends BaseMapTest
         assertEquals(3, config.loc.b);
 
         config = MAPPER.readerForUpdating(new Config(5, 7))
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes(aposToQuotes("{'loc':{'b':2}}")));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack(aposToQuotes("{'loc':{'b':2}}")));
         assertEquals(5, config.loc.a);
         assertEquals(2, config.loc.b);
     }
@@ -159,7 +159,7 @@ public class PropertyMergeTest extends BaseMapTest
                 new byte[] { 1, 2, 3, 4, 5 });
         FiveMinuteUser user = mapper.readerFor(FiveMinuteUser.class)
                 .withValueToUpdate(user0)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes(aposToQuotes("{'name':{'last':'Brown'}}")));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack(aposToQuotes("{'name':{'last':'Brown'}}")));
         assertEquals("Bob", user.getName().getFirst());
         assertEquals("Brown", user.getName().getLast());
     }
@@ -185,7 +185,7 @@ public class PropertyMergeTest extends BaseMapTest
 
         ConstructorArgsPojo result = MAPPER.setDefaultMergeable(true)
                 .readerForUpdating(input)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes(aposToQuotes("{'mergeableBean': {'foo': 'newFoo'}}")));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack(aposToQuotes("{'mergeableBean': {'foo': 'newFoo'}}")));
 
         assertEquals("newFoo", result.mergeableBean.foo);
         assertEquals("bar", result.mergeableBean.bar);
@@ -204,20 +204,20 @@ public class PropertyMergeTest extends BaseMapTest
         input.b = 6;
 
         assertSame(input, MAPPER.readerForUpdating(input)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes("[1, 3]")));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack("[1, 3]")));
         assertEquals(1, input.a);
         assertEquals(3, input.b);
 
         // then with one too few
         assertSame(input, MAPPER.readerForUpdating(input)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes("[9]")));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack("[9]")));
         assertEquals(9, input.a);
         assertEquals(3, input.b);
 
         // and finally with extra, failing
         try {
             MAPPER.readerForUpdating(input)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes("[9, 8, 14]"));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack("[9, 8, 14]"));
             fail("Should not pass");
         } catch (MismatchedInputException e) {
             verifyException(e, "expected at most 2 properties");
@@ -225,7 +225,7 @@ public class PropertyMergeTest extends BaseMapTest
 
         try {
             MAPPER.readerForUpdating(input)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes("\"blob\""));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack("\"blob\""));
             fail("Should not pass");
         } catch (MismatchedInputException e) {
             verifyException(e, "Cannot deserialize");

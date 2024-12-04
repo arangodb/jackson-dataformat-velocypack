@@ -149,7 +149,7 @@ public class TestArrayDeserialization
         // to get "untyped" default map-to-map, pass Object[].class
         String JSON = "[ 1, null, \"x\", true, 2.0 ]";
 
-        Object[] result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(JSON), Object[].class);
+        Object[] result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(JSON), Object[].class);
         assertNotNull(result);
 
         assertEquals(5, result.length);
@@ -177,7 +177,7 @@ public class TestArrayDeserialization
         }
         sb.append(']');
 
-        Integer[] result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(sb.toString()), Integer[].class);
+        Integer[] result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(sb.toString()), Integer[].class);
         assertNotNull(result);
 
         assertEquals(LEN, result.length);
@@ -190,9 +190,9 @@ public class TestArrayDeserialization
     public void testFromEmptyString() throws Exception {
         ObjectMapper m = new TestVelocypackMapper();
         m.configure(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT, true);
-        assertNull(m.readValue(com.fasterxml.jackson.VPackUtils.toBytes(quote("")), Object[].class));
-        assertNull(m.readValue(com.fasterxml.jackson.VPackUtils.toBytes(quote("")), String[].class));
-        assertNull(m.readValue(com.fasterxml.jackson.VPackUtils.toBytes(quote("")), int[].class));
+        assertNull(m.readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote("")), Object[].class));
+        assertNull(m.readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote("")), String[].class));
+        assertNull(m.readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote("")), int[].class));
     }
 
     // [JACKSON-620]: allow "" to mean 'null' for Arrays, List and Maps
@@ -201,7 +201,7 @@ public class TestArrayDeserialization
         ObjectMapper m = new TestVelocypackMapper();
         m.configure(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT, true);
         m.configure(DeserializationFeature.ACCEPT_SINGLE_VALUE_AS_ARRAY, true);
-        Product p = m.readValue(com.fasterxml.jackson.VPackUtils.toBytes("{\"thelist\":\"\"}"), Product.class);
+        Product p = m.readValue(com.fasterxml.jackson.VPackUtils.toVPack("{\"thelist\":\"\"}"), Product.class);
         assertNotNull(p);
         assertNull(p.thelist);
     }
@@ -217,23 +217,23 @@ public class TestArrayDeserialization
         // to get "untyped" default map-to-map, pass Object[].class
         final String JSON = "[[[-0.027512,51.503221],[-0.008497,51.503221],[-0.008497,51.509744],[-0.027512,51.509744]]]";
 
-        Object result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(JSON), Object.class);
+        Object result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(JSON), Object.class);
         assertEquals(ArrayList.class, result.getClass());
         assertNotNull(result);
 
         // Should be able to get it as an Object array as well
 
-        Object[] array = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(JSON), Object[].class);
+        Object[] array = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(JSON), Object[].class);
         assertNotNull(array);
         assertEquals(Object[].class, array.getClass());
 
         // and as wrapped variants too
-        ObjectWrapper w = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes("{\"wrapped\":" + JSON + "}"), ObjectWrapper.class);
+        ObjectWrapper w = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack("{\"wrapped\":" + JSON + "}"), ObjectWrapper.class);
         assertNotNull(w);
         assertNotNull(w.wrapped);
         assertEquals(ArrayList.class, w.wrapped.getClass());
 
-        ObjectArrayWrapper aw = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes("{\"wrapped\":" + JSON + "}"), ObjectArrayWrapper.class);
+        ObjectArrayWrapper aw = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack("{\"wrapped\":" + JSON + "}"), ObjectArrayWrapper.class);
         assertNotNull(aw);
         assertNotNull(aw.wrapped);
     }    
@@ -258,7 +258,7 @@ public class TestArrayDeserialization
         jg.writeEndArray();
         jg.close();
 
-        String[] result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(sw.toString()), String[].class);
+        String[] result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(sw.toString()), String[].class);
         assertNotNull(result);
 
         assertEquals(STRS.length, result.length);
@@ -267,7 +267,7 @@ public class TestArrayDeserialization
         }
 
         // [#479]: null handling was busted in 2.4.0
-        result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(" [ null ]"), String[].class);
+        result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(" [ null ]"), String[].class);
         assertNotNull(result);
         assertEquals(1, result.length);
         assertNull(result[0]);
@@ -276,11 +276,11 @@ public class TestArrayDeserialization
     public void testCharArray() throws Exception
     {
         final String TEST_STR = "Let's just test it? Ok!";
-        char[] result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes("\"" + TEST_STR + "\""), char[].class);
+        char[] result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack("\"" + TEST_STR + "\""), char[].class);
         assertEquals(TEST_STR, new String(result));
 
         // And just for [JACKSON-289], let's verify that fluffy arrays work too
-        result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes("[\"a\",\"b\",\"c\"]"), char[].class);
+        result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack("[\"a\",\"b\",\"c\"]"), char[].class);
         assertEquals("abc", new String(result));
     }
 
@@ -292,7 +292,7 @@ public class TestArrayDeserialization
 
     public void testBooleanArray() throws Exception
     {
-        boolean[] result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes("[ true, false, false ]"), boolean[].class);
+        boolean[] result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack("[ true, false, false ]"), boolean[].class);
         assertNotNull(result);
         assertEquals(3, result.length);
         assertTrue(result[0]);
@@ -311,7 +311,7 @@ public class TestArrayDeserialization
             sb.append(',');
         }
         sb.append("0]");
-        byte[] result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(sb.toString()), byte[].class);
+        byte[] result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(sb.toString()), byte[].class);
         assertNotNull(result);
         assertEquals(LEN+1, result.length);
         for (int i = 0; i < LEN; ++i) {
@@ -345,7 +345,7 @@ public class TestArrayDeserialization
         jg.close();
         String inputData = sw.toString();
 
-        byte[] result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(inputData), byte[].class);
+        byte[] result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(inputData), byte[].class);
         assertNotNull(result);
         assertArrayEquals(TEST, result);
     }
@@ -378,7 +378,7 @@ public class TestArrayDeserialization
 
         String inputData = sw.toString();
 
-        byte[][] result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(inputData), byte[][].class);
+        byte[][] result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(inputData), byte[][].class);
         assertNotNull(result);
 
         assertEquals(entryCount, result.length);
@@ -411,7 +411,7 @@ public class TestArrayDeserialization
         }
         sb.append(']');
 
-        short[] result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(sb.toString()), short[].class);
+        short[] result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(sb.toString()), short[].class);
         assertNotNull(result);
 
         assertEquals(LEN, result.length);
@@ -437,7 +437,7 @@ public class TestArrayDeserialization
         }
         sb.append(']');
 
-        int[] result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(sb.toString()), int[].class);
+        int[] result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(sb.toString()), int[].class);
         assertNotNull(result);
 
         assertEquals(LEN, result.length);
@@ -459,7 +459,7 @@ public class TestArrayDeserialization
         }
         sb.append(']');
 
-        long[] result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(sb.toString()), long[].class);
+        long[] result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(sb.toString()), long[].class);
         assertNotNull(result);
 
         assertEquals(LEN, result.length);
@@ -483,7 +483,7 @@ public class TestArrayDeserialization
         }
         sb.append(']');
 
-        double[] result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(sb.toString()), double[].class);
+        double[] result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(sb.toString()), double[].class);
         assertNotNull(result);
 
         assertEquals(LEN, result.length);
@@ -510,7 +510,7 @@ public class TestArrayDeserialization
         }
         sb.append(']');
 
-        float[] result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(sb.toString()), float[].class);
+        float[] result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(sb.toString()), float[].class);
         assertNotNull(result);
 
         assertEquals(LEN, result.length);
@@ -559,7 +559,7 @@ public class TestArrayDeserialization
     public void testByteArrayTypeOverride890() throws Exception
     {
         HiddenBinaryBean890 result = MAPPER.readValue(
-                com.fasterxml.jackson.VPackUtils.toBytes(aposToQuotes("{'someBytes':'AQIDBA=='}")), HiddenBinaryBean890.class);
+                com.fasterxml.jackson.VPackUtils.toVPack(aposToQuotes("{'someBytes':'AQIDBA=='}")), HiddenBinaryBean890.class);
         assertNotNull(result);
         assertNotNull(result.someBytes);
         assertEquals(byte[].class, result.someBytes.getClass());
@@ -577,7 +577,7 @@ public class TestArrayDeserialization
         testModule.addDeserializer(NonDeserializable[].class, new CustomNonDeserArrayDeserializer());
         mapper.registerModule(testModule);
 
-        NonDeserializable[] result = mapper.readValue(com.fasterxml.jackson.VPackUtils.toBytes("[\"a\"]"), NonDeserializable[].class);
+        NonDeserializable[] result = mapper.readValue(com.fasterxml.jackson.VPackUtils.toVPack("[\"a\"]"), NonDeserializable[].class);
         assertNotNull(result);
         assertEquals(1, result.length);
         assertEquals("a", result[0].value);

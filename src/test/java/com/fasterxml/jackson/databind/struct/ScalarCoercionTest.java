@@ -56,7 +56,7 @@ public class ScalarCoercionTest extends BaseMapTest
     {
         Object result = COERCING_MAPPER.readerFor(type)
                 .with(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes("\"\""));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack("\"\""));
         if (exp == null) {
             assertNull(result);
         } else {
@@ -91,7 +91,7 @@ public class ScalarCoercionTest extends BaseMapTest
     private void _verifyNullFail(Class<?> type) throws IOException
     {
         try {
-            NOT_COERCING_MAPPER.readerFor(type).readValue(com.fasterxml.jackson.VPackUtils.toBytes("\"\""));
+            NOT_COERCING_MAPPER.readerFor(type).readValue(com.fasterxml.jackson.VPackUtils.toVPack("\"\""));
             fail("Should have failed for "+type);
         } catch (MismatchedInputException e) {
             verifyException(e, "Cannot coerce empty String");
@@ -181,7 +181,7 @@ public class ScalarCoercionTest extends BaseMapTest
     private void _verifyCoerceSuccess(String input, Class<?> type, Object exp) throws IOException
     {
         Object result = COERCING_MAPPER.readerFor(type)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes(input));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack(input));
         assertEquals(exp, result);
     }
 
@@ -189,7 +189,7 @@ public class ScalarCoercionTest extends BaseMapTest
     {
         try {
             NOT_COERCING_MAPPER.readerFor(type)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes(input));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack(input));
             fail("Should not have allowed coercion");
         } catch (MismatchedInputException e) {
             verifyException(e, "Cannot coerce ");

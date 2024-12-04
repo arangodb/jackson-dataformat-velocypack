@@ -101,7 +101,7 @@ public class MapMergeTest extends BaseMapTest
 
         // to be update
         MergedMap v = MAPPER.readerForUpdating(base)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes(aposToQuotes("{'values':{'props':{'x':'xyz','y' : '...','extra':{ 'ab' : true}}}}")));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack(aposToQuotes("{'values':{'props':{'x':'xyz','y' : '...','extra':{ 'ab' : true}}}}")));
         assertEquals(2, v.values.size());
         assertEquals("foobar", v.values.get("name"));
         assertNotNull(v.values.get("props"));
@@ -131,7 +131,7 @@ public class MapMergeTest extends BaseMapTest
 
         // to be update
         MergedMap v = MAPPER.readerForUpdating(base)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes(aposToQuotes("{'values':{'props':{'names': [ 'bar' ] }}}")));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack(aposToQuotes("{'values':{'props':{'names': [ 'bar' ] }}}")));
         assertEquals(2, v.values.size());
         assertEquals("foobar", v.values.get("name"));
         assertNotNull(v.values.get("props"));
@@ -158,7 +158,7 @@ public class MapMergeTest extends BaseMapTest
         input.put("list", new ArrayList<>(Arrays.asList("a")));
 
         Map<?,?> resultMap = MAPPER.readerForUpdating(input)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes(aposToQuotes("{'list':['b']}")));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack(aposToQuotes("{'list':['b']}")));
 
         List<?> resultList = (List<?>) resultMap.get("list");
         assertEquals(Arrays.asList("a", "b"), resultList);
@@ -174,7 +174,7 @@ public class MapMergeTest extends BaseMapTest
         input.put("list", new ArrayList<>(Arrays.asList("a")));
 
         Map<?,?> resultMap = mapper.readerForUpdating(input)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes(aposToQuotes("{'list':['b']}")));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack(aposToQuotes("{'list':['b']}")));
 
         List<?> resultList = (List<?>) resultMap.get("list");
 
@@ -192,7 +192,7 @@ public class MapMergeTest extends BaseMapTest
         input.put("list", new ArrayList<>(Arrays.asList("a")));
 
         Map<?,?> resultMap = mapper.readerForUpdating(input)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes(aposToQuotes("{'list':['b']}")));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack(aposToQuotes("{'list':['b']}")));
         List<?> resultList = (List<?>) resultMap.get("list");
         assertEquals(Arrays.asList("b"), resultList);
 
@@ -208,7 +208,7 @@ public class MapMergeTest extends BaseMapTest
         input.put("list", new ArrayList<>(Arrays.asList("x")));
 
         resultMap = mapper.readerForUpdating(input)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes(aposToQuotes("{'list':['y']}")));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack(aposToQuotes("{'list':['y']}")));
         resultList = (List<?>) resultMap.get("list");
         assertEquals(Arrays.asList("x", "y"), resultList);
     }

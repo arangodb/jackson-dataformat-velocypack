@@ -52,7 +52,7 @@ public class TestVelocypackMapper extends VPackMapper {
     @Override
     public <T> T readValue(String content, Class<T> valueType) throws JsonProcessingException {
         try {
-            return super.readValue(VPackUtils.toBytes(content), valueType);
+            return super.readValue(VPackUtils.toVPack(content), valueType);
         } catch (JsonProcessingException e) {
             throw e;
         } catch (IOException e) {
@@ -63,7 +63,7 @@ public class TestVelocypackMapper extends VPackMapper {
     @Override
     public <T> T readValue(String content, TypeReference<T> valueTypeRef) throws JsonProcessingException {
         try {
-            return super.readValue(VPackUtils.toBytes(content), valueTypeRef);
+            return super.readValue(VPackUtils.toVPack(content), valueTypeRef);
         } catch (JsonProcessingException e) {
             throw e;
         } catch (IOException e) {
@@ -74,7 +74,7 @@ public class TestVelocypackMapper extends VPackMapper {
     @Override
     public <T> T readValue(String content, JavaType valueType) throws JsonProcessingException {
         try {
-            return super.readValue(VPackUtils.toBytes(content), valueType);
+            return super.readValue(VPackUtils.toVPack(content), valueType);
         } catch (JsonProcessingException e) {
             throw e;
         } catch (IOException e) {

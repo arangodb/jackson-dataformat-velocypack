@@ -321,7 +321,7 @@ public class ValidatePolymSubTypeTest extends BaseMapTest
 
     private void _verifyBadValue(ObjectMapper mapper, String json, Class<?> type) throws Exception {
         try {
-            mapper.readValue(com.fasterxml.jackson.VPackUtils.toBytes(json), type);
+            mapper.readValue(com.fasterxml.jackson.VPackUtils.toVPack(json), type);
             fail("Should not pass");
         } catch (InvalidTypeIdException e) {
             verifyException(e, "Could not resolve type id");
@@ -332,7 +332,7 @@ public class ValidatePolymSubTypeTest extends BaseMapTest
 
     private void _verifyMehValue(ObjectMapper mapper, String json, Class<?> type) throws Exception {
         try {
-            mapper.readValue(com.fasterxml.jackson.VPackUtils.toBytes(json), type);
+            mapper.readValue(com.fasterxml.jackson.VPackUtils.toVPack(json), type);
             fail("Should not pass");
         } catch (InvalidTypeIdException e) {
             verifyException(e, "Could not resolve type id");

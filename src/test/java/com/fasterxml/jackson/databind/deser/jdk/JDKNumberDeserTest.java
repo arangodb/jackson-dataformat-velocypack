@@ -130,7 +130,7 @@ public class JDKNumberDeserTest extends BaseMapTest
         // Also: verify failure for at least some
         try {
             MAPPER.readerFor(Integer.TYPE).with(DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes(NULL_JSON));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack(NULL_JSON));
             fail("Should not have passed");
         } catch (MismatchedInputException e) {
             verifyException(e, "Cannot coerce String \"null\"");
@@ -202,24 +202,24 @@ public class JDKNumberDeserTest extends BaseMapTest
         BigInteger exp = BigInteger.valueOf(123L);
 
         // first test as any Number
-        Number result = r.forType(Number.class).readValue(com.fasterxml.jackson.VPackUtils.toBytes(" 123 "));
+        Number result = r.forType(Number.class).readValue(com.fasterxml.jackson.VPackUtils.toVPack(" 123 "));
         assertEquals(BigInteger.class, result.getClass());
         assertEquals(exp, result);
 
         // then as any Object
-        /*Object value =*/ r.forType(Object.class).readValue(com.fasterxml.jackson.VPackUtils.toBytes("123"));
+        /*Object value =*/ r.forType(Object.class).readValue(com.fasterxml.jackson.VPackUtils.toVPack("123"));
         assertEquals(BigInteger.class, result.getClass());
         assertEquals(exp, result);
 
         // and as JsonNode
-        JsonNode node = r.readTree(com.fasterxml.jackson.VPackUtils.toBytes("  123"));
+        JsonNode node = r.readTree(com.fasterxml.jackson.VPackUtils.toVPack("  123"));
         assertTrue(node.isBigInteger());
         assertEquals(123, node.asInt());
     }
 
     public void testDoubleAsNumber() throws Exception
     {
-        Number result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(" 1.0 "), Number.class);
+        Number result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(" 1.0 "), Number.class);
         assertEquals(Double.valueOf(1.0), result);
     }
 
@@ -229,16 +229,16 @@ public class JDKNumberDeserTest extends BaseMapTest
         BigDecimal dec = new BigDecimal("0.1");
 
         // First test generic stand-alone Number
-        Number result = r.forType(Number.class).readValue(com.fasterxml.jackson.VPackUtils.toBytes(dec.toString()));
+        Number result = r.forType(Number.class).readValue(com.fasterxml.jackson.VPackUtils.toVPack(dec.toString()));
         assertEquals(BigDecimal.class, result.getClass());
         assertEquals(dec, result);
 
         // Then plain old Object
-        Object value = r.forType(Object.class).readValue(com.fasterxml.jackson.VPackUtils.toBytes(dec.toString()));
+        Object value = r.forType(Object.class).readValue(com.fasterxml.jackson.VPackUtils.toVPack(dec.toString()));
         assertEquals(BigDecimal.class, result.getClass());
         assertEquals(dec, value);
 
-        JsonNode node = r.readTree(com.fasterxml.jackson.VPackUtils.toBytes(dec.toString()));
+        JsonNode node = r.readTree(com.fasterxml.jackson.VPackUtils.toVPack(dec.toString()));
         assertTrue(node.isBigDecimal());
         assertEquals(dec.doubleValue(), node.asDouble());
     }
@@ -250,14 +250,14 @@ public class JDKNumberDeserTest extends BaseMapTest
         BigDecimal dec = new BigDecimal("-19.37");
         // List element types
         @SuppressWarnings("unchecked")
-        List<Object> list = (List<Object>) r.forType(List.class).readValue(com.fasterxml.jackson.VPackUtils.toBytes("[ "+dec.toString()+" ]"));
+        List<Object> list = (List<Object>) r.forType(List.class).readValue(com.fasterxml.jackson.VPackUtils.toVPack("[ "+dec.toString()+" ]"));
         assertEquals(1, list.size());
         Object val = list.get(0);
         assertEquals(BigDecimal.class, val.getClass());
         assertEquals(dec, val);
 
         // and a map
-        Map<?,?> map = r.forType(Map.class).readValue(com.fasterxml.jackson.VPackUtils.toBytes("{ \"a\" : "+dec.toString()+" }"));
+        Map<?,?> map = r.forType(Map.class).readValue(com.fasterxml.jackson.VPackUtils.toVPack("{ \"a\" : "+dec.toString()+" }"));
         assertEquals(1, map.size());
         val = map.get("a");
         assertEquals(BigDecimal.class, val.getClass());
@@ -269,16 +269,16 @@ public class JDKNumberDeserTest extends BaseMapTest
     {
         ObjectReader r = MAPPER.reader(DeserializationFeature.USE_LONG_FOR_INTS);
 
-        Object ob = r.forType(Object.class).readValue(com.fasterxml.jackson.VPackUtils.toBytes("42"));
+        Object ob = r.forType(Object.class).readValue(com.fasterxml.jackson.VPackUtils.toVPack("42"));
         assertEquals(Long.class, ob.getClass());
         assertEquals(Long.valueOf(42L), ob);
 
-        Number n = r.forType(Number.class).readValue(com.fasterxml.jackson.VPackUtils.toBytes("42"));
+        Number n = r.forType(Number.class).readValue(com.fasterxml.jackson.VPackUtils.toVPack("42"));
         assertEquals(Long.class, n.getClass());
         assertEquals(Long.valueOf(42L), n);
 
         // and one more: should get proper node as well
-        JsonNode node = r.readTree(com.fasterxml.jackson.VPackUtils.toBytes("42"));
+        JsonNode node = r.readTree(com.fasterxml.jackson.VPackUtils.toVPack("42"));
         if (!node.isLong()) {
             fail("Expected LongNode, got: "+node.getClass().getName());
         }

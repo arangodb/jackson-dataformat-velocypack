@@ -284,7 +284,7 @@ public class EnumDeserializationTest
         ObjectReader r = MAPPER.readerFor(TestEnum.class)
                 .with(DeserializationFeature.FAIL_ON_NUMBERS_FOR_ENUMS);
         try {
-            value = r.readValue(com.fasterxml.jackson.VPackUtils.toBytes("1"));
+            value = r.readValue(com.fasterxml.jackson.VPackUtils.toVPack("1"));
             fail("Expected an error");
         } catch (MismatchedInputException e) {
             verifyException(e, "Cannot deserialize");
@@ -293,7 +293,7 @@ public class EnumDeserializationTest
 
         // and [databind#684]
         try {
-            value = r.readValue(com.fasterxml.jackson.VPackUtils.toBytes(quote("1")));
+            value = r.readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote("1")));
             fail("Expected an error");
         } catch (MismatchedInputException e) {
             verifyException(e, "Cannot deserialize");
@@ -342,8 +342,8 @@ public class EnumDeserializationTest
     {
         // cannot use shared mapper when changing configs...
         ObjectReader reader = MAPPER.reader(DeserializationFeature.READ_UNKNOWN_ENUM_VALUES_AS_NULL);
-        assertNull(reader.forType(TestEnum.class).readValue(com.fasterxml.jackson.VPackUtils.toBytes("\"NO-SUCH-VALUE\"")));
-        assertNull(reader.forType(TestEnum.class).readValue(com.fasterxml.jackson.VPackUtils.toBytes(" 4343 ")));
+        assertNull(reader.forType(TestEnum.class).readValue(com.fasterxml.jackson.VPackUtils.toVPack("\"NO-SUCH-VALUE\"")));
+        assertNull(reader.forType(TestEnum.class).readValue(com.fasterxml.jackson.VPackUtils.toVPack(" 4343 ")));
     }
 
     // Ability to ignore unknown Enum values:
@@ -353,15 +353,15 @@ public class EnumDeserializationTest
     {
         // cannot use shared mapper when changing configs...
         ObjectReader reader = MAPPER.reader(DeserializationFeature.READ_UNKNOWN_ENUM_VALUES_AS_NULL);
-        assertNull(reader.forType(StrictEnumCreator.class).readValue(com.fasterxml.jackson.VPackUtils.toBytes("\"NO-SUCH-VALUE\"")));
-        assertNull(reader.forType(StrictEnumCreator.class).readValue(com.fasterxml.jackson.VPackUtils.toBytes(" 4343 ")));
+        assertNull(reader.forType(StrictEnumCreator.class).readValue(com.fasterxml.jackson.VPackUtils.toVPack("\"NO-SUCH-VALUE\"")));
+        assertNull(reader.forType(StrictEnumCreator.class).readValue(com.fasterxml.jackson.VPackUtils.toVPack(" 4343 ")));
     }
 
     public void testAllowUnknownEnumValuesForEnumSets() throws Exception
     {
         ObjectReader reader = MAPPER.reader(DeserializationFeature.READ_UNKNOWN_ENUM_VALUES_AS_NULL);
         EnumSet<TestEnum> result = reader.forType(new TypeReference<EnumSet<TestEnum>>() { })
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes("[\"NO-SUCH-VALUE\"]"));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack("[\"NO-SUCH-VALUE\"]"));
         assertEquals(0, result.size());
     }
     
@@ -369,7 +369,7 @@ public class EnumDeserializationTest
     {
         ObjectReader reader = MAPPER.reader(DeserializationFeature.READ_UNKNOWN_ENUM_VALUES_AS_NULL);
         ClassWithEnumMapKey result = reader.forType(ClassWithEnumMapKey.class)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes("{\"map\":{\"NO-SUCH-VALUE\":\"val\"}}"));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack("{\"map\":{\"NO-SUCH-VALUE\":\"val\"}}"));
         assertTrue(result.map.containsKey(null));
     }
     
@@ -408,7 +408,7 @@ public class EnumDeserializationTest
         assertEquals(TestEnum.JACKSON,
                 MAPPER.readerFor(TestEnum.class)
                     .with(DeserializationFeature.UNWRAP_SINGLE_VALUE_ARRAYS)
-                    .readValue(com.fasterxml.jackson.VPackUtils.toBytes("[" + quote("JACKSON") + "]")));
+                    .readValue(com.fasterxml.jackson.VPackUtils.toVPack("[" + quote("JACKSON") + "]")));
     }
     
     public void testUnwrappedEnumException() throws Exception {
@@ -441,7 +441,7 @@ public class EnumDeserializationTest
                     .configure(MapperFeature.ALLOW_COERCION_OF_SCALARS, false)
                     .build()
                     .readerFor(TestEnum.class)
-                    .readValue(com.fasterxml.jackson.VPackUtils.toBytes(quote("1")));
+                    .readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote("1")));
             fail("Should not pass");
         } catch (MismatchedInputException e) {
             verifyException(e, "Cannot deserialize value of type");
@@ -469,18 +469,18 @@ public class EnumDeserializationTest
     public void testDeserWithToString1161() throws Exception
     {
         Enum1161 result = MAPPER.readerFor(Enum1161.class)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes(quote("A")));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote("A")));
         assertSame(Enum1161.A, result);
 
         result = MAPPER.readerFor(Enum1161.class)
                 .with(DeserializationFeature.READ_ENUMS_USING_TO_STRING)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes(quote("a")));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote("a")));
         assertSame(Enum1161.A, result);
 
         // and once again, going back to defaults
         result = MAPPER.readerFor(Enum1161.class)
                 .without(DeserializationFeature.READ_ENUMS_USING_TO_STRING)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes(quote("A")));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote("A")));
         assertSame(Enum1161.A, result);
     }
     
@@ -550,7 +550,7 @@ public class EnumDeserializationTest
         // By default, wrap:
         try {
             MAPPER.readerFor(TestEnum2164.class)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes(quote("B")));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote("B")));
             fail("Should not pass");
         } catch (ValueInstantiationException e) {
             verifyException(e, "2164");
@@ -560,7 +560,7 @@ public class EnumDeserializationTest
         try {
             MAPPER.readerFor(TestEnum2164.class)
                 .without(DeserializationFeature.WRAP_EXCEPTIONS)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes(quote("B")));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote("B")));
             fail("Should not pass");
         } catch (JsonMappingException e) {
             fail("Wrong exception, should not wrap, got: "+e);
@@ -574,7 +574,7 @@ public class EnumDeserializationTest
     {
         Enum2309 value = MAPPER.readerFor(Enum2309.class)
                 .with(DeserializationFeature.READ_ENUMS_USING_TO_STRING)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes(quote("NON_NULL")));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote("NON_NULL")));
         assertEquals(Enum2309.NON_NULL, value);
     }
 

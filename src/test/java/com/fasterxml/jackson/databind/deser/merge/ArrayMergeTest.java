@@ -39,7 +39,7 @@ public class ArrayMergeTest extends BaseMapTest
         final JavaType type = MAPPER.getTypeFactory().constructType(new TypeReference<MergedX<Object[]>>() {});
         MergedX<Object[]> result = MAPPER.readerFor(type)
                 .withValueToUpdate(input)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes(aposToQuotes("{'value':['bar']}")));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack(aposToQuotes("{'value':['bar']}")));
         assertSame(input, result);
         assertEquals(2, result.value.length);
         assertEquals("foo", result.value[0]);
@@ -49,7 +49,7 @@ public class ArrayMergeTest extends BaseMapTest
         result = MAPPER.readerFor(type)
                 .with(DeserializationFeature.ACCEPT_SINGLE_VALUE_AS_ARRAY)
                 .withValueToUpdate(input)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes(aposToQuotes("{'value':'zap'}")));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack(aposToQuotes("{'value':'zap'}")));
         assertSame(input, result);
         assertEquals(3, result.value.length);
         assertEquals("foo", result.value[0]);
@@ -63,7 +63,7 @@ public class ArrayMergeTest extends BaseMapTest
         MergedX<String[]> result = MAPPER
                 .readerFor(new TypeReference<MergedX<String[]>>() {})
                 .withValueToUpdate(input)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes(aposToQuotes("{'value':['bar']}")));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack(aposToQuotes("{'value':['bar']}")));
         assertSame(input, result);
         assertEquals(2, result.value.length);
         assertEquals("foo", result.value[0]);
@@ -76,7 +76,7 @@ public class ArrayMergeTest extends BaseMapTest
         MergedX<boolean[]> result = MAPPER
                 .readerFor(new TypeReference<MergedX<boolean[]>>() {})
                 .withValueToUpdate(input)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes(aposToQuotes("{'value':[true]}")));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack(aposToQuotes("{'value':[true]}")));
         assertSame(input, result);
         assertEquals(3, result.value.length);
         Assert.assertArrayEquals(new boolean[] { true, false, true }, result.value);
@@ -88,7 +88,7 @@ public class ArrayMergeTest extends BaseMapTest
         MergedX<byte[]> result = MAPPER
                 .readerFor(new TypeReference<MergedX<byte[]>>() {})
                 .withValueToUpdate(input)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes(aposToQuotes("{'value':[4, 6.0, null]}")));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack(aposToQuotes("{'value':[4, 6.0, null]}")));
         assertSame(input, result);
         assertEquals(5, result.value.length);
         Assert.assertArrayEquals(new byte[] { 1, 2, 4, 6, 0 }, result.value);
@@ -100,7 +100,7 @@ public class ArrayMergeTest extends BaseMapTest
         MergedX<short[]> result = MAPPER
                 .readerFor(new TypeReference<MergedX<short[]>>() {})
                 .withValueToUpdate(input)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes(aposToQuotes("{'value':[4, 6]}")));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack(aposToQuotes("{'value':[4, 6]}")));
         assertSame(input, result);
         assertEquals(4, result.value.length);
         Assert.assertArrayEquals(new short[] { 1, 2, 4, 6 }, result.value);
@@ -112,7 +112,7 @@ public class ArrayMergeTest extends BaseMapTest
         MergedX<char[]> result = MAPPER
                 .readerFor(new TypeReference<MergedX<char[]>>() {})
                 .withValueToUpdate(input)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes(aposToQuotes("{'value':['c']}")));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack(aposToQuotes("{'value':['c']}")));
         assertSame(input, result);
         Assert.assertArrayEquals(new char[] { 'a', 'b', 'c' }, result.value);
 
@@ -121,7 +121,7 @@ public class ArrayMergeTest extends BaseMapTest
         result = MAPPER
                 .readerFor(new TypeReference<MergedX<char[]>>() {})
                 .withValueToUpdate(input)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes(aposToQuotes("{'value':['c']}")));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack(aposToQuotes("{'value':['c']}")));
         assertSame(input, result);
         Assert.assertArrayEquals(new char[] { 'c' }, result.value);
     }
@@ -132,7 +132,7 @@ public class ArrayMergeTest extends BaseMapTest
         MergedX<int[]> result = MAPPER
                 .readerFor(new TypeReference<MergedX<int[]>>() {})
                 .withValueToUpdate(input)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes(aposToQuotes("{'value':[4, 6]}")));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack(aposToQuotes("{'value':[4, 6]}")));
         assertSame(input, result);
         assertEquals(4, result.value.length);
         Assert.assertArrayEquals(new int[] { 1, 2, 4, 6 }, result.value);
@@ -142,7 +142,7 @@ public class ArrayMergeTest extends BaseMapTest
         result = MAPPER
                 .readerFor(new TypeReference<MergedX<int[]>>() {})
                 .withValueToUpdate(input)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes(aposToQuotes("{'value':[ ]}")));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack(aposToQuotes("{'value':[ ]}")));
         assertSame(input, result);
         Assert.assertArrayEquals(new int[] { 3, 4, 6 }, result.value);
     }
@@ -153,7 +153,7 @@ public class ArrayMergeTest extends BaseMapTest
         MergedX<long[]> result = MAPPER
                 .readerFor(new TypeReference<MergedX<long[]>>() {})
                 .withValueToUpdate(input)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes(aposToQuotes("{'value':[4, 6]}")));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack(aposToQuotes("{'value':[4, 6]}")));
         assertSame(input, result);
         assertEquals(4, result.value.length);
         Assert.assertArrayEquals(new long[] { 1, 2, 4, 6 }, result.value);

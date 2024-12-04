@@ -74,7 +74,7 @@ public class TestDefaultForArrays extends BaseMapTest
 
     public void testNodeInArray() throws Exception
     {
-        JsonNode node = new TestVelocypackMapper().readTree(com.fasterxml.jackson.VPackUtils.toBytes("{\"a\":3}"));
+        JsonNode node = new TestVelocypackMapper().readTree(com.fasterxml.jackson.VPackUtils.toVPack("{\"a\":3}"));
         ObjectMapper m = jsonMapperBuilder()
                 .activateDefaultTyping(NoCheckSubTypeValidator.instance,
                         DefaultTyping.JAVA_LANG_OBJECT)
@@ -97,7 +97,7 @@ public class TestDefaultForArrays extends BaseMapTest
         String json = com.fasterxml.jackson.VPackUtils.toJson( m.writeValueAsBytes(tree));
         assertEquals("{}", json);
         
-        JsonNode node = new TestVelocypackMapper().readTree(com.fasterxml.jackson.VPackUtils.toBytes("{\"a\":[]}"));
+        JsonNode node = new TestVelocypackMapper().readTree(com.fasterxml.jackson.VPackUtils.toVPack("{\"a\":[]}"));
 
         m = jsonMapperBuilder()
                 .disable(SerializationFeature.WRITE_EMPTY_JSON_ARRAYS)

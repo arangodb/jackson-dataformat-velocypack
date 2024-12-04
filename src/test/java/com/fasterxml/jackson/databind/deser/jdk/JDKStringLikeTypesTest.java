@@ -259,16 +259,16 @@ public class JDKStringLikeTypesTest extends BaseMapTest
     {
         final ObjectReader reader = MAPPER.readerFor(URI.class);
         final URI value = new URI("http://foo.com");
-        assertEquals(value, reader.readValue(com.fasterxml.jackson.VPackUtils.toBytes("\""+value.toString()+"\"")));
+        assertEquals(value, reader.readValue(com.fasterxml.jackson.VPackUtils.toVPack("\""+value.toString()+"\"")));
 
         // Also: empty String should be handled properly
-        URI result = reader.readValue(com.fasterxml.jackson.VPackUtils.toBytes(quote("")));
+        URI result = reader.readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote("")));
         assertNotNull(result);
         assertEquals(URI.create(""), result);
         
         // and finally: broken URI should give proper failure
         try {
-            result = reader.readValue(com.fasterxml.jackson.VPackUtils.toBytes(quote("a b")));
+            result = reader.readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote("a b")));
             fail("Should not accept malformed URI, instead got: "+result);
         } catch (InvalidFormatException e) {
             verifyException(e, "not a valid textual representation");
@@ -294,7 +294,7 @@ public class JDKStringLikeTypesTest extends BaseMapTest
 
         // and finally, invalid URL should be handled appropriately too
         try {
-            URL result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(quote("a b")), URL.class);
+            URL result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote("a b")), URL.class);
             fail("Should not accept malformed URI, instead got: "+result);
         } catch (InvalidFormatException e) {
             verifyException(e, "not a valid textual representation");
@@ -343,13 +343,13 @@ public class JDKStringLikeTypesTest extends BaseMapTest
     {
         // and finally, exception handling too [databind#1000], for invalid cases
         try {
-            MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(quote("abcde")), UUID.class);
+            MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote("abcde")), UUID.class);
             fail("Should fail on invalid UUID string");
         } catch (InvalidFormatException e) {
             verifyException(e, "UUID has to be represented by standard");
         }
         try {
-            MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(quote("76e6d183-5f68-4afa-b94a-922c1fdb83fx")), UUID.class);
+            MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote("76e6d183-5f68-4afa-b94a-922c1fdb83fx")), UUID.class);
             fail("Should fail on invalid UUID string");
         } catch (InvalidFormatException e) {
             verifyException(e, "non-hex character 'x'");

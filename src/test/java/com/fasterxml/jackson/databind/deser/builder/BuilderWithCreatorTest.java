@@ -144,7 +144,7 @@ public class BuilderWithCreatorTest extends BaseMapTest
     public void testWithPropertiesCreator() throws Exception
     {
         final String json = aposToQuotes("{'a':1,'c':3,'b':2}");
-        PropertyCreatorValue value = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(json), PropertyCreatorValue.class);
+        PropertyCreatorValue value = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(json), PropertyCreatorValue.class);
         assertEquals(1, value.a);
         assertEquals(2, value.b);
         assertEquals(3, value.c);
@@ -153,7 +153,7 @@ public class BuilderWithCreatorTest extends BaseMapTest
     public void testWithDelegatingStringCreator() throws Exception
     {
         final int EXP = 139;
-        IntCreatorValue value = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(String.valueOf(EXP)),
+        IntCreatorValue value = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(String.valueOf(EXP)),
                 IntCreatorValue.class);        
         assertEquals(EXP, value.value);
     }
@@ -161,7 +161,7 @@ public class BuilderWithCreatorTest extends BaseMapTest
     public void testWithDelegatingIntCreator() throws Exception
     {
         final double EXP = -3.75;
-        DoubleCreatorValue value = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(String.valueOf(EXP)),
+        DoubleCreatorValue value = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(String.valueOf(EXP)),
                 DoubleCreatorValue.class);        
         assertEquals(EXP, value.value);
     }
@@ -169,7 +169,7 @@ public class BuilderWithCreatorTest extends BaseMapTest
     public void testWithDelegatingBooleanCreator() throws Exception
     {
         final boolean EXP = true;
-        BooleanCreatorValue value = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(String.valueOf(EXP)),
+        BooleanCreatorValue value = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(String.valueOf(EXP)),
                 BooleanCreatorValue.class);        
         assertEquals(EXP, value.value);
     }

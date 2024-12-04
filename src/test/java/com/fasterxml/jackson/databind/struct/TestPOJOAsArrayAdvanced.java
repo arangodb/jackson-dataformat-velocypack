@@ -98,7 +98,7 @@ public class TestPOJOAsArrayAdvanced extends BaseMapTest
 
         // and then that conversely deserializer does something similar
         AsArrayWithView result = MAPPER.readerFor(AsArrayWithView.class).withView(ViewB.class)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes("[1,2,3]"));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack("[1,2,3]"));
         // should include 'c' (not view-able) and 'b' (include in ViewB) but not 'a'
         assertEquals(3, result.c);
         assertEquals(2, result.b);
@@ -109,7 +109,7 @@ public class TestPOJOAsArrayAdvanced extends BaseMapTest
     {
         AsArrayWithViewAndCreator result = MAPPER.readerFor(AsArrayWithViewAndCreator.class)
                 .withView(ViewB.class)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes("[1,2,3]"));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack("[1,2,3]"));
         // should include 'c' (not view-able) and 'b' (include in ViewB) but not 'a'
         assertEquals(3, result.c);
         assertEquals(2, result.b);

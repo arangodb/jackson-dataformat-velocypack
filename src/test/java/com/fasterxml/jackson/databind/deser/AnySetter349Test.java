@@ -46,7 +46,7 @@ public class AnySetter349Test extends BaseMapTest
     public void testUnwrappedWithAny() throws Exception
     {
         final ObjectMapper mapper = objectMapper();
-        Bean349 value = mapper.readValue(com.fasterxml.jackson.VPackUtils.toBytes(UNWRAPPED_JSON_349),  Bean349.class);
+        Bean349 value = mapper.readValue(com.fasterxml.jackson.VPackUtils.toVPack(UNWRAPPED_JSON_349),  Bean349.class);
         assertNotNull(value);
         assertEquals(3, value.x);
         assertEquals(4, value.y);
@@ -58,7 +58,7 @@ public class AnySetter349Test extends BaseMapTest
         final ObjectMapper mapper = objectMapper();
         Bean349 bean = mapper.readerFor(Bean349.class)
                 .withValueToUpdate(new Bean349())
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes(UNWRAPPED_JSON_349));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack(UNWRAPPED_JSON_349));
         assertEquals(3, bean.x);
         assertEquals(4, bean.y);
         assertEquals(2, bean.props.size());

@@ -73,12 +73,12 @@ public class ObjectWithCreator1261Test
          Answer initialAnswer = createInitialAnswer();
          String initialAnswerString = com.fasterxml.jackson.VPackUtils.toJson( mapper.writeValueAsBytes(initialAnswer));
 // System.out.println("Initial answer:\n"+initialAnswerString);
-         JsonNode tree = mapper.readTree(com.fasterxml.jackson.VPackUtils.toBytes(initialAnswerString));
+         JsonNode tree = mapper.readTree(com.fasterxml.jackson.VPackUtils.toVPack(initialAnswerString));
          Answer deserializedAnswer = mapper.readValue(initialAnswerString,
                Answer.class);
          String reserializedAnswerString = com.fasterxml.jackson.VPackUtils.toJson( mapper
                .writeValueAsBytes(deserializedAnswer));
-         JsonNode newTree = mapper.readTree(com.fasterxml.jackson.VPackUtils.toBytes(reserializedAnswerString));
+         JsonNode newTree = mapper.readTree(com.fasterxml.jackson.VPackUtils.toVPack(reserializedAnswerString));
          if (!tree.equals(newTree)) {
                   fail("Original and recovered Json are different. Recovered = \n"
                         + reserializedAnswerString + "\n");

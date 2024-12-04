@@ -53,7 +53,7 @@ public class ReadOnlyDeser1805Test extends BaseMapTest
     public void testReadOnly1382() throws Exception
     {
         String payload = "{\"list\":[1,2,3,4]}";
-        Foo foo = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(payload), Foo.class);
+        Foo foo = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(payload), Foo.class);
         assertTrue("List should be empty", foo.getList().isEmpty());
     }
 
@@ -71,7 +71,7 @@ public class ReadOnlyDeser1805Test extends BaseMapTest
         user.name = "foo";
         String json = com.fasterxml.jackson.VPackUtils.toJson( MAPPER.writeValueAsBytes(user));
         assertTrue(json.contains("roles"));
-        UserAllowGetters result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toBytes(json), UserAllowGetters.class);
+        UserAllowGetters result = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(json), UserAllowGetters.class);
         assertNotNull(result);
     }
 }

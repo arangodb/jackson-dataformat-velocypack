@@ -1,7 +1,6 @@
 package com.fasterxml.jackson.databind.exc;
 
 import java.io.ByteArrayOutputStream;
-import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -19,7 +18,7 @@ public class BasicExceptionTest extends BaseMapTest
     public void testBadDefinition() throws Exception
     {
         JavaType t = TypeFactory.defaultInstance().constructType(String.class);
-        JsonParser p = JSON_F.createParser(com.fasterxml.jackson.VPackUtils.toBytes("[]"));
+        JsonParser p = JSON_F.createParser(com.fasterxml.jackson.VPackUtils.toVPack("[]"));
         InvalidDefinitionException e = new InvalidDefinitionException(p,
                "Testing", t);
         assertEquals("Testing", e.getOriginalMessage());
@@ -72,7 +71,7 @@ public class BasicExceptionTest extends BaseMapTest
     public void testIgnoredProperty() throws Exception
     {
         // first just construct valid instance with some variations
-        JsonParser p = JSON_F.createParser(com.fasterxml.jackson.VPackUtils.toBytes("{ }"));
+        JsonParser p = JSON_F.createParser(com.fasterxml.jackson.VPackUtils.toVPack("{ }"));
         IgnoredPropertyException e = IgnoredPropertyException.from(p,
                 this, // to get class from
                 "testProp", Collections.<Object>singletonList("x"));
@@ -96,7 +95,7 @@ public class BasicExceptionTest extends BaseMapTest
 
     public void testUnrecognizedProperty() throws Exception
     {
-        JsonParser p = JSON_F.createParser(com.fasterxml.jackson.VPackUtils.toBytes("{ }"));
+        JsonParser p = JSON_F.createParser(com.fasterxml.jackson.VPackUtils.toVPack("{ }"));
         UnrecognizedPropertyException e = UnrecognizedPropertyException.from(p, this,
                 "testProp", Collections.<Object>singletonList("y"));
         assertNotNull(e);

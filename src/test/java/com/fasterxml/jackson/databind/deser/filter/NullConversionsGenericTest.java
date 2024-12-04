@@ -65,7 +65,7 @@ public class NullConversionsGenericTest extends BaseMapTest
     {
         GeneralEmpty<Point> result = MAPPER.readerFor(new TypeReference<GeneralEmpty<Point>>() { })
                 .with(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes(aposToQuotes("{'value':''}")));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack(aposToQuotes("{'value':''}")));
         assertNotNull(result.value);
         Point p = result.value;
         assertEquals(0, p.x);

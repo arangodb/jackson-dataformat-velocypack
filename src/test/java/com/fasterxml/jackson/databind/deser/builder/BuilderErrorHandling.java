@@ -60,7 +60,7 @@ public class BuilderErrorHandling extends BaseMapTest
         // but pass if ok to ignore
         ValueClassXY result = MAPPER.readerFor(ValueClassXY.class)
                 .without(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes(json));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack(json));
         assertEquals(2, result._x);
         assertEquals(5, result._y);
     }

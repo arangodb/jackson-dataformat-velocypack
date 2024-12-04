@@ -35,7 +35,7 @@ public class Base64DecodingTest extends BaseMapTest
         }
 
         // and then tree model
-        JsonNode tree = mapper.readTree(com.fasterxml.jackson.VPackUtils.toBytes(String.format("{\"foo\":\"%s\"}", value)));
+        JsonNode tree = mapper.readTree(com.fasterxml.jackson.VPackUtils.toVPack(String.format("{\"foo\":\"%s\"}", value)));
         JsonNode nodeValue = tree.get("foo");
         try {
             /*byte[] b =*/ nodeValue.binaryValue();

@@ -114,7 +114,7 @@ public class CaseInsensitiveDeserTest extends BaseMapTest
         ObjectMapper mapper = new TestVelocypackMapper();
         assertFalse(mapper.isEnabled(MapperFeature.ACCEPT_CASE_INSENSITIVE_PROPERTIES));
         try {
-            mapper.readValue(com.fasterxml.jackson.VPackUtils.toBytes(JSON), Issue476Bean.class);
+            mapper.readValue(com.fasterxml.jackson.VPackUtils.toVPack(JSON), Issue476Bean.class);
             
             fail("Should not accept improper case properties by default");
         } catch (JsonProcessingException e) {
@@ -123,7 +123,7 @@ public class CaseInsensitiveDeserTest extends BaseMapTest
 
         // Definitely not OK to enable dynamically - the BeanPropertyMap (which is the consumer of this particular feature) gets cached.
         ObjectReader r = INSENSITIVE_MAPPER.readerFor(Issue476Bean.class);
-        Issue476Bean result = r.readValue(com.fasterxml.jackson.VPackUtils.toBytes(JSON));
+        Issue476Bean result = r.readValue(com.fasterxml.jackson.VPackUtils.toVPack(JSON));
         assertEquals(result.value1.name, "fruit");
         assertEquals(result.value1.value, "apple");
     }

@@ -83,7 +83,7 @@ public class CollectionMergeTest extends BaseMapTest
         MergedX<Collection<String>> result = MAPPER
                 .readerFor(new TypeReference<MergedX<Collection<String>>>() {})
                 .withValueToUpdate(input)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes(aposToQuotes("{'value':['bar']}")));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack(aposToQuotes("{'value':['bar']}")));
         assertSame(input, result);
         assertEquals(2, result.value.size());
         Iterator<String> it = result.value.iterator();

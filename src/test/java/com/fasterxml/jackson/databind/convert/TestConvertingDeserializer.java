@@ -123,7 +123,7 @@ extends com.fasterxml.jackson.databind.BaseMapTest
 
     public void testClassAnnotationSimple() throws Exception
     {
-        ConvertingBean bean = objectReader(ConvertingBean.class).readValue(com.fasterxml.jackson.VPackUtils.toBytes("[1,2]"));
+        ConvertingBean bean = objectReader(ConvertingBean.class).readValue(com.fasterxml.jackson.VPackUtils.toVPack("[1,2]"));
         assertNotNull(bean);
         assertEquals(1, bean.x);
         assertEquals(2, bean.y);
@@ -132,7 +132,7 @@ extends com.fasterxml.jackson.databind.BaseMapTest
     public void testClassAnnotationForLists() throws Exception
     {
         ConvertingBeanContainer container = objectReader(ConvertingBeanContainer.class)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes("{\"values\":[[1,2],[3,4]]}"));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack("{\"values\":[[1,2],[3,4]]}"));
         assertNotNull(container);
         assertNotNull(container.values);
         assertEquals(2, container.values.size());
@@ -141,7 +141,7 @@ extends com.fasterxml.jackson.databind.BaseMapTest
 
     public void testPropertyAnnotationSimple() throws Exception
     {
-        PointWrapper wrapper = objectReader(PointWrapper.class).readValue(com.fasterxml.jackson.VPackUtils.toBytes("{\"value\":[3,4]}"));
+        PointWrapper wrapper = objectReader(PointWrapper.class).readValue(com.fasterxml.jackson.VPackUtils.toVPack("{\"value\":[3,4]}"));
         assertNotNull(wrapper);
         assertNotNull(wrapper.value);
         assertEquals(3, wrapper.value.x);
@@ -150,7 +150,7 @@ extends com.fasterxml.jackson.databind.BaseMapTest
 
     public void testPropertyAnnotationLowerCasing() throws Exception
     {
-        LowerCaseText text = objectReader(LowerCaseText.class).readValue(com.fasterxml.jackson.VPackUtils.toBytes("{\"text\":\"Yay!\"}"));
+        LowerCaseText text = objectReader(LowerCaseText.class).readValue(com.fasterxml.jackson.VPackUtils.toVPack("{\"text\":\"Yay!\"}"));
         assertNotNull(text);
         assertNotNull(text.text);
         assertEquals("yay!", text.text);
@@ -158,7 +158,7 @@ extends com.fasterxml.jackson.databind.BaseMapTest
 
     public void testPropertyAnnotationArrayLC() throws Exception
     {
-        LowerCaseTextArray texts = objectReader(LowerCaseTextArray.class).readValue(com.fasterxml.jackson.VPackUtils.toBytes("{\"texts\":[\"ABC\"]}"));
+        LowerCaseTextArray texts = objectReader(LowerCaseTextArray.class).readValue(com.fasterxml.jackson.VPackUtils.toVPack("{\"texts\":[\"ABC\"]}"));
         assertNotNull(texts);
         assertNotNull(texts.texts);
         assertEquals(1, texts.texts.length);
@@ -168,7 +168,7 @@ extends com.fasterxml.jackson.databind.BaseMapTest
     public void testPropertyAnnotationForArrays() throws Exception
     {
         PointListWrapperArray array = objectReader(PointListWrapperArray.class)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes("{\"values\":[[4,5],[5,4]]}"));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack("{\"values\":[[4,5],[5,4]]}"));
         assertNotNull(array);
         assertNotNull(array.values);
         assertEquals(2, array.values.length);
@@ -178,7 +178,7 @@ extends com.fasterxml.jackson.databind.BaseMapTest
     public void testPropertyAnnotationForLists() throws Exception
     {
         PointListWrapperList array = objectReader(PointListWrapperList.class)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes("{\"values\":[[7,8],[8,7]]}"));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack("{\"values\":[[7,8],[8,7]]}"));
         assertNotNull(array);
         assertNotNull(array.values);
         assertEquals(2, array.values.size());
@@ -188,7 +188,7 @@ extends com.fasterxml.jackson.databind.BaseMapTest
     public void testPropertyAnnotationForMaps() throws Exception
     {
         PointListWrapperMap map = objectReader(PointListWrapperMap.class)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes("{\"values\":{\"a\":[1,2]}}"));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack("{\"values\":{\"a\":[1,2]}}"));
         assertNotNull(map);
         assertNotNull(map.values);
         assertEquals(1, map.values.size());
@@ -202,7 +202,7 @@ extends com.fasterxml.jackson.databind.BaseMapTest
     public void testConvertToAbstract() throws Exception
     {
         Issue795Bean bean = objectReader(Issue795Bean.class)
-                .readValue(com.fasterxml.jackson.VPackUtils.toBytes("{\"value\":\"1.25\"}"));
+                .readValue(com.fasterxml.jackson.VPackUtils.toVPack("{\"value\":\"1.25\"}"));
         assertNotNull(bean.value);
         assertTrue("Type not BigDecimal but "+bean.value.getClass(),
                 bean.value instanceof BigDecimal);
