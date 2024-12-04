@@ -132,6 +132,16 @@ public class VPackGenerator extends GeneratorBase {
     }
 
     @Override
+    public void writeRawValue(SerializableString text) throws IOException {
+        try {
+            builder.add(attribute, new VPackSlice(text.asUnquotedUTF8()));
+            attribute = null;
+        } catch (final VPackBuilderException e) {
+            throw new IOException(e);
+        }
+    }
+
+    @Override
     public void writeBinary(Base64Variant base64Variant, byte[] bytes, int i, int i1) throws IOException {
         try {
             builder.add(attribute, base64Variant.encode(bytes, false));
