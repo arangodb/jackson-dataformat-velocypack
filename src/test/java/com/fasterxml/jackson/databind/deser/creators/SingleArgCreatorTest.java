@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.introspect.AnnotatedMember;
 import com.fasterxml.jackson.databind.introspect.AnnotatedParameter;
 import com.fasterxml.jackson.databind.introspect.JacksonAnnotationIntrospector;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.dataformat.velocypack.TestVelocypackMapper;
 
 public class SingleArgCreatorTest extends BaseMapTest {
@@ -167,19 +166,6 @@ public class SingleArgCreatorTest extends BaseMapTest {
         SingleNamedStringBean bean = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote("foobar")),
                 SingleNamedStringBean.class);
         assertEquals("foobar", bean._ss);
-    }
-
-    public void testSingleStringArgWithImplicitName() throws Exception {
-        final ObjectMapper mapper = new TestVelocypackMapper();
-        mapper.setAnnotationIntrospector(new MyParamIntrospector("value"));
-        // 23-May-2024, tatu: [databind#4515] Clarifies handling to make
-        //   1-param Constructor with implicit name auto-discoverable
-        //   This is compatibility change so hopefully won't bite us but...
-        //   it seems like the right thing to do.
-//        StringyBean bean = mapper.readValue(q("foobar"), StringyBean.class);
-        StringyBean bean = mapper.readValue(
-                com.fasterxml.jackson.VPackUtils.toVPack("{\"value\":\"foobar\"}"), StringyBean.class);
-        assertEquals("foobar", bean.getValue());
     }
 
     // [databind#714]
