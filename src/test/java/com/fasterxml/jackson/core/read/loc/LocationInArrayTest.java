@@ -29,8 +29,8 @@ public class LocationInArrayTest extends JUnit5TestBase {
 
     private VPackSlice extract(JsonParser p, byte[] DOC) {
         return new VPackSlice(Arrays.copyOfRange(DOC,
-                (int) p.currentTokenLocation().getByteOffset(),
-                (int) p.currentLocation().getByteOffset()));
+                (int) p.getTokenLocation().getByteOffset(),
+                (int) p.getCurrentLocation().getByteOffset()));
     }
 
     private void _testOffsetInArrays() throws Exception {
@@ -40,8 +40,8 @@ public class LocationInArrayTest extends JUnit5TestBase {
 
         p = JSON_F.createParser(DOC);
         assertToken(JsonToken.START_ARRAY, p.nextToken());
-        _assertLocation(p.currentTokenLocation(), 0L);
-        _assertLocation(p.currentLocation(), 5L);
+        _assertLocation(p.getTokenLocation(), 0L);
+        _assertLocation(p.getCurrentLocation(), 5L);
         slice = extract(p, DOC);
         assertTrue(slice.isArray());
         assertEquals(3, slice.size());
@@ -51,23 +51,23 @@ public class LocationInArrayTest extends JUnit5TestBase {
         assertEquals(3, ait.next().getAsInt());
 
         assertToken(JsonToken.VALUE_NUMBER_INT, p.nextToken());
-        _assertLocation(p.currentTokenLocation(), 2L);
+        _assertLocation(p.getTokenLocation(), 2L);
         assertEquals(1, p.getIntValue()); // just to ensure read proceeds to end
-        _assertLocation(p.currentLocation(), 3L);
+        _assertLocation(p.getCurrentLocation(), 3L);
 
         assertToken(JsonToken.VALUE_NUMBER_INT, p.nextToken());
-        _assertLocation(p.currentTokenLocation(), 3L);
+        _assertLocation(p.getTokenLocation(), 3L);
         assertEquals(2, p.getIntValue()); // just to ensure read proceeds to end
-        _assertLocation(p.currentLocation(), 4L);
+        _assertLocation(p.getCurrentLocation(), 4L);
 
         assertToken(JsonToken.VALUE_NUMBER_INT, p.nextToken());
-        _assertLocation(p.currentTokenLocation(), 4L);
+        _assertLocation(p.getTokenLocation(), 4L);
         assertEquals(3, p.getIntValue());
-        _assertLocation(p.currentLocation(), 5L);
+        _assertLocation(p.getCurrentLocation(), 5L);
 
         assertToken(JsonToken.END_ARRAY, p.nextToken());
-        _assertLocation(p.currentTokenLocation(), 4L);
-        _assertLocation(p.currentLocation(), 5L);
+        _assertLocation(p.getTokenLocation(), 4L);
+        _assertLocation(p.getCurrentLocation(), 5L);
 
         p.close();
     }

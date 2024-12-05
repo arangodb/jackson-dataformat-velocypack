@@ -60,7 +60,7 @@ public class LocationDuringStreamParsingTest extends JUnit5TestBase
     private void initialLocation(LocationTestCase test) throws Exception
     {
         JsonParser p = new VPackFactory().createParser(toVPack(test.json));
-        JsonLocation loc = p.currentLocation();
+        JsonLocation loc = p.getCurrentLocation();
         p.close();
 
         assertLocation(loc, at(1, 1, 0));
@@ -80,12 +80,12 @@ public class LocationDuringStreamParsingTest extends JUnit5TestBase
 
     private void assertCurrentLocation(JsonParser p, LocData loc)
     {
-        assertLocation(p.currentLocation(), loc);
+        assertLocation(p.getCurrentLocation(), loc);
     }
 
     private void assertTokenLocation(JsonParser p, LocData loc)
     {
-        assertLocation(p.currentTokenLocation(), loc);
+        assertLocation(p.getTokenLocation(), loc);
     }
 
     private void assertLocation(JsonLocation pLoc, LocData loc)

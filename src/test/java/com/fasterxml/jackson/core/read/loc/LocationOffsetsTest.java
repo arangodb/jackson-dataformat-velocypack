@@ -29,10 +29,10 @@ public class LocationOffsetsTest extends JUnit5TestBase {
         p = JSON_F.createParser(DOC);
         assertToken(JsonToken.START_OBJECT, p.nextToken());
 
-        loc = p.currentTokenLocation();
+        loc = p.getTokenLocation();
         assertEquals(0L, loc.getByteOffset());
 
-        loc = p.currentLocation();
+        loc = p.getCurrentLocation();
         assertEquals(1L, loc.getByteOffset());
 
         p.close();
@@ -49,10 +49,10 @@ public class LocationOffsetsTest extends JUnit5TestBase {
         p = JSON_F.createParser(b);
         assertToken(JsonToken.START_OBJECT, p.nextToken());
 
-        loc = p.currentTokenLocation();
+        loc = p.getTokenLocation();
         assertEquals(0L, loc.getByteOffset());
 
-        loc = p.currentLocation();
+        loc = p.getCurrentLocation();
         assertEquals(1L, loc.getByteOffset());
 
         p.close();
@@ -64,8 +64,8 @@ public class LocationOffsetsTest extends JUnit5TestBase {
         JsonParser p = JSON_F.createParser(b);
         assertToken(JsonToken.START_ARRAY, p.nextToken());
         assertToken(JsonToken.VALUE_STRING, p.nextToken());
-        assertEquals(2, p.currentTokenLocation().getByteOffset());
-        assertEquals(b.length, p.currentLocation().getByteOffset());
+        assertEquals(2, p.getTokenLocation().getByteOffset());
+        assertEquals(b.length, p.getCurrentLocation().getByteOffset());
         p.finishToken();
         assertEquals("text", p.getText());
         p.close();
@@ -83,27 +83,27 @@ public class LocationOffsetsTest extends JUnit5TestBase {
         p = JSON_F.createParser(doc);
 
         assertToken(JsonToken.START_OBJECT, p.nextToken());
-        loc = p.currentTokenLocation();
+        loc = p.getTokenLocation();
         assertEquals(0, loc.getByteOffset());
-        loc = p.currentLocation();
+        loc = p.getCurrentLocation();
         assertEquals(doc.length, loc.getByteOffset());
 
         assertToken(JsonToken.FIELD_NAME, p.nextToken());
-        loc = p.currentTokenLocation();
+        loc = p.getTokenLocation();
         assertEquals(8, loc.getByteOffset());
-        loc = p.currentLocation();
+        loc = p.getCurrentLocation();
         assertEquals(doc.length - 1, loc.getByteOffset());
 
         assertToken(JsonToken.VALUE_STRING, p.nextToken());
-        loc = p.currentTokenLocation();
+        loc = p.getTokenLocation();
         assertEquals(8, loc.getByteOffset());
-        loc = p.currentLocation();
+        loc = p.getCurrentLocation();
         assertEquals(doc.length - 1, loc.getByteOffset());
 
         p.getTextCharacters();
-        loc = p.currentTokenLocation();
+        loc = p.getTokenLocation();
         assertEquals(8, loc.getByteOffset());
-        loc = p.currentLocation();
+        loc = p.getCurrentLocation();
         assertEquals(doc.length - 1, loc.getByteOffset());
 
         p.close();

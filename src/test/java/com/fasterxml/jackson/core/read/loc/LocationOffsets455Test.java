@@ -20,11 +20,11 @@ public class LocationOffsets455Test extends JUnit5TestBase
         JsonParser p = new VPackFactory().createParser(toVPack("42"));
         assertToken(JsonToken.VALUE_NUMBER_INT, p.nextToken());
         assertEquals(42, p.getIntValue());
-        assertEquals(0, p.currentTokenLocation().getByteOffset());
-        assertEquals(5, p.currentLocation().getByteOffset());
+        assertEquals(0, p.getTokenLocation().getByteOffset());
+        assertEquals(5, p.getCurrentLocation().getByteOffset());
 
         assertNull(p.nextToken());
-        assertEquals(5, p.currentLocation().getByteOffset());
+        assertEquals(5, p.getCurrentLocation().getByteOffset());
         p.close();
     }
 
