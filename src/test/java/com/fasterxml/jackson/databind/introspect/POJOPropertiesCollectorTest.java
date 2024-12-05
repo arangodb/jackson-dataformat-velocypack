@@ -12,123 +12,165 @@ import java.math.BigDecimal;
 import java.util.*;
 
 public class POJOPropertiesCollectorTest
-    extends BaseMapTest
-{
+        extends BaseMapTest {
     static class Simple {
         public int value;
-        
-        @JsonProperty("value")
-        public void valueSetter(int v) { value = v; }
 
         @JsonProperty("value")
-        public int getFoobar() { return value; }
+        public void valueSetter(int v) {
+            value = v;
+        }
+
+        @JsonProperty("value")
+        public int getFoobar() {
+            return value;
+        }
     }
 
-    static class SimpleFieldDeser
-    {
-        @JsonDeserialize String[] values;
+    static class SimpleFieldDeser {
+        @JsonDeserialize
+        String[] values;
     }
-    
+
     static class SimpleGetterVisibility {
-        public int getA() { return 0; }
-        protected int getB() { return 1; }
+        public int getA() {
+            return 0;
+        }
+
+        protected int getB() {
+            return 1;
+        }
+
         @SuppressWarnings("unused")
-        private int getC() { return 2; }
+        private int getC() {
+            return 2;
+        }
     }
-    
+
     // Class for testing 'shared ignore'
     static class Empty {
         public int value;
-        
-        public void setValue(int v) { value = v; }
+
+        public void setValue(int v) {
+            value = v;
+        }
 
         @JsonIgnore
-        public int getValue() { return value; }
+        public int getValue() {
+            return value;
+        }
     }
 
     static class IgnoredSetter {
         @JsonProperty
         public int value;
-        
-        @JsonIgnore
-        public void setValue(int v) { value = v; }
 
-        public int getValue() { return value; }
+        @JsonIgnore
+        public void setValue(int v) {
+            value = v;
+        }
+
+        public int getValue() {
+            return value;
+        }
     }
 
     static class ImplicitIgnores {
-        @JsonIgnore public int a;
-        @JsonIgnore public void setB(int b) { }
+        @JsonIgnore
+        public int a;
+
+        @JsonIgnore
+        public void setB(int b) {
+        }
+
         public int c;
     }
-    
+
     // Should find just one setter for "y", due to partial ignore
     static class IgnoredRenamedSetter {
-        @JsonIgnore public void setY(int value) { }
-        @JsonProperty("y") void foobar(int value) { }
+        @JsonIgnore
+        public void setY(int value) {
+        }
+
+        @JsonProperty("y")
+        void foobar(int value) {
+        }
     }
-    
+
     // should produce a single property, "x"
     static class RenamedProperties {
         @JsonProperty("x")
         public int value;
-        
-        public void setValue(int v) { value = v; }
 
-        public int getX() { return value; }
+        public void setValue(int v) {
+            value = v;
+        }
+
+        public int getX() {
+            return value;
+        }
     }
 
-    static class RenamedProperties2
-    {
+    static class RenamedProperties2 {
         @JsonProperty("renamed")
-        public int getValue() { return 1; }
-        public void setValue(int x) { }
+        public int getValue() {
+            return 1;
+        }
+
+        public void setValue(int x) {
+        }
     }
-    
+
     // Testing that we can "merge" properties with renaming
     static class MergedProperties {
         public int x;
-        
+
         @JsonProperty("x")
-        public void setFoobar(int v) { x = v; }
+        public void setFoobar(int v) {
+            x = v;
+        }
     }
 
     // Testing that property order is obeyed, even for deserialization purposes
     @JsonPropertyOrder({"a", "b", "c", "d"})
-    static class SortedProperties
-    {
+    static class SortedProperties {
         public int b;
         public int c;
-        
-        public void setD(int value) { }
-        public void setA(int value) { }
+
+        public void setD(int value) {
+        }
+
+        public void setA(int value) {
+        }
     }
 
     // [JACKSON-700]: test property type detection, selection
-    static class TypeTestBean
-    {
+    static class TypeTestBean {
         protected Long value;
 
         @JsonCreator
-        public TypeTestBean(@JsonProperty("value") String value) { }
+        public TypeTestBean(@JsonProperty("value") String value) {
+        }
 
         // If you remove this method, the test will pass
-        public Integer getValue() { return 0; }
+        public Integer getValue() {
+            return 0;
+        }
     }
 
-    static class Jackson703
-    {
+    static class Jackson703 {
         private List<FoodOrgLocation> location = new ArrayList<FoodOrgLocation>();
 
         {
             location.add(new FoodOrgLocation());
         }
 
-        public List<FoodOrgLocation> getLocation() { return location; } 
+        public List<FoodOrgLocation> getLocation() {
+            return location;
+        }
     }
-    
-    static class FoodOrgLocation
-    {
+
+    static class FoodOrgLocation {
         protected Long id;
         public String name;
         protected Location location;
@@ -137,56 +179,66 @@ public class POJOPropertiesCollectorTest
             location = new Location();
         }
 
-        public FoodOrgLocation(final Location foodOrg) { }
-                
-        public FoodOrgLocation(final Long id, final String name, final Location location) { }
+        public FoodOrgLocation(final Location foodOrg) {
+        }
 
-        public Location getLocation() { return location; }
+        public FoodOrgLocation(final Long id, final String name, final Location location) {
+        }
+
+        public Location getLocation() {
+            return location;
+        }
     }
 
     static class Location {
         public BigDecimal lattitude;
         public BigDecimal longitude;
 
-        public Location() { }
+        public Location() {
+        }
 
-        public Location(final BigDecimal lattitude, final BigDecimal longitude) { }
+        public Location(final BigDecimal lattitude, final BigDecimal longitude) {
+        }
     }
 
     class Issue701Bean { // important: non-static!
         private int i;
 
         // annotation does not matter -- just need one on the last argument
-        public Issue701Bean(@JsonProperty int i) { this.i = i; }
+        public Issue701Bean(@JsonProperty int i) {
+            this.i = i;
+        }
 
-        public int getX() { return i; }
+        public int getX() {
+            return i;
+        }
     }
 
-    static class Issue744Bean
-    {
-        protected Map<String,Object> additionalProperties;
-        
+    static class Issue744Bean {
+        protected Map<String, Object> additionalProperties;
+
         @JsonAnySetter
         public void addAdditionalProperty(String key, Object value) {
             if (additionalProperties == null) additionalProperties = new HashMap<String, Object>();
-            additionalProperties.put(key,value);
+            additionalProperties.put(key, value);
         }
-        
+
         public void setAdditionalProperties(Map<String, Object> additionalProperties) {
             this.additionalProperties = additionalProperties;
         }
 
         @JsonAnyGetter
-        public Map<String,Object> getAdditionalProperties() { return additionalProperties; }
+        public Map<String, Object> getAdditionalProperties() {
+            return additionalProperties;
+        }
 
         @JsonIgnore
         public String getName() {
-           return (String) additionalProperties.get("name");
+            return (String) additionalProperties.get("name");
         }
     }
 
-    static class PropDescBean
-    {
+    static class PropDescBean {
         public final static String A_DESC = "That's A!";
         public final static int B_INDEX = 3;
 
@@ -194,41 +246,56 @@ public class POJOPropertiesCollectorTest
         public String a;
 
         protected int b;
-        
-        public String getA() { return a; }
 
-        public void setA(String a) { this.a = a; }
+        public String getA() {
+            return a;
+        }
 
-        @JsonProperty(required=true, index=B_INDEX, defaultValue="13")
-        public int getB() { return b; }
+        public void setA(String a) {
+            this.a = a;
+        }
+
+        @JsonProperty(required = true, index = B_INDEX, defaultValue = "13")
+        public int getB() {
+            return b;
+        }
     }
 
     @Target({ElementType.ANNOTATION_TYPE, ElementType.FIELD, ElementType.METHOD, ElementType.PARAMETER})
     @Retention(RetentionPolicy.RUNTIME)
     @JacksonAnnotation
-    @interface A {}
+    @interface A {
+    }
 
     @Target({ElementType.ANNOTATION_TYPE, ElementType.FIELD, ElementType.METHOD, ElementType.PARAMETER})
     @Retention(RetentionPolicy.RUNTIME)
     @JacksonAnnotation
-    @interface B {}
+    @interface B {
+    }
 
-    static class DuplicateGetterBean
-    {
+    static class DuplicateGetterBean {
         @A
-        public boolean isBloop() { return true; }
+        public boolean isBloop() {
+            return true;
+        }
 
         @B
-        public boolean getBloop() { return true; }
+        public boolean getBloop() {
+            return true;
+        }
     }
 
-    static class DuplicateGetterCreatorBean
-    {
-        public DuplicateGetterCreatorBean(@JsonProperty("bloop") @A boolean bloop) {}
+    static class DuplicateGetterCreatorBean {
+        public DuplicateGetterCreatorBean(@JsonProperty("bloop") @A boolean bloop) {
+        }
 
-        public boolean isBloop() { return true; }
+        public boolean isBloop() {
+            return true;
+        }
 
-        public boolean getBloop() { return true; }
+        public boolean getBloop() {
+            return true;
+        }
     }
 
     /*
@@ -239,10 +306,9 @@ public class POJOPropertiesCollectorTest
 
     private final ObjectMapper MAPPER = objectMapper();
 
-    public void testSimple()
-    {
+    public void testSimple() {
         POJOPropertiesCollector coll = collector(MAPPER,
-        		Simple.class, true);
+                Simple.class, true);
         Map<String, POJOPropertyBuilder> props = coll.getPropertyMap();
         assertEquals(1, props.size());
         POJOPropertyBuilder prop = props.get("value");
@@ -252,11 +318,10 @@ public class POJOPropertiesCollectorTest
         assertTrue(prop.hasField());
     }
 
-    public void testSimpleFieldVisibility()
-    {
+    public void testSimpleFieldVisibility() {
         // false -> deserialization
         POJOPropertiesCollector coll = collector(MAPPER,
-        		SimpleFieldDeser.class, false);
+                SimpleFieldDeser.class, false);
         Map<String, POJOPropertyBuilder> props = coll.getPropertyMap();
         assertEquals(1, props.size());
         POJOPropertyBuilder prop = props.get("values");
@@ -266,10 +331,9 @@ public class POJOPropertiesCollectorTest
         assertTrue(prop.hasField());
     }
 
-    public void testSimpleGetterVisibility()
-    {
+    public void testSimpleGetterVisibility() {
         POJOPropertiesCollector coll = collector(MAPPER,
-        		SimpleGetterVisibility.class, true);
+                SimpleGetterVisibility.class, true);
         Map<String, POJOPropertyBuilder> props = coll.getPropertyMap();
         assertEquals(1, props.size());
         POJOPropertyBuilder prop = props.get("a");
@@ -278,13 +342,12 @@ public class POJOPropertiesCollectorTest
         assertTrue(prop.hasGetter());
         assertFalse(prop.hasField());
     }
-    
+
     // Unit test for verifying that a single @JsonIgnore can remove the
     // whole property, unless explicit property marker exists
-    public void testEmpty()
-    {
+    public void testEmpty() {
         POJOPropertiesCollector coll = collector(MAPPER,
-        		Empty.class, true);
+                Empty.class, true);
         Map<String, POJOPropertyBuilder> props = coll.getPropertyMap();
         assertEquals(0, props.size());
     }
@@ -292,10 +355,9 @@ public class POJOPropertiesCollectorTest
     // Unit test for verifying handling of 'partial' @JsonIgnore; that is,
     // if there is at least one explicit annotation to indicate property,
     // only parts that are ignored are, well, ignored
-    public void testPartialIgnore()
-    {
+    public void testPartialIgnore() {
         POJOPropertiesCollector coll = collector(MAPPER,
-        		IgnoredSetter.class, true);
+                IgnoredSetter.class, true);
         Map<String, POJOPropertyBuilder> props = coll.getPropertyMap();
         assertEquals(1, props.size());
         POJOPropertyBuilder prop = props.get("value");
@@ -305,10 +367,9 @@ public class POJOPropertiesCollectorTest
         assertTrue(prop.hasField());
     }
 
-    public void testSimpleRenamed()
-    {
+    public void testSimpleRenamed() {
         POJOPropertiesCollector coll = collector(MAPPER,
-        		RenamedProperties.class, true);
+                RenamedProperties.class, true);
         Map<String, POJOPropertyBuilder> props = coll.getPropertyMap();
         assertEquals(1, props.size());
         POJOPropertyBuilder prop = props.get("x");
@@ -318,10 +379,9 @@ public class POJOPropertiesCollectorTest
         assertTrue(prop.hasField());
     }
 
-    public void testSimpleRenamed2()
-    {
+    public void testSimpleRenamed2() {
         POJOPropertiesCollector coll = collector(MAPPER,
-        		RenamedProperties2.class, true);
+                RenamedProperties2.class, true);
         Map<String, POJOPropertyBuilder> props = coll.getPropertyMap();
         assertEquals(1, props.size());
         POJOPropertyBuilder prop = props.get("renamed");
@@ -331,10 +391,9 @@ public class POJOPropertiesCollectorTest
         assertFalse(prop.hasField());
     }
 
-    public void testMergeWithRename()
-    {
+    public void testMergeWithRename() {
         POJOPropertiesCollector coll = collector(MAPPER,
-        		MergedProperties.class, true);
+                MergedProperties.class, true);
         Map<String, POJOPropertyBuilder> props = coll.getPropertyMap();
         assertEquals(1, props.size());
         POJOPropertyBuilder prop = props.get("x");
@@ -343,11 +402,10 @@ public class POJOPropertiesCollectorTest
         assertFalse(prop.hasGetter());
         assertTrue(prop.hasField());
     }
-    
-    public void testSimpleIgnoreAndRename()
-    {
+
+    public void testSimpleIgnoreAndRename() {
         POJOPropertiesCollector coll = collector(MAPPER,
-        		IgnoredRenamedSetter.class, true);
+                IgnoredRenamedSetter.class, true);
         Map<String, POJOPropertyBuilder> props = coll.getPropertyMap();
         assertEquals(1, props.size());
         POJOPropertyBuilder prop = props.get("y");
@@ -357,8 +415,7 @@ public class POJOPropertiesCollectorTest
         assertFalse(prop.hasField());
     }
 
-    public void testGlobalVisibilityForGetters()
-    {
+    public void testGlobalVisibilityForGetters() {
         ObjectMapper m = jsonMapperBuilder()
                 .configure(MapperFeature.AUTO_DETECT_GETTERS, false)
                 .build();
@@ -368,8 +425,7 @@ public class POJOPropertiesCollectorTest
         assertEquals(0, props.size());
     }
 
-    public void testCollectionOfIgnored()
-    {
+    public void testCollectionOfIgnored() {
         POJOPropertiesCollector coll = collector(MAPPER, ImplicitIgnores.class, false);
         // should be 1, due to ignorals
         Map<String, POJOPropertyBuilder> props = coll.getPropertyMap();
@@ -381,8 +437,7 @@ public class POJOPropertiesCollectorTest
         assertTrue(ign.contains("b"));
     }
 
-    public void testSimpleOrderingForDeserialization()
-    {
+    public void testSimpleOrderingForDeserialization() {
         POJOPropertiesCollector coll = collector(MAPPER, SortedProperties.class, false);
         List<BeanPropertyDefinition> props = coll.getProperties();
         assertEquals(4, props.size());
@@ -392,8 +447,7 @@ public class POJOPropertiesCollectorTest
         assertEquals("d", props.get(3).getName());
     }
 
-    public void testSimpleWithType()
-    {
+    public void testSimpleWithType() {
         // first for serialization; should base choice on getter
         POJOPropertiesCollector coll = collector(MAPPER, TypeTestBean.class, true);
         List<BeanPropertyDefinition> props = coll.getProperties();
@@ -413,8 +467,7 @@ public class POJOPropertiesCollectorTest
         assertEquals(String.class, m.getRawType());
     }
 
-    public void testInnerClassWithAnnotationsInCreator() throws Exception
-    {
+    public void testInnerClassWithAnnotationsInCreator() throws Exception {
         BeanDescription beanDesc;
         // first with serialization
         beanDesc = MAPPER.getSerializationConfig().introspect(MAPPER.constructType(Issue701Bean.class));
@@ -424,20 +477,18 @@ public class POJOPropertiesCollectorTest
         assertNotNull(beanDesc);
     }
 
-    public void testUseAnnotationsFalse() throws Exception
-    {
+    public void testUseAnnotationsFalse() throws Exception {
         // note: need a separate mapper, need to reconfigure
         ObjectMapper mapper = jsonMapperBuilder().configure(MapperFeature.USE_ANNOTATIONS, false).build();
         BeanDescription beanDesc = mapper.getSerializationConfig().introspect(mapper.constructType(Jackson703.class));
         assertNotNull(beanDesc);
 
         Jackson703 bean = new Jackson703();
-        String json = com.fasterxml.jackson.VPackUtils.toJson( mapper.writeValueAsBytes(bean));
+        String json = com.fasterxml.jackson.VPackUtils.toJson(mapper.writeValueAsBytes(bean));
         assertNotNull(json);
     }
 
-    public void testJackson744() throws Exception
-    {
+    public void testJackson744() throws Exception {
         BeanDescription beanDesc = MAPPER.getDeserializationConfig().introspect
                 (MAPPER.constructType(Issue744Bean.class));
         assertNotNull(beanDesc);
@@ -448,8 +499,7 @@ public class POJOPropertiesCollectorTest
     }
 
     // [databind#269]: Support new @JsonPropertyDescription
-    public void testPropertyDesc() throws Exception
-    {
+    public void testPropertyDesc() throws Exception {
         // start via deser
         BeanDescription beanDesc = MAPPER.getDeserializationConfig().introspect(MAPPER.constructType(PropDescBean.class));
         _verifyProperty(beanDesc, true, false, "13");
@@ -459,16 +509,14 @@ public class POJOPropertiesCollectorTest
     }
 
     // [databind#438]: Support @JsonProperty.index
-    public void testPropertyIndex() throws Exception
-    {
+    public void testPropertyIndex() throws Exception {
         BeanDescription beanDesc = MAPPER.getDeserializationConfig().introspect(MAPPER.constructType(PropDescBean.class));
         _verifyProperty(beanDesc, false, true, "13");
         beanDesc = MAPPER.getSerializationConfig().introspect(MAPPER.constructType(PropDescBean.class));
         _verifyProperty(beanDesc, false, true, "13");
     }
 
-    public void testDuplicateGetters() throws Exception
-    {
+    public void testDuplicateGetters() throws Exception {
         POJOPropertiesCollector coll = collector(MAPPER, DuplicateGetterBean.class, true);
         List<BeanPropertyDefinition> props = coll.getProperties();
         assertEquals(1, props.size());
@@ -478,8 +526,7 @@ public class POJOPropertiesCollectorTest
         assertTrue(prop.getGetter().hasAnnotation(B.class));
     }
 
-    public void testDuplicateGettersCreator() throws Exception
-    {
+    public void testDuplicateGettersCreator() throws Exception {
         POJOPropertiesCollector coll = collector(MAPPER, DuplicateGetterCreatorBean.class, true);
         List<BeanPropertyDefinition> props = coll.getProperties();
         assertEquals(1, props.size());
@@ -492,8 +539,7 @@ public class POJOPropertiesCollectorTest
     }
 
     private void _verifyProperty(BeanDescription beanDesc,
-    		boolean verifyDesc, boolean verifyIndex, String expDefaultValue)
-    {
+                                 boolean verifyDesc, boolean verifyIndex, String expDefaultValue) {
         assertNotNull(beanDesc);
         List<BeanPropertyDefinition> props = beanDesc.findProperties();
         assertEquals(2, props.size());
@@ -504,25 +550,25 @@ public class POJOPropertiesCollectorTest
                 assertFalse(md.isRequired());
                 assertNull(md.getRequired());
                 if (verifyDesc) {
-                	assertEquals(PropDescBean.A_DESC, md.getDescription());
+                    assertEquals(PropDescBean.A_DESC, md.getDescription());
                 }
                 if (verifyIndex) {
-                	assertNull(md.getIndex());
+                    assertNull(md.getIndex());
                 }
             } else if ("b".equals(name)) {
                 assertTrue(md.isRequired());
                 assertEquals(Boolean.TRUE, md.getRequired());
                 if (verifyDesc) {
-                	assertNull(md.getDescription());
+                    assertNull(md.getDescription());
                 }
                 if (verifyIndex) {
-                	assertEquals(Integer.valueOf(PropDescBean.B_INDEX), md.getIndex());
+                    assertEquals(Integer.valueOf(PropDescBean.B_INDEX), md.getIndex());
                 }
                 if (expDefaultValue != null) {
                     assertEquals(expDefaultValue, md.getDefaultValue());
                 }
             } else {
-                fail("Unrecognized property '"+name+"'");
+                fail("Unrecognized property '" + name + "'");
             }
         }
     }
@@ -533,15 +579,14 @@ public class POJOPropertiesCollectorTest
      */
 
     protected POJOPropertiesCollector collector(ObjectMapper m0,
-            Class<?> cls, boolean forSerialization)
-    {
+                                                Class<?> cls, boolean forSerialization) {
         BasicClassIntrospector bci = new BasicClassIntrospector();
         // no real difference between serialization, deserialization, at least here
         if (forSerialization) {
             return bci.collectProperties(m0.getSerializationConfig(),
-                    m0.constructType(cls), null, true, "set");
+                    m0.constructType(cls), null, true);
         }
         return bci.collectProperties(m0.getDeserializationConfig(),
-                m0.constructType(cls), null, false, "set");
+                m0.constructType(cls), null, false);
     }
 }

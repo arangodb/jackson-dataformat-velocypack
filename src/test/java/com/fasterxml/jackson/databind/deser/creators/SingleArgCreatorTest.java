@@ -5,54 +5,60 @@ import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.introspect.AnnotatedMember;
 import com.fasterxml.jackson.databind.introspect.AnnotatedParameter;
 import com.fasterxml.jackson.databind.introspect.JacksonAnnotationIntrospector;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.dataformat.velocypack.TestVelocypackMapper;
 
-public class SingleArgCreatorTest extends BaseMapTest
-{
+public class SingleArgCreatorTest extends BaseMapTest {
     // [databind#430]: single arg BUT named; should not delegate
 
     static class SingleNamedStringBean {
         final String _ss;
 
         @JsonCreator
-        public SingleNamedStringBean(@JsonProperty("") String ss){
+        public SingleNamedStringBean(@JsonProperty("") String ss) {
             this._ss = ss;
         }
 
-        public String getSs() { return _ss; }
+        public String getSs() {
+            return _ss;
+        }
     }
 
     // For [databind#614]
     static class SingleNamedButStillDelegating {
         protected final String value;
 
-        @JsonCreator(mode=JsonCreator.Mode.DELEGATING)
-        public SingleNamedButStillDelegating(@JsonProperty("foobar") String v){
+        @JsonCreator(mode = JsonCreator.Mode.DELEGATING)
+        public SingleNamedButStillDelegating(@JsonProperty("foobar") String v) {
             value = v;
         }
 
-        public String getFoobar() { return "x"; }
+        public String getFoobar() {
+            return "x";
+        }
     }
-    
+
     // [databind#557]
-    
-    static class StringyBean
-    {
+
+    static class StringyBean {
         public final String value;
 
-        private StringyBean(String value) { this.value = value; }
+        private StringyBean(String value) {
+            this.value = value;
+        }
 
         public String getValue() {
             return value;
         }
     }
 
-    static class StringyBeanWithProps
-    {
+    static class StringyBeanWithProps {
         public final String value;
 
         @JsonCreator
-        private StringyBeanWithProps(String v) { value = v; }
+        private StringyBeanWithProps(String v) {
+            value = v;
+        }
 
         public String getValue() {
             return value;
@@ -60,20 +66,22 @@ public class SingleArgCreatorTest extends BaseMapTest
     }
 
     @SuppressWarnings("serial")
-    static class MyParamIntrospector extends JacksonAnnotationIntrospector
-    {
+    static class MyParamIntrospector extends JacksonAnnotationIntrospector {
         private final String name;
-        
-        public MyParamIntrospector(String n) { name = n; }
-        
+
+        public MyParamIntrospector(String n) {
+            name = n;
+        }
+
         @Override
         public String findImplicitPropertyName(AnnotatedMember param) {
             if (param instanceof AnnotatedParameter) {
                 AnnotatedParameter ap = (AnnotatedParameter) param;
                 switch (ap.getIndex()) {
-                case 0: return name;
+                    case 0:
+                        return name;
                 }
-                return "param"+ap.getIndex();
+                return "param" + ap.getIndex();
             }
             return super.findImplicitPropertyName(param);
         }
@@ -98,7 +106,9 @@ public class SingleArgCreatorTest extends BaseMapTest
             return bean;
         }
 
-        public String value() { return value; }
+        public String value() {
+            return value;
+        }
     }
 
     // [databind#660]
@@ -114,13 +124,15 @@ public class SingleArgCreatorTest extends BaseMapTest
             return new ExplicitFactoryBeanB(null);
         }
 
-        public String value() { return value; }
+        public String value() {
+            return value;
+        }
     }
 
     static class XY {
         public int x, y;
     }
-    
+
     // [databind#1383]
     static class SingleArgWithImplicit {
         protected XY _value;
@@ -128,6 +140,7 @@ public class SingleArgCreatorTest extends BaseMapTest
         private SingleArgWithImplicit() {
             throw new Error("Should not get called");
         }
+
         private SingleArgWithImplicit(XY v, boolean bogus) {
             _value = v;
         }
@@ -137,7 +150,9 @@ public class SingleArgCreatorTest extends BaseMapTest
             return new SingleArgWithImplicit(v, true);
         }
 
-        public XY getFoobar() { return _value; }
+        public XY getFoobar() {
+            return _value;
+        }
     }
 
     /*
@@ -148,48 +163,48 @@ public class SingleArgCreatorTest extends BaseMapTest
 
     private final ObjectMapper MAPPER = objectMapper();
 
-    public void testNamedSingleArg() throws Exception
-    {
+    public void testNamedSingleArg() throws Exception {
         SingleNamedStringBean bean = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote("foobar")),
                 SingleNamedStringBean.class);
         assertEquals("foobar", bean._ss);
     }
 
-    public void testSingleStringArgWithImplicitName() throws Exception
-    {
+    public void testSingleStringArgWithImplicitName() throws Exception {
         final ObjectMapper mapper = new TestVelocypackMapper();
         mapper.setAnnotationIntrospector(new MyParamIntrospector("value"));
-        StringyBean bean = mapper.readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote("foobar")), StringyBean.class);
+        // 23-May-2024, tatu: [databind#4515] Clarifies handling to make
+        //   1-param Constructor with implicit name auto-discoverable
+        //   This is compatibility change so hopefully won't bite us but...
+        //   it seems like the right thing to do.
+//        StringyBean bean = mapper.readValue(q("foobar"), StringyBean.class);
+        StringyBean bean = mapper.readValue(
+                com.fasterxml.jackson.VPackUtils.toVPack("{\"value\":\"foobar\"}"), StringyBean.class);
         assertEquals("foobar", bean.getValue());
-    }    
+    }
 
     // [databind#714]
-    public void testSingleImplicitlyNamedNotDelegating() throws Exception
-    {
+    public void testSingleImplicitlyNamedNotDelegating() throws Exception {
         final ObjectMapper mapper = new TestVelocypackMapper();
         mapper.setAnnotationIntrospector(new MyParamIntrospector("value"));
         StringyBeanWithProps bean = mapper.readValue(com.fasterxml.jackson.VPackUtils.toVPack("{\"value\":\"x\"}"), StringyBeanWithProps.class);
         assertEquals("x", bean.getValue());
-    }    
+    }
 
     // [databind#714]
-    public void testSingleExplicitlyNamedButDelegating() throws Exception
-    {
+    public void testSingleExplicitlyNamedButDelegating() throws Exception {
         SingleNamedButStillDelegating bean = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote("xyz")),
                 SingleNamedButStillDelegating.class);
         assertEquals("xyz", bean.value);
     }
 
-    public void testExplicitFactory660a() throws Exception
-    {
+    public void testExplicitFactory660a() throws Exception {
         // First, explicit override for factory
         ExplicitFactoryBeanA bean = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote("abc")), ExplicitFactoryBeanA.class);
         assertNotNull(bean);
         assertEquals("abc", bean.value());
     }
 
-    public void testExplicitFactory660b() throws Exception
-    {
+    public void testExplicitFactory660b() throws Exception {
         // and then one for private constructor
         ExplicitFactoryBeanB bean2 = MAPPER.readValue(com.fasterxml.jackson.VPackUtils.toVPack(quote("def")), ExplicitFactoryBeanB.class);
         assertNotNull(bean2);
@@ -197,8 +212,7 @@ public class SingleArgCreatorTest extends BaseMapTest
     }
 
     // [databind#1383]
-    public void testSingleImplicitDelegating() throws Exception
-    {
+    public void testSingleImplicitDelegating() throws Exception {
         final ObjectMapper mapper = new TestVelocypackMapper();
         mapper.setAnnotationIntrospector(new MyParamIntrospector("value"));
         SingleArgWithImplicit bean = mapper.readValue(com.fasterxml.jackson.VPackUtils.toVPack(aposToQuotes("{'x':1,'y':2}")),
