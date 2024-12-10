@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 ## [Unreleased]
 
+## [4.5.0] - 2024-12-10
+
+- implemented `VPackParser` support to `getCurrentLocation()` and `getTokenLocation()` (DE-959)
+- implemented `VPackGenerator` support to `writeRawValue(SerializableString)`
+
 ## [4.4.0] - 2024-09-20
 
 - updated dependency `com.arangodb:velocypack:3.1.0`
