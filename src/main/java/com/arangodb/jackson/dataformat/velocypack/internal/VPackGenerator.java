@@ -142,9 +142,11 @@ public class VPackGenerator extends GeneratorBase {
     }
 
     @Override
-    public void writeBinary(Base64Variant base64Variant, byte[] bytes, int i, int i1) throws IOException {
+    public void writeBinary(Base64Variant base64Variant, byte[] bytes, int offset, int len) throws IOException {
+        byte[] data = new byte[len];
+        System.arraycopy(bytes, offset, data, 0, len);
         try {
-            builder.add(attribute, base64Variant.encode(bytes, false));
+            builder.add(attribute, data);
             attribute = null;
         } catch (final VPackBuilderException e) {
             throw new IOException(e);

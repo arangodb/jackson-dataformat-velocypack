@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 ## [Unreleased]
 
+- added support to embedded binary values (DE-1011)
+
 ## [4.5.0] - 2024-12-10
 
 - implemented `VPackParser` support to `getCurrentLocation()` and `getTokenLocation()` (DE-959)

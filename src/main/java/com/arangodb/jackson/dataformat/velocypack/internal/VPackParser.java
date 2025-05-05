@@ -292,9 +292,14 @@ public class VPackParser extends ParserMinimalBase {
             case NULL:
                 token = JsonToken.VALUE_NULL;
                 break;
-            default:
+            case BINARY:
+                token = JsonToken.VALUE_EMBEDDED_OBJECT;
+                break;
+            case NONE:
                 token = null;
                 break;
+            default:
+                throw new IllegalArgumentException("Unsupported token type: " + type);
         }
         return token;
     }
@@ -357,6 +362,15 @@ public class VPackParser extends ParserMinimalBase {
         }
         return Arrays.copyOfRange(currentValue.getBuffer(), currentValue.getStart(),
                 currentValue.getStart() + currentValue.getByteSize());
+    }
+
+    @Override
+    public Object getEmbeddedObject() {
+        if (currentValue.isBinary()) {
+            return currentValue.getAsBinary();
+        } else {
+            throw new UnsupportedOperationException("Calling getEmbeddedObject() on " + currentValue.getType());
+        }
     }
 
     public VPackSlice getVPack() {
