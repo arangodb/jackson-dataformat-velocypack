@@ -139,7 +139,8 @@ workflows:
           matrix:
             parameters:
               args:
-                - '-Djackson.version=2.18.2'
+                - '-Djackson.version=2.19.1'
+                - '-Djackson.version=2.18.4'
                 - '-Djackson.version=2.17.3'
                 - '-Djackson.version=2.16.2'
                 - '-Djackson.version=2.15.4'

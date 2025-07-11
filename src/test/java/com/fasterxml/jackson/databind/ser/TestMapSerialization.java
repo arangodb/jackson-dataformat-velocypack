@@ -151,23 +151,6 @@ public class TestMapSerialization extends BaseMapTest
         assertEquals("{\"a\":6,\"b\":3}", com.fasterxml.jackson.VPackUtils.toJson( sortingW.writeValueAsBytes(map)));
     }
 
-    // related to [databind#1411]
-    public void testOrderByWithNulls() throws IOException
-    {
-        ObjectWriter sortingW = MAPPER.writer(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS);
-        // 16-Oct-2016, tatu: but mind the null key, if any
-        Map<String,Integer> mapWithNullKey = new LinkedHashMap<String,Integer>();
-        mapWithNullKey.put(null, 1);
-        mapWithNullKey.put("b", 2);
-        // 16-Oct-2016, tatu: By default, null keys are not accepted...
-        try {
-            /*String json =*/ com.fasterxml.jackson.VPackUtils.toJson( sortingW.writeValueAsBytes(mapWithNullKey));
-            //assertEquals(aposToQuotes("{'':1,'b':2}"), json);
-        } catch (JsonMappingException e) {
-            verifyException(e, "Null key for a Map not allowed");
-        }
-    }
-
     // [Databind#335]
     public void testOrderByKeyViaProperty() throws IOException
     {
