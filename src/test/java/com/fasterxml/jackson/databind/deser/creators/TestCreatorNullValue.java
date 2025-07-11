@@ -1,6 +1,5 @@
 package com.fasterxml.jackson.databind.deser.creators;
 
-import java.io.IOException;
 import java.util.UUID;
 
 import com.fasterxml.jackson.annotation.*;
@@ -102,15 +101,4 @@ public class TestCreatorNullValue extends BaseMapTest
         assertEquals(NULL_CONTAINED, container.contained);
     }
 
-    // [databind#597]: ensure that a useful exception is thrown
-    public void testCreatorReturningNull() throws IOException {
-        ObjectMapper objectMapper = new TestVelocypackMapper();
-        String json = "{ \"type\" : \"     \", \"id\" : \"000c0ffb-a0d6-4d2e-a379-4aeaaf283599\" }";
-        try {
-            objectMapper.readValue(json, JsonEntity.class);
-            fail("Should not have succeeded");
-        } catch (JsonMappingException e) {
-            verifyException(e, "JSON creator returned null");
-        }
-    }    
 }

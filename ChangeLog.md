@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 ## [Unreleased]
 
+## [4.6.1] - 2025-07-11
+
+- added support to Jackson 2.19
+
 ## [4.6.0] - 2025-05-05
 
 - added support to embedded binary values (DE-1011)

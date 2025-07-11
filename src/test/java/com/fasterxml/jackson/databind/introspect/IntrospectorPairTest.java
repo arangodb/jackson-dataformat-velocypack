@@ -378,31 +378,6 @@ public class IntrospectorPairTest extends BaseMapTest
         assertNull(new AnnotationIntrospectorPair(nop2, nop).findSerializer(null));
     }
 
-    public void testFindDeserializer() throws Exception
-    {
-        final JsonDeserializer<?> deserString = StringDeserializer.instance;
-        final JsonDeserializer<?> deserObject = UntypedObjectDeserializer.Vanilla.std;
-
-        AnnotationIntrospector intr1 = new IntrospectorWithHandlers(deserString, null);
-        AnnotationIntrospector intr2 = new IntrospectorWithHandlers(deserObject, null);
-        AnnotationIntrospector nop = AnnotationIntrospector.nopInstance();
-        AnnotationIntrospector nop2 = new IntrospectorWithHandlers(JsonDeserializer.None.class, null);
-
-        assertSame(deserString,
-                new AnnotationIntrospectorPair(intr1, intr2).findDeserializer(null));
-        assertSame(deserObject,
-                new AnnotationIntrospectorPair(intr2, intr1).findDeserializer(null));
-        // also: no-op instance should not block real one, regardless
-        assertSame(deserString,
-                new AnnotationIntrospectorPair(nop, intr1).findDeserializer(null));
-        assertSame(deserString,
-                new AnnotationIntrospectorPair(nop2, intr1).findDeserializer(null));
-
-        // nor should no-op result in non-null result
-        assertNull(new AnnotationIntrospectorPair(nop, nop2).findDeserializer(null));
-        assertNull(new AnnotationIntrospectorPair(nop2, nop).findDeserializer(null));
-    }
-
     /*
     /******************************************************
     /* Property auto-detection

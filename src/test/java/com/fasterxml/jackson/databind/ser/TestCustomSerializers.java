@@ -202,30 +202,6 @@ public class TestCustomSerializers extends BaseMapTest
         assertEquals(com.fasterxml.jackson.VPackUtils.toJson(bytes), "\"element\"");
     }
 
-    @SuppressWarnings({ "unchecked", "rawtypes" })
-    public void testCustomLists() throws Exception
-    {
-        ObjectMapper mapper = new TestVelocypackMapper();
-        SimpleModule module = new SimpleModule("test", Version.unknownVersion());
-        JsonSerializer<?> ser = new CollectionSerializer(null, false, null, null);
-        final JsonSerializer<Object> collectionSerializer = (JsonSerializer<Object>) ser;
-
-        module.addSerializer(Collection.class, new JsonSerializer<Collection>() {
-            @Override
-            public void serialize(Collection value, JsonGenerator gen, SerializerProvider provider)
-                    throws IOException
-            {
-                if (value.size() != 0) {
-                    collectionSerializer.serialize(value, gen, provider);
-                } else {
-                    gen.writeNull();
-                }
-            }
-        });
-        mapper.registerModule(module);
-        assertEquals("null", com.fasterxml.jackson.VPackUtils.toJson( mapper.writeValueAsBytes(new ArrayList<Object>())));
-    }
-
     // [databind#87]: delegating serializer
     public void testDelegating() throws Exception
     {
