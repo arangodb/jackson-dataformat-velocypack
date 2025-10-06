@@ -125,7 +125,8 @@ workflows:
           matrix:
             parameters:
               args:
-                - '-Djackson.version=2.19.1'
+                - '-Djackson.version=2.20.0'
+                - '-Djackson.version=2.19.2'
                 - '-Djackson.version=2.18.4'
                 - '-Djackson.version=2.17.3'
                 - '-Djackson.version=2.16.2'
@@ -133,8 +134,6 @@ workflows:
                 - '-Djackson.version=2.14.3'
                 - '-Djackson.version=2.13.5'
                 - '-Djackson.version=2.12.7'
-                - '-Djackson.version=2.11.4'
-                - '-Djackson.version=2.10.5'
   deploy:
     jobs:
       - deploy:

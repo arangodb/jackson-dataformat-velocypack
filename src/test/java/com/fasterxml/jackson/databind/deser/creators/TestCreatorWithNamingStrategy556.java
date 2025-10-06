@@ -59,7 +59,7 @@ public class TestCreatorWithNamingStrategy556
     }
     
     private final ObjectMapper MAPPER = new TestVelocypackMapper()
-            .setPropertyNamingStrategy(PropertyNamingStrategy.UPPER_CAMEL_CASE)
+            .setPropertyNamingStrategy(PropertyNamingStrategies.UPPER_CAMEL_CASE)
             ;
     {
         MAPPER.setAnnotationIntrospector(new MyParamIntrospector());
