@@ -63,9 +63,9 @@ executors:
   j21:
     docker:
       - image: 'cimg/openjdk:21.0'
-  j23:
+  j25:
     docker:
-      - image: 'cimg/openjdk:23.0'
+      - image: 'cimg/openjdk:25.0'
 
 jobs:
 
@@ -73,7 +73,7 @@ jobs:
     parameters:
       jdk:
         type: 'string'
-        default: 'j21'
+        default: 'j25'
       args:
         type: 'string'
         default: ''
@@ -117,7 +117,7 @@ workflows:
                 - 'j11'
                 - 'j17'
                 - 'j21'
-                - 'j23'
+                - 'j25'
   test-jackson:
     jobs:
       - test:
