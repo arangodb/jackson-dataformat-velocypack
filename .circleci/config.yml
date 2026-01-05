@@ -96,7 +96,7 @@ jobs:
       - store_cache
 
   deploy:
-    executor: 'j21'
+    executor: 'j17'
     steps:
       - timeout
       - checkout
