@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 ## [Unreleased]
 
+## [4.6.4] - 2026-03-06
+
+- added support to Jackson 2.21
+
 ## [4.6.3] - 2026-01-05
 
 - fix deploy with Java 17
