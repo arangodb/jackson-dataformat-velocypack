@@ -1,0 +1,580 @@
+package tools.jackson.databind.jsontype;
+
+import com.fasterxml.jackson.annotation.*;
+import com.fasterxml.jackson.annotation.JsonSubTypes.Type;
+import com.fasterxml.jackson.annotation.JsonTypeInfo.As;
+import com.fasterxml.jackson.annotation.JsonTypeInfo.Id;
+import org.junit.jupiter.api.Test;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.VPackUtils;
+import tools.jackson.databind.testutil.DatabindTestUtil;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+
+import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.junit.jupiter.api.Assertions.*;
+
+public class ExistingPropertyTest extends DatabindTestUtil
+{
+    /**
+     * Polymorphic base class - existing property as simple property on subclasses
+     */
+    @JsonTypeInfo(use = Id.NAME, include = As.EXISTING_PROPERTY, property = "type",
+            visible=true)
+    @JsonSubTypes({
+        @Type(value = Apple.class, name = "apple") ,
+        @Type(value = Orange.class, name = "orange")
+    })
+    static abstract class Fruit {
+        public String name;
+        protected Fruit(String n)  { name = n; }
+    }
+
+    @JsonTypeName("apple")
+    @JsonPropertyOrder({ "name", "seedCount", "type" })
+    static class Apple extends Fruit
+    {
+        public int seedCount;
+        public String type;
+
+        private Apple() { super(null); }
+        protected Apple(String name, int b) {
+            super(name);
+            seedCount = b;
+            type = "apple";
+        }
+    }
+
+    @JsonTypeName("orange")
+    @JsonPropertyOrder({ "name", "color", "type" })
+    static class Orange extends Fruit
+    {
+        public String color;
+        public String type;
+
+        private Orange() { super(null); }
+        protected Orange(String name, String c) {
+            super(name);
+            color = c;
+            type = "orange";
+        }
+    }
+
+    static class FruitWrapper {
+        public Fruit fruit;
+        public FruitWrapper() {}
+        public FruitWrapper(Fruit f) { fruit = f; }
+    }
+
+    /**
+     * Polymorphic base class - existing property forced by abstract method
+     */
+	@JsonTypeInfo(use = Id.NAME, include = As.EXISTING_PROPERTY, property = "type")
+	@JsonSubTypes({
+		@Type(value = Dog.class, name = "doggie") ,
+		@Type(value = Cat.class, name = "kitty")
+		})
+	static abstract class Animal {
+        public String name;
+
+        protected Animal(String n)  { name = n; }
+
+        public abstract String getType();
+    }
+
+    @JsonTypeName("doggie")
+    static class Dog extends Animal
+    {
+        public int boneCount;
+
+        private Dog() { super(null); }
+        protected Dog(String name, int b) {
+            super(name);
+            boneCount = b;
+        }
+
+ 		@Override
+		public String getType() {
+        	return "doggie";
+        }
+    }
+
+    @JsonTypeName("kitty")
+    static class Cat extends Animal
+    {
+        public String furColor;
+
+        private Cat() { super(null); }
+        protected Cat(String name, String c) {
+            super(name);
+            furColor = c;
+        }
+
+		@Override
+		public String getType() {
+        	return "kitty";
+        }
+    }
+
+    static class AnimalWrapper {
+        public Animal animal;
+        public AnimalWrapper() {}
+        public AnimalWrapper(Animal a) { animal = a; }
+    }
+
+    /**
+     * Polymorphic base class - existing property NOT forced by abstract method on base class
+     */
+	@JsonTypeInfo(use = Id.NAME, include = As.EXISTING_PROPERTY, property = "type")
+	@JsonSubTypes({
+		@Type(value = Accord.class, name = "accord") ,
+		@Type(value = Camry.class, name = "camry")
+		})
+	static abstract class Car {
+        public String name;
+        protected Car(String n)  { name = n; }
+    }
+
+    @JsonTypeName("accord")
+    static class Accord extends Car
+    {
+        public int speakerCount;
+
+        private Accord() { super(null); }
+        protected Accord(String name, int b) {
+            super(name);
+            speakerCount = b;
+        }
+
+		public String getType() {
+        	return "accord";
+        }
+    }
+
+    @JsonTypeName("camry")
+    static class Camry extends Car
+    {
+        public String exteriorColor;
+
+        private Camry() { super(null); }
+        protected Camry(String name, String c) {
+            super(name);
+            exteriorColor = c;
+        }
+
+        public String getType() {
+        	return "camry";
+        }
+    }
+
+    static class CarWrapper {
+        public Car car;
+        public CarWrapper() {}
+        public CarWrapper(Car c) { car = c; }
+    }
+
+    // for [databind#1635]
+
+    @JsonTypeInfo(use = Id.NAME,
+            include = As.EXISTING_PROPERTY,
+            // IMPORTANT! Must be defined as `visible`
+            visible=true,
+            property = "type",
+            defaultImpl=Bean1635Default.class)
+    @JsonSubTypes({ @Type(Bean1635A.class) })
+    static class Bean1635 {
+        public ABC type;
+    }
+
+    @JsonTypeName("A")
+    static class Bean1635A extends Bean1635 {
+        public int value;
+    }
+
+    static class Bean1635Default extends Bean1635 { }
+
+    // [databind#3251]: Double vs BigDecimal
+    @JsonTypeInfo(
+        use = Id.NAME,
+        property = "type_alias"
+    )
+    static class GenericWrapperWithNew3251<T> {
+        private final T value;
+
+        @JsonCreator
+        public GenericWrapperWithNew3251(@JsonProperty("value") T value) {
+            this.value = value;
+        }
+
+        public T getValue() {
+            return value;
+        }
+    }
+
+    @JsonTypeInfo(
+        use = Id.NAME,
+        include = As.EXISTING_PROPERTY,
+        property = "fieldType",
+        visible = true,
+        defaultImpl = GenericWrapperWithExisting3251.class
+    )
+    static class GenericWrapperWithExisting3251<T> {
+        public String fieldType;
+        private final T value;
+
+        @JsonCreator
+        public GenericWrapperWithExisting3251(@JsonProperty("value") T value) {
+            this.value = value;
+        }
+
+        public T getValue() {
+            return value;
+        }
+    }
+
+    // [databind#3271]
+    @JsonTypeInfo(use = Id.NAME, include = As.EXISTING_PROPERTY,
+            visible = true, property = "type", defaultImpl = DefaultShape3271.class)
+    @JsonSubTypes({@Type(value = Square3271.class, name = "square")})
+    static abstract class Shape3271 {
+        public String type;
+
+        public String getType() { return this.type; }
+
+        public void setType(String type) { this.type = type; }
+    }
+
+    static class Square3271 extends Shape3271 {}
+
+    static class DefaultShape3271 extends Shape3271 {}
+
+    /*
+    /**********************************************************************
+    /* Mock data
+    /**********************************************************************
+     */
+
+    private static final Orange mandarin = new Orange("Mandarin Orange", "orange");
+    private static final String mandarinJson = "{\"name\":\"Mandarin Orange\",\"color\":\"orange\",\"type\":\"orange\"}";
+    private static final Apple pinguo = new Apple("Apple-A-Day", 16);
+    private static final String pinguoJson = "{\"name\":\"Apple-A-Day\",\"seedCount\":16,\"type\":\"apple\"}";
+    private static final FruitWrapper pinguoWrapper = new FruitWrapper(pinguo);
+    private static final String pinguoWrapperJson = "{\"fruit\":" + pinguoJson + "}";
+    private static final List<Fruit> fruitList = Arrays.asList(pinguo, mandarin);
+    private static final String fruitListJson = "[" + pinguoJson + "," + mandarinJson + "]";
+
+    private static final Cat beelzebub = new Cat("Beelzebub", "tabby");
+    private static final String beelzebubJson = "{\"furColor\":\"tabby\",\"name\":\"Beelzebub\",\"type\":\"kitty\"}";
+    private static final Dog rover = new Dog("Rover", 42);
+    private static final String roverJson = "{\"boneCount\":42,\"name\":\"Rover\",\"type\":\"doggie\"}";
+    private static final AnimalWrapper beelzebubWrapper = new AnimalWrapper(beelzebub);
+    private static final String beelzebubWrapperJson = "{\"animal\":" + beelzebubJson + "}";
+    private static final List<Animal> animalList = Arrays.asList(beelzebub, rover);
+    private static final String animalListJson = "[" + beelzebubJson + "," + roverJson + "]";
+
+    private static final Camry camry = new Camry("Sweet Ride", "candy-apple-red");
+    private static final String camryJson = "{\"exteriorColor\":\"candy-apple-red\",\"name\":\"Sweet Ride\",\"type\":\"camry\"}";
+    private static final Accord accord = new Accord("Road Rage", 6);
+    private static final String accordJson = "{\"name\":\"Road Rage\",\"speakerCount\":6,\"type\":\"accord\"}";
+    private static final CarWrapper camryWrapper = new CarWrapper(camry);
+    private static final String camryWrapperJson = "{\"car\":" + camryJson + "}";
+    private static final List<Car> carList = Arrays.asList(camry, accord);
+    private static final String carListJson = "[" + camryJson + "," + accordJson + "]";
+
+    // [databind#1528]
+    @JsonTypeInfo(use = Id.NAME, include = As.EXISTING_PROPERTY,
+            property = "type", visible = true, defaultImpl = Default1528.class)
+    @JsonSubTypes({@Type(value = Child1528.class, name = "child")})
+    static class Parent1528 {
+        @JsonProperty("type")
+        public String type = null;
+    }
+
+    static class Default1528 extends Parent1528 { }
+    static class Child1528 extends Parent1528 { }
+
+    /*
+    /**********************************************************************
+    /* Test methods
+    /**********************************************************************
+     */
+
+    private final ObjectMapper MAPPER = newVPackMapper();
+
+    /**
+     * Fruits - serialization tests for simple property on sub-classes
+     */
+    @Test
+    public void testExistingPropertySerializationFruits() throws Exception
+    {
+        Map<String,Object> result = writeAndMap(MAPPER, pinguo);
+        assertEquals(3, result.size());
+        assertEquals(pinguo.name, result.get("name"));
+        assertEquals(pinguo.seedCount, result.get("seedCount"));
+        assertEquals(pinguo.type, result.get("type"));
+
+        result = writeAndMap(MAPPER, mandarin);
+        assertEquals(3, result.size());
+        assertEquals(mandarin.name, result.get("name"));
+        assertEquals(mandarin.color, result.get("color"));
+        assertEquals(mandarin.type, result.get("type"));
+
+        String pinguoSerialized = VPackUtils.toJson(MAPPER.writeValueAsBytes(pinguo));
+        assertEquals(pinguoSerialized, pinguoJson);
+
+        String mandarinSerialized = VPackUtils.toJson(MAPPER.writeValueAsBytes(mandarin));
+        assertEquals(mandarinSerialized, mandarinJson);
+
+        String fruitWrapperSerialized = VPackUtils.toJson(MAPPER.writeValueAsBytes(pinguoWrapper));
+        assertEquals(fruitWrapperSerialized, pinguoWrapperJson);
+
+        String fruitListSerialized = VPackUtils.toJson(MAPPER.writeValueAsBytes(fruitList));
+        assertEquals(fruitListSerialized, fruitListJson);
+    }
+
+    /**
+     * Fruits - deserialization tests for simple property on sub-classes
+     */
+    @Test
+    public void testSimpleClassAsExistingPropertyDeserializationFruits() throws Exception
+    {
+        Fruit pinguoDeserialized = MAPPER.readValue(VPackUtils.toVPack(pinguoJson), Fruit.class);
+        assertInstanceOf(Apple.class, pinguoDeserialized);
+        assertSame(pinguoDeserialized.getClass(), Apple.class);
+        assertEquals(pinguo.name, pinguoDeserialized.name);
+        assertEquals(pinguo.seedCount, ((Apple) pinguoDeserialized).seedCount);
+        assertEquals(pinguo.type, ((Apple) pinguoDeserialized).type);
+
+        FruitWrapper pinguoWrapperDeserialized = MAPPER.readValue(VPackUtils.toVPack(pinguoWrapperJson), FruitWrapper.class);
+        Fruit pinguoExtracted = pinguoWrapperDeserialized.fruit;
+        assertInstanceOf(Apple.class, pinguoExtracted);
+        assertSame(pinguoExtracted.getClass(), Apple.class);
+        assertEquals(pinguo.name, pinguoExtracted.name);
+        assertEquals(pinguo.seedCount, ((Apple) pinguoExtracted).seedCount);
+        assertEquals(pinguo.type, ((Apple) pinguoExtracted).type);
+
+        Fruit[] fruits = MAPPER.readValue(VPackUtils.toVPack(fruitListJson), Fruit[].class);
+        assertEquals(2, fruits.length);
+        assertEquals(Apple.class, fruits[0].getClass());
+        assertEquals("apple", ((Apple) fruits[0]).type);
+        assertEquals(Orange.class, fruits[1].getClass());
+        assertEquals("orange", ((Orange) fruits[1]).type);
+
+        List<Fruit> f2 = MAPPER.readValue(VPackUtils.toVPack(fruitListJson),
+                new TypeReference<List<Fruit>>() { });
+        assertNotNull(f2);
+        assertTrue(f2.size() == 2);
+        assertEquals(Apple.class, f2.get(0).getClass());
+        assertEquals(Orange.class, f2.get(1).getClass());
+    }
+
+    /**
+     * Animals - serialization tests for abstract method in base class
+     */
+    @Test
+    public void testExistingPropertySerializationAnimals() throws Exception
+    {
+        Map<String,Object> result = writeAndMap(MAPPER, beelzebub);
+        assertEquals(3, result.size());
+        assertEquals(beelzebub.name, result.get("name"));
+        assertEquals(beelzebub.furColor, result.get("furColor"));
+        assertEquals(beelzebub.getType(), result.get("type"));
+
+        result = writeAndMap(MAPPER, rover);
+        assertEquals(3, result.size());
+        assertEquals(rover.name, result.get("name"));
+        assertEquals(rover.boneCount, result.get("boneCount"));
+        assertEquals(rover.getType(), result.get("type"));
+
+        String beelzebubSerialized = VPackUtils.toJson(MAPPER.writeValueAsBytes(beelzebub));
+        assertEquals(beelzebubSerialized, beelzebubJson);
+
+        String roverSerialized = VPackUtils.toJson(MAPPER.writeValueAsBytes(rover));
+        assertEquals(roverSerialized, roverJson);
+
+        String animalWrapperSerialized = VPackUtils.toJson(MAPPER.writeValueAsBytes(beelzebubWrapper));
+        assertEquals(animalWrapperSerialized, beelzebubWrapperJson);
+
+        String animalListSerialized = VPackUtils.toJson(MAPPER.writeValueAsBytes(animalList));
+        assertEquals(animalListSerialized, animalListJson);
+    }
+
+    /**
+     * Animals - deserialization tests for abstract method in base class
+     */
+    @Test
+    public void testSimpleClassAsExistingPropertyDeserializationAnimals() throws Exception
+    {
+        Animal beelzebubDeserialized = MAPPER.readValue(VPackUtils.toVPack(beelzebubJson), Animal.class);
+        assertInstanceOf(Cat.class, beelzebubDeserialized);
+        assertSame(beelzebubDeserialized.getClass(), Cat.class);
+        assertEquals(beelzebub.name, beelzebubDeserialized.name);
+        assertEquals(beelzebub.furColor, ((Cat) beelzebubDeserialized).furColor);
+        assertEquals(beelzebub.getType(), beelzebubDeserialized.getType());
+
+        AnimalWrapper beelzebubWrapperDeserialized = MAPPER.readValue(VPackUtils.toVPack(beelzebubWrapperJson), AnimalWrapper.class);
+        Animal beelzebubExtracted = beelzebubWrapperDeserialized.animal;
+        assertInstanceOf(Cat.class, beelzebubExtracted);
+        assertSame(beelzebubExtracted.getClass(), Cat.class);
+        assertEquals(beelzebub.name, beelzebubExtracted.name);
+        assertEquals(beelzebub.furColor, ((Cat) beelzebubExtracted).furColor);
+        assertEquals(beelzebub.getType(), beelzebubExtracted.getType());
+
+        @SuppressWarnings("unchecked")
+        List<Animal> animalListDeserialized = MAPPER.readValue(VPackUtils.toVPack(animalListJson), List.class);
+        assertNotNull(animalListDeserialized);
+        assertTrue(animalListDeserialized.size() == 2);
+        Animal cat = MAPPER.convertValue(animalListDeserialized.get(0), Animal.class);
+        assertInstanceOf(Cat.class, cat);
+        assertSame(cat.getClass(), Cat.class);
+        Animal dog = MAPPER.convertValue(animalListDeserialized.get(1), Animal.class);
+        assertInstanceOf(Dog.class, dog);
+        assertSame(dog.getClass(), Dog.class);
+    }
+
+    /**
+     * Cars - serialization tests for no abstract method or type variable in base class
+     */
+    @Test
+    public void testExistingPropertySerializationCars() throws Exception
+    {
+        Map<String,Object> result = writeAndMap(MAPPER, camry);
+        assertEquals(3, result.size());
+        assertEquals(camry.name, result.get("name"));
+        assertEquals(camry.exteriorColor, result.get("exteriorColor"));
+        assertEquals(camry.getType(), result.get("type"));
+
+        result = writeAndMap(MAPPER, accord);
+        assertEquals(3, result.size());
+        assertEquals(accord.name, result.get("name"));
+        assertEquals(accord.speakerCount, result.get("speakerCount"));
+        assertEquals(accord.getType(), result.get("type"));
+
+        String camrySerialized = VPackUtils.toJson(MAPPER.writeValueAsBytes(camry));
+        assertEquals(camrySerialized, camryJson);
+
+        String accordSerialized = VPackUtils.toJson(MAPPER.writeValueAsBytes(accord));
+        assertEquals(accordSerialized, accordJson);
+
+        String carWrapperSerialized = VPackUtils.toJson(MAPPER.writeValueAsBytes(camryWrapper));
+        assertEquals(carWrapperSerialized, camryWrapperJson);
+
+        String carListSerialized = VPackUtils.toJson(MAPPER.writeValueAsBytes(carList));
+        assertEquals(carListSerialized, carListJson);
+    }
+
+    /**
+     * Cars - deserialization tests for no abstract method or type variable in base class
+     */
+    @Test
+    public void testSimpleClassAsExistingPropertyDeserializationCars() throws Exception
+    {
+        Car camryDeserialized = MAPPER.readValue(VPackUtils.toVPack(camryJson), Camry.class);
+        assertInstanceOf(Camry.class, camryDeserialized);
+        assertSame(camryDeserialized.getClass(), Camry.class);
+        assertEquals(camry.name, camryDeserialized.name);
+        assertEquals(camry.exteriorColor, ((Camry) camryDeserialized).exteriorColor);
+        assertEquals(camry.getType(), ((Camry) camryDeserialized).getType());
+
+        CarWrapper camryWrapperDeserialized = MAPPER.readValue(VPackUtils.toVPack(camryWrapperJson), CarWrapper.class);
+        Car camryExtracted = camryWrapperDeserialized.car;
+        assertInstanceOf(Camry.class, camryExtracted);
+        assertSame(camryExtracted.getClass(), Camry.class);
+        assertEquals(camry.name, camryExtracted.name);
+        assertEquals(camry.exteriorColor, ((Camry) camryExtracted).exteriorColor);
+        assertEquals(camry.getType(), ((Camry) camryExtracted).getType());
+
+        @SuppressWarnings("unchecked")
+        List<Car> carListDeserialized = MAPPER.readValue(VPackUtils.toVPack(carListJson), List.class);
+        assertNotNull(carListDeserialized);
+        assertTrue(carListDeserialized.size() == 2);
+        Car result = MAPPER.convertValue(carListDeserialized.get(0), Car.class);
+        assertInstanceOf(Camry.class, result);
+        assertSame(result.getClass(), Camry.class);
+
+        result = MAPPER.convertValue(carListDeserialized.get(1), Car.class);
+        assertInstanceOf(Accord.class, result);
+        assertSame(result.getClass(), Accord.class);
+    }
+
+    // for [databind#1635]: simple usage
+    @Test
+    public void testExistingEnumTypeId() throws Exception
+    {
+        Bean1635 result = MAPPER.readValue(VPackUtils.toVPack(a2q("{'value':3, 'type':'A'}")),
+                Bean1635.class);
+        assertEquals(Bean1635A.class, result.getClass());
+        Bean1635A bean = (Bean1635A) result;
+        assertEquals(3, bean.value);
+        assertEquals(ABC.A, bean.type);
+    }
+
+    // for [databind#1635]: verify that `defaultImpl` does not block assignment of
+    // type id
+    @Test
+    public void testExistingEnumTypeIdViaDefault() throws Exception
+    {
+        Bean1635 result = MAPPER.readValue(VPackUtils.toVPack(a2q("{'type':'C'}")),
+                Bean1635.class);
+        assertEquals(Bean1635Default.class, result.getClass());
+        assertEquals(ABC.C, result.type);
+    }
+
+    // [databind#3271]: verify that `null` token does not become "null" String
+    @Test
+    public void testDeserializationWithValidType() throws Exception {
+        Shape3271 deserShape = MAPPER.readValue(VPackUtils.toVPack("{\"type\":\"square\"}"), Shape3271.class);
+        assertEquals("square", deserShape.getType());
+    }
+
+    @Test
+    public void testDeserializationWithInvalidType() throws Exception {
+        Shape3271 deserShape = MAPPER.readValue(VPackUtils.toVPack("{\"type\":\"invalid\"}"), Shape3271.class);
+        assertEquals("invalid", deserShape.getType());
+    }
+
+    @Test
+    public void testDeserializationNull() throws Exception {
+        Shape3271 deserShape = MAPPER.readValue(VPackUtils.toVPack("{\"type\":null}"), Shape3271.class);
+        assertNull(deserShape.getType()); // error: "expected null, but was:<null>"
+    }
+
+    // [databind#3251]: Double vs BigDecimal
+    @Test
+    public void test3251WithNewProperty() throws Exception
+    {
+        GenericWrapperWithNew3251<?> wrapper = new GenericWrapperWithNew3251<>(123.5);
+
+        String json = VPackUtils.toJson(MAPPER.writeValueAsBytes(wrapper));
+        GenericWrapperWithNew3251<?> actualWrapper = MAPPER.readValue(VPackUtils.toVPack(json), GenericWrapperWithNew3251.class);
+
+        assertThat(actualWrapper).satisfies(it -> assertThat(it.getValue()).isEqualTo(123.5));
+        assertThat(actualWrapper.getValue()).isInstanceOf(Double.class);
+        assertThat(json).contains("\"value\":123.5");
+    }
+
+    @Test
+    public void test3251WithExistingProperty() throws Exception
+    {
+        GenericWrapperWithExisting3251<?> wrapper = new GenericWrapperWithExisting3251<>(123.5);
+
+        String json = VPackUtils.toJson(MAPPER.writeValueAsBytes(wrapper));
+        GenericWrapperWithExisting3251<?> actualWrapper = MAPPER.readValue(VPackUtils.toVPack(json), GenericWrapperWithExisting3251.class);
+
+        assertThat(actualWrapper).satisfies(it -> assertThat(it.getValue()).isEqualTo(123.5));
+        assertThat(actualWrapper.getValue()).isInstanceOf(Double.class);
+        assertThat(json).contains("\"value\":123.5");
+    }
+
+    // [databind#1528]
+    @Test
+    public void testNullTypePreservedWithDefaultImpl1528() throws Exception
+    {
+        String s = VPackUtils.toJson(MAPPER.writeValueAsBytes(new Parent1528()));
+        Parent1528 parent = MAPPER.readValue(VPackUtils.toVPack(s), Parent1528.class);
+        assertNull(parent.type);
+    }
+}

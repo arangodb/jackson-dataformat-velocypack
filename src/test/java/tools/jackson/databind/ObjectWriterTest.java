@@ -1,0 +1,720 @@
+package tools.jackson.databind;
+
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.fasterxml.jackson.annotation.JsonTypeName;
+import com.fasterxml.jackson.annotation.JsonView;
+import org.junit.jupiter.api.Test;
+import tools.jackson.core.*;
+import tools.jackson.core.io.SerializedString;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.cfg.EnumFeature;
+import tools.jackson.databind.node.ObjectNode;
+
+import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.*;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static tools.jackson.databind.testutil.DatabindTestUtil.*;
+
+/**
+ * Unit tests for checking features added to {@link ObjectWriter}, such
+ * as adding of explicit pretty printer.
+ */
+public class ObjectWriterTest
+{
+    static class CloseableValue implements Closeable
+    {
+        public int x;
+
+        public boolean closed;
+
+        @Override
+        public void close() throws IOException {
+            closed = true;
+        }
+    }
+
+    private final ObjectMapper MAPPER = newVPackMapper();
+
+    // [databind#1687] Views for valueToTree
+    static class ViewA { }
+    static class ViewB { }
+
+    static class ViewBean {
+        @JsonView(ViewA.class)
+        public String a = "1";
+
+        @JsonView(ViewB.class)
+        public String b = "2";
+    }
+
+    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
+    static class PolyBase {
+    }
+
+    @JsonTypeName("A")
+    static class ImplA extends PolyBase {
+        public int value;
+
+        public ImplA(int v) { value = v; }
+    }
+
+    @JsonTypeName("B")
+    static class ImplB extends PolyBase {
+        public int b;
+
+        public ImplB(int v) { b = v; }
+    }
+
+    /*
+    /**********************************************************
+    /* Test methods, normal operation
+    /**********************************************************
+     */
+
+    @Test
+    public void testPrefetch() throws Exception
+    {
+        ObjectWriter writer = MAPPER.writer();
+        assertFalse(writer.hasPrefetchedSerializer());
+        writer = writer.forType(String.class);
+        assertTrue(writer.hasPrefetchedSerializer());
+    }
+
+    @Test
+    public void testObjectWriterFeatures() throws Exception
+    {
+        ObjectWriter writer = MAPPER.writer();
+        // NOTE: VPackWriteFeature.QUOTE_PROPERTY_NAMES not applicable to VelocyPack
+        Map<String,Integer> map = new HashMap<>();
+        map.put("a", 1);
+        // NOTE: JSON-specific test, VelocyPack always quotes property names
+    }
+
+    @Test
+    public void testObjectWriterWithNode() throws Exception
+    {
+        ObjectWriter W = MAPPER.writer();
+        assertNotNull(W.jsonNodeFactory());
+        ObjectNode stuff = W.createObjectNode();
+        stuff.put("a", 5);
+        ObjectWriter writer = MAPPER.writerFor(JsonNode.class);
+        String json = VPackUtils.toJson(writer.writeValueAsBytes(stuff));
+        assertEquals("{\"a\":5}", json);
+
+        assertTrue(W.createArrayNode().isArray());
+    }
+
+    @Test
+    public void testPolymorphicWithTyping() throws Exception
+    {
+        ObjectWriter writer = MAPPER.writerFor(PolyBase.class);
+        String json;
+
+        json = VPackUtils.toJson(writer.writeValueAsBytes(new ImplA(3)));
+        assertEquals(a2q("{'type':'A','value':3}"), json);
+        json = VPackUtils.toJson(writer.writeValueAsBytes(new ImplB(-5)));
+        assertEquals(a2q("{'type':'B','b':-5}"), json);
+    }
+
+    @Test
+    public void testForNoType() throws Exception
+    {
+        // Just for code coverage (branches)
+        assertNotNull(MAPPER.writerFor((Class<?>) null));
+        assertNotNull(MAPPER.writerFor((JavaType) null));
+        assertNotNull(MAPPER.writerFor((TypeReference<?>) null));
+    }
+
+    @Test
+    public void testNoPrefetch() throws Exception
+    {
+        ObjectWriter w = MAPPER.writer()
+                .without(SerializationFeature.EAGER_SERIALIZER_FETCH);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        w.writeValue(out, Integer.valueOf(3));
+        out.close();
+        assertEquals("3", out.toString("UTF-8"));
+    }
+
+    @Test
+    public void testWithCloseCloseable() throws Exception
+    {
+        ObjectWriter w = MAPPER.writer()
+                .with(SerializationFeature.CLOSE_CLOSEABLE);
+        assertTrue(w.isEnabled(SerializationFeature.CLOSE_CLOSEABLE));
+        CloseableValue input = new CloseableValue();
+        assertFalse(input.closed);
+        byte[] json = w.writeValueAsBytes(input);
+        assertNotNull(json);
+        assertTrue(input.closed);
+        input.close();
+        
+        // and via explicitly passed generator
+        JsonGenerator g = MAPPER.createGenerator(new ByteArrayOutputStream());
+        input = new CloseableValue();
+        assertFalse(input.closed);
+        w.writeValue(g, input);
+        assertTrue(input.closed);
+        g.close();
+        input.close();
+    }
+
+    @Test
+    public void testViewSettings() throws Exception
+    {
+        ObjectWriter w = MAPPER.writer();
+        ObjectWriter newW = w.withView(String.class);
+        assertNotSame(w, newW);
+        assertSame(newW, newW.withView(String.class));
+
+        // Avoid using the default Locale so that a new ObjectWriter will be
+        // created when calling `with(Locale)`.
+        Locale newLocale = notTheDefaultLocale();
+
+        newW = w.with(newLocale);
+        assertNotSame(w, newW);
+        assertSame(newW, newW.with(newLocale));
+    }
+
+    // [databind#1687]: Verify that `ObjectWriter.valueToTree()` respects `@JsonView`
+    @Test
+    public void testValueToTreeWithView() throws Exception
+    {
+        ViewBean input = new ViewBean();
+
+        // ViewA: should include "a" but not "b"
+        JsonNode treeA = MAPPER.writerWithView(ViewA.class).valueToTree(input);
+        assertTrue(treeA.has("a"));
+        assertFalse(treeA.has("b"));
+
+        // ViewB: should include "b" but not "a"
+        JsonNode treeB = MAPPER.writerWithView(ViewB.class).valueToTree(input);
+        assertFalse(treeB.has("a"));
+        assertTrue(treeB.has("b"));
+
+        // Verify valueToTree matches writeValueAsString for same view
+        ObjectWriter writerA = MAPPER.writerWithView(ViewA.class);
+        assertEquals(MAPPER.readTree(writerA.writeValueAsBytes(input)),
+                writerA.valueToTree(input));
+    }
+
+    private Locale notTheDefaultLocale() {
+        return Arrays.stream(Locale.getAvailableLocales())
+                .filter(locale -> !locale.equals(Locale.getDefault()))
+                .findAny()
+                .get();
+    }
+
+    @Test
+    public void testMiscSettings() throws Exception
+    {
+        ObjectWriter w = MAPPER.writer();
+        assertSame(MAPPER.tokenStreamFactory(), w.generatorFactory());
+        assertFalse(w.hasPrefetchedSerializer());
+        assertNotNull(w.typeFactory());
+
+        ObjectWriter newW = w.with(Base64Variants.MODIFIED_FOR_URL);
+        assertNotSame(w, newW);
+        assertSame(newW, newW.with(Base64Variants.MODIFIED_FOR_URL));
+
+        w = w.withAttributes(Collections.emptyMap());
+        w = w.withAttribute("a", "b");
+        assertEquals("b", w.getAttributes().getAttribute("a"));
+        w = w.withoutAttribute("a");
+        assertNull(w.getAttributes().getAttribute("a"));
+    }
+
+    @Test
+    public void testRootValueSettings() throws Exception
+    {
+        ObjectWriter w = MAPPER.writer();
+
+        // First, root name:
+        ObjectWriter newW = w.withRootName("foo");
+        assertNotSame(w, newW);
+        assertSame(newW, newW.withRootName(PropertyName.construct("foo")));
+        w = newW;
+        newW = w.withRootName((String) null);
+        assertNotSame(w, newW);
+        assertSame(newW, newW.withRootName((PropertyName) null));
+
+        // Then root value separator
+
+        w = w.withRootValueSeparator(new SerializedString(","));
+        assertSame(w, w.withRootValueSeparator(new SerializedString(",")));
+        assertSame(w, w.withRootValueSeparator(","));
+
+         newW = w.withRootValueSeparator("/");
+        assertNotSame(w, newW);
+        assertSame(newW, newW.withRootValueSeparator("/"));
+
+        newW = w.withRootValueSeparator((String) null);
+        assertNotSame(w, newW);
+
+        newW = w.withRootValueSeparator((SerializableString) null);
+        assertNotSame(w, newW);
+    }
+
+    @Test
+    public void testFeatureSettings() throws Exception
+    {
+        ObjectWriter w = MAPPER.writer();
+        assertFalse(w.isEnabled(MapperFeature.ACCEPT_CASE_INSENSITIVE_PROPERTIES));
+        assertFalse(w.isEnabled(StreamWriteFeature.STRICT_DUPLICATE_DETECTION));
+        ObjectWriter newW = w.with(SerializationFeature.FAIL_ON_UNWRAPPED_TYPE_IDENTIFIERS,
+                SerializationFeature.INDENT_OUTPUT);
+        assertNotSame(w, newW);
+        assertTrue(newW.isEnabled(SerializationFeature.FAIL_ON_UNWRAPPED_TYPE_IDENTIFIERS));
+        assertTrue(newW.isEnabled(SerializationFeature.INDENT_OUTPUT));
+        assertSame(newW, newW.with(SerializationFeature.INDENT_OUTPUT));
+        assertSame(newW, newW.withFeatures(SerializationFeature.INDENT_OUTPUT));
+
+        newW = w.withFeatures(SerializationFeature.FAIL_ON_UNWRAPPED_TYPE_IDENTIFIERS,
+                SerializationFeature.INDENT_OUTPUT);
+        assertNotSame(w, newW);
+
+        newW = w.without(SerializationFeature.FAIL_ON_EMPTY_BEANS,
+                SerializationFeature.EAGER_SERIALIZER_FETCH);
+        assertNotSame(w, newW);
+        assertFalse(newW.isEnabled(SerializationFeature.FAIL_ON_EMPTY_BEANS));
+        assertFalse(newW.isEnabled(SerializationFeature.EAGER_SERIALIZER_FETCH));
+        assertSame(newW, newW.without(SerializationFeature.FAIL_ON_EMPTY_BEANS));
+        assertSame(newW, newW.withoutFeatures(SerializationFeature.FAIL_ON_EMPTY_BEANS));
+
+        assertNotSame(w, w.withoutFeatures(SerializationFeature.FAIL_ON_EMPTY_BEANS,
+                SerializationFeature.EAGER_SERIALIZER_FETCH));
+    }
+
+    @Test
+    public void testStreamWriteFeatures() throws Exception
+    {
+        ObjectWriter w = MAPPER.writer();
+        // REMOVED: JSON-only feature not applicable to VelocyPack
+        // assertNotSame(w, w.with(VPackWriteFeature.ESCAPE_NON_ASCII));
+        // REMOVED: JSON-only feature not applicable to VelocyPack
+        // assertNotSame(w, w.withFeatures(VPackWriteFeature.ESCAPE_NON_ASCII));
+        // REMOVED: JSON-only feature not applicable to VelocyPack
+        // assertSame(w, w.without(VPackWriteFeature.ESCAPE_NON_ASCII));
+        // REMOVED: JSON-only feature not applicable to VelocyPack
+        // assertSame(w, w.withoutFeatures(VPackWriteFeature.ESCAPE_NON_ASCII));
+        
+        assertTrue(w.isEnabled(StreamWriteFeature.AUTO_CLOSE_TARGET));
+        assertNotSame(w, w.without(StreamWriteFeature.AUTO_CLOSE_TARGET));
+        assertNotSame(w, w.withoutFeatures(StreamWriteFeature.AUTO_CLOSE_TARGET));
+        assertSame(w, w.with(StreamWriteFeature.AUTO_CLOSE_TARGET));
+        assertSame(w, w.withFeatures(StreamWriteFeature.AUTO_CLOSE_TARGET));
+    }
+
+    @Test
+    public void testDatatypeFeatures() throws Exception
+    {
+        ObjectWriter w = MAPPER.writer();
+
+        assertNotNull(w.withFeatures(EnumFeature.FAIL_ON_NUMBERS_FOR_ENUMS,
+                EnumFeature.WRITE_ENUM_KEYS_USING_INDEX));
+        assertNotNull(w.withoutFeatures(EnumFeature.FAIL_ON_NUMBERS_FOR_ENUMS,
+                EnumFeature.WRITE_ENUM_KEYS_USING_INDEX));
+    }
+
+    /*
+    /**********************************************************
+    /* Test methods, failures
+    /**********************************************************
+     */
+
+    @Test
+    public void testArgumentChecking() throws Exception
+    {
+        final ObjectWriter w = MAPPER.writer();
+        try {
+            w.acceptJsonFormatVisitor((JavaType) null, null);
+            fail("Should not pass");
+        } catch (IllegalArgumentException e) {
+            verifyException(e, "argument \"type\" is null");
+        }
+    }
+
+    @Test
+    public void testSchema() throws Exception
+    {
+        FormatSchema schema = new BogusSchema();
+        try {
+            MAPPER.writer(schema);
+            fail("Should not pass");
+        } catch (IllegalArgumentException e) {
+            verifyException(e, "Cannot use FormatSchema");
+        }
+        try {
+            MAPPER.writerFor(String.class)
+                .with(new BogusSchema());
+            fail("Should not pass");
+        } catch (IllegalArgumentException e) {
+            verifyException(e, "Cannot use FormatSchema");
+        }
+
+        // But this is ok:
+        assertNotNull(MAPPER.writer((FormatSchema) null));
+    }
+
+    @Test
+    public void test_createGenerator_OutputStream() throws Exception
+    {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        JsonGenerator jsonGenerator = MAPPER.writer().createGenerator(outputStream);
+
+        jsonGenerator.writeString("value");
+        jsonGenerator.close();
+
+        assertEquals(VPackUtils.toJson(outputStream.toByteArray()), "\"value\"");
+
+        // the stream has not been closed by close
+        outputStream.write(1);
+    }
+
+    @Test
+    public void test_createGenerator_File() throws Exception
+    {
+        Path path = Files.createTempFile("", "");
+        JsonGenerator jsonGenerator = MAPPER.writer().createGenerator(path.toFile(), JsonEncoding.UTF8);
+
+        jsonGenerator.writeString("value");
+        jsonGenerator.close();
+
+        assertEquals(VPackUtils.toJson(Files.readAllBytes(path)), "\"value\"");
+    }
+
+    @Test
+    public void test_createGenerator_Path() throws Exception
+    {
+        Path path = Files.createTempFile("", "");
+        JsonGenerator jsonGenerator = MAPPER.writer().createGenerator(path, JsonEncoding.UTF8);
+
+        jsonGenerator.writeString("value");
+        jsonGenerator.close();
+
+        assertEquals(VPackUtils.toJson(Files.readAllBytes(path)), "\"value\"");
+    }
+
+    @Test
+    public void test_createGenerator_Writer() throws Exception
+    {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        JsonGenerator jsonGenerator = MAPPER.writer().createGenerator(out);
+
+        jsonGenerator.writeString("value");
+        jsonGenerator.close();
+
+        assertEquals(VPackUtils.toJson(out.toByteArray()), "\"value\"");
+
+        // the writer has not been closed by close
+        out.write('1');
+    }
+
+    @Test
+    public void test_createGenerator_DataOutput() throws Exception
+    {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        DataOutput dataOutput = new DataOutputStream(outputStream);
+        JsonGenerator jsonGenerator = MAPPER.writer().createGenerator(dataOutput);
+
+        jsonGenerator.writeString("value");
+        jsonGenerator.close();
+
+        assertEquals(VPackUtils.toJson(outputStream.toByteArray()), "\"value\"");
+
+        // the data output has not been closed by close
+        dataOutput.write(1);
+    }
+
+    @Test
+    public void test_createGenerator_failsIfArgumentIsNull() throws Exception
+    {
+        ObjectWriter objectWriter = MAPPER.writer();
+        test_method_failsIfArgumentIsNull(() -> objectWriter.createGenerator((OutputStream) null));
+        test_method_failsIfArgumentIsNull(() -> objectWriter.createGenerator((OutputStream) null, null));
+        test_method_failsIfArgumentIsNull(() -> objectWriter.createGenerator((DataOutput) null));
+        test_method_failsIfArgumentIsNull(() -> objectWriter.createGenerator((Path) null, null));
+        test_method_failsIfArgumentIsNull(() -> objectWriter.createGenerator((File) null, null));
+        test_method_failsIfArgumentIsNull(() -> objectWriter.createGenerator((Writer) null));
+    }
+
+    @Test
+    public void test_writeValue_OutputStream() throws Exception
+    {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        MAPPER.writer().writeValue(outputStream, "value");
+
+        assertEquals(VPackUtils.toJson(outputStream.toByteArray()), "\"value\"");
+
+        // the stream has not been closed by close
+        outputStream.write(1);
+    }
+
+    @Test
+    public void test_writeValue_File() throws Exception
+    {
+        Path path = Files.createTempFile("", "");
+        MAPPER.writer().writeValue(path.toFile(), "value");
+
+        assertEquals(VPackUtils.toJson(Files.readAllBytes(path)), "\"value\"");
+    }
+
+    @Test
+    public void test_writeValue_Path() throws Exception
+    {
+        Path path = Files.createTempFile("", "");
+        MAPPER.writer().writeValue(path, "value");
+
+        assertEquals(VPackUtils.toJson(Files.readAllBytes(path)), "\"value\"");
+    }
+
+    @Test
+    public void test_writeValue_Writer() throws Exception
+    {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        MAPPER.writer().writeValue(out, "value");
+
+        assertEquals(VPackUtils.toJson(out.toByteArray()), "\"value\"");
+
+        // the writer has not been closed by close
+        out.write('1');
+    }
+
+    @Test
+    public void test_writeValue_DataOutput() throws Exception
+    {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        DataOutput dataOutput = new DataOutputStream(outputStream);
+        MAPPER.writer().writeValue(dataOutput, "value");
+
+        assertEquals(VPackUtils.toJson(outputStream.toByteArray()), "\"value\"");
+
+        // the data output has not been closed by close
+        dataOutput.write(1);
+    }
+
+    @Test
+    public void test_writeValue_JsonGenerator() throws Exception
+    {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        JsonGenerator jsonGenerator = MAPPER.createGenerator(outputStream);
+        MAPPER.writer().writeValue(jsonGenerator, "value");
+
+        assertEquals(VPackUtils.toJson(outputStream.toByteArray()), "\"value\"");
+
+        // the output stream has not been closed by close
+        outputStream.write(1);
+    }
+
+    @Test
+    public void test_writeValue_failsIfArgumentIsNull() throws Exception
+    {
+        ObjectMapper objectMapper = MAPPER;
+        test_method_failsIfArgumentIsNull(() -> objectMapper.writer().writeValue((OutputStream) null, null));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.writer().writeValue((DataOutput) null, null));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.writer().writeValue((Path) null, null));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.writer().writeValue((File) null, null));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.writer().writeValue((Writer) null, null));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.writer().writeValue((JsonGenerator) null, null));
+    }
+
+    @Test
+    public void test_writeValues_OutputStream() throws Exception
+    {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        SequenceWriter sequenceWriter = MAPPER.writer().writeValues(outputStream);
+        sequenceWriter.write("value");
+
+        assertEquals(VPackUtils.toJson(outputStream.toByteArray()), "\"value\"");
+
+        // the stream has not been closed by close
+        outputStream.write(1);
+    }
+
+    @Test
+    public void test_writeValues_File() throws Exception
+    {
+        Path path = Files.createTempFile("", "");
+        SequenceWriter sequenceWriter = MAPPER.writer().writeValues(path.toFile());
+        sequenceWriter.write("value");
+
+        assertEquals(VPackUtils.toJson(Files.readAllBytes(path)), "\"value\"");
+    }
+
+    @Test
+    public void test_writeValues_Path() throws Exception
+    {
+        Path path = Files.createTempFile("", "");
+        SequenceWriter sequenceWriter = MAPPER.writer().writeValues(path);
+        sequenceWriter.write("value");
+
+        assertEquals(VPackUtils.toJson(Files.readAllBytes(path)), "\"value\"");
+    }
+
+    @Test
+    public void test_writeValues_Writer() throws Exception
+    {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        SequenceWriter sequenceWriter = MAPPER.writer().writeValues(out);
+        sequenceWriter.write("value");
+
+        assertEquals(VPackUtils.toJson(out.toByteArray()), "\"value\"");
+
+        // the writer has not been closed by close
+        out.write('1');
+    }
+
+    @Test
+    public void test_writeValues_DataOutput() throws Exception
+    {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        DataOutput dataOutput = new DataOutputStream(outputStream);
+        SequenceWriter sequenceWriter = MAPPER.writer().writeValues(dataOutput);
+        sequenceWriter.write("value");
+
+        assertEquals(VPackUtils.toJson(outputStream.toByteArray()), "\"value\"");
+
+        // the data output has not been closed by close
+        dataOutput.write(1);
+    }
+
+    @Test
+    public void test_writeValues_JsonGenerator() throws Exception
+    {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        JsonGenerator jsonGenerator = MAPPER.createGenerator(outputStream);
+        SequenceWriter sequenceWriter = MAPPER.writer().writeValues(jsonGenerator);
+        sequenceWriter.write("value");
+
+        assertEquals(VPackUtils.toJson(outputStream.toByteArray()), "\"value\"");
+
+        // the data output has not been closed by close
+        outputStream.write(1);
+    }
+
+    @Test
+    public void test_writeValues_failsIfArgumentIsNull() throws Exception
+    {
+        ObjectMapper objectMapper = MAPPER;
+        test_method_failsIfArgumentIsNull(() -> objectMapper.writer().writeValues((OutputStream) null));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.writer().writeValues((DataOutput) null));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.writer().writeValues((Path) null));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.writer().writeValues((File) null));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.writer().writeValues((Writer) null));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.writer().writeValues((JsonGenerator) null));
+    }
+
+    @Test
+    public void test_writeValuesAsArray_OutputStream() throws Exception
+    {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        SequenceWriter sequenceWriter = MAPPER.writer().writeValuesAsArray(outputStream);
+        sequenceWriter.write("value");
+        sequenceWriter.flush();
+        sequenceWriter.close();
+
+        assertEquals(VPackUtils.toJson(outputStream.toByteArray()), "[\"value\"]");
+
+        // the stream has not been closed by close
+        outputStream.write(1);
+    }
+
+    @Test
+    public void test_writeValuesAsArray_File() throws Exception
+    {
+        Path path = Files.createTempFile("", "");
+        SequenceWriter sequenceWriter = MAPPER.writer().writeValuesAsArray(path.toFile());
+        sequenceWriter.write("value");
+        sequenceWriter.flush();
+        sequenceWriter.close();
+
+        assertEquals(VPackUtils.toJson(Files.readAllBytes(path)), "[\"value\"]");
+    }
+
+    @Test
+    public void test_writeValuesAsArray_Path() throws Exception
+    {
+        Path path = Files.createTempFile("", "");
+        SequenceWriter sequenceWriter = MAPPER.writer().writeValuesAsArray(path);
+        sequenceWriter.write("value");
+        sequenceWriter.flush();
+        sequenceWriter.close();
+
+        assertEquals(VPackUtils.toJson(Files.readAllBytes(path)), "[\"value\"]");
+    }
+
+    @Test
+    public void test_writeValuesAsArray_Writer() throws Exception
+    {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        SequenceWriter sequenceWriter = MAPPER.writer().writeValuesAsArray(out);
+        sequenceWriter.write("value");
+        sequenceWriter.flush();
+        sequenceWriter.close();
+
+        assertEquals(VPackUtils.toJson(out.toByteArray()), "[\"value\"]");
+
+        // the writer has not been closed by close
+        out.write('1');
+    }
+
+    @Test
+    public void test_writeValuesAsArray_DataOutput() throws Exception
+    {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        DataOutput dataOutput = new DataOutputStream(outputStream);
+        SequenceWriter sequenceWriter = MAPPER.writer().writeValuesAsArray(dataOutput);
+        sequenceWriter.write("value");
+        sequenceWriter.flush();
+        sequenceWriter.close();
+
+        assertEquals(VPackUtils.toJson(outputStream.toByteArray()), "[\"value\"]");
+
+        // the data output has not been closed by close
+        dataOutput.write(1);
+    }
+
+    @Test
+    public void test_writeValuesAsArray_JsonGenerator() throws Exception
+    {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        JsonGenerator jsonGenerator = MAPPER.createGenerator(outputStream);
+        SequenceWriter sequenceWriter = MAPPER.writer().writeValuesAsArray(jsonGenerator);
+        sequenceWriter.write("value");
+        sequenceWriter.flush();
+        sequenceWriter.close();
+        jsonGenerator.flush();
+        jsonGenerator.close();
+
+        assertEquals(VPackUtils.toJson(outputStream.toByteArray()), "[\"value\"]");
+
+        // the data output has not been closed by close
+        outputStream.write(1);
+    }
+
+    @Test
+    public void test_writeValuesAsArray_failsIfArgumentIsNull() throws Exception
+    {
+        ObjectMapper objectMapper = MAPPER;
+        test_method_failsIfArgumentIsNull(() -> objectMapper.writer().writeValuesAsArray((OutputStream) null));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.writer().writeValuesAsArray((DataOutput) null));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.writer().writeValuesAsArray((Path) null));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.writer().writeValuesAsArray((File) null));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.writer().writeValuesAsArray((Writer) null));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.writer().writeValuesAsArray((JsonGenerator) null));
+    }
+
+    private static void test_method_failsIfArgumentIsNull(Runnable runnable) throws Exception
+    {
+        try {
+            runnable.run();
+            fail("IllegalArgumentException expected.");
+        } catch (IllegalArgumentException expected) {
+            verifyException(expected, "Argument \"");
+            verifyException(expected, "\" is null");
+        }
+    }
+}

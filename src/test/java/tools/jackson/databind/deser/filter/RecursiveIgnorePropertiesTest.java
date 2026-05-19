@@ -1,0 +1,148 @@
+package tools.jackson.databind.deser.filter;
+
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import org.junit.jupiter.api.Test;
+import tools.jackson.databind.*;
+import tools.jackson.databind.VPackUtils;
+
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Set;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static tools.jackson.databind.testutil.DatabindTestUtil.a2q;
+import static tools.jackson.databind.testutil.DatabindTestUtil.newVPackMapper;
+
+public class RecursiveIgnorePropertiesTest
+{
+    static class Person {
+        public String name;
+
+        @JsonProperty("person_z") // renaming this to person_p works
+        @JsonIgnoreProperties({"person_z"}) // renaming this to person_p works
+        public Person personZ;
+    }
+
+    // for [databind#1755]
+    static class JackBase1755 {
+        public String id;
+    }
+
+    static class JackExt extends JackBase1755 {
+        public BigDecimal quantity;
+        public String ignoreMe;
+
+        @JsonIgnoreProperties({"ignoreMe"})
+        public List<JackExt> linked;
+
+        public List<KeyValue> metadata;
+    }
+
+    static class KeyValue {
+        public String key;
+        public String value;
+    }
+
+    // for [databind#4417]
+    static class Item4417 {
+        @JsonIgnoreProperties({ "whatever" })
+        public List<Item4417> items;
+    }
+
+    static class Persons {
+        public String name;
+
+        @JsonProperty("person_z") // renaming this to person_p works
+        @JsonIgnoreProperties({"person_z"}) // renaming this to person_p works
+        public Set<Persons> personZ;
+    }
+
+    /*
+    /**********************************************************************
+    /* Test methods
+    /**********************************************************************
+     */
+
+    private final ObjectMapper MAPPER = newVPackMapper();
+
+    @Test
+    public void testRecursiveForDeser() throws Exception
+    {
+        String st = a2q("{ 'name': 'admin',\n"
+                + "    'person_z': { 'name': 'wyatt' }"
+                + "}");
+        Person result = MAPPER.readValue(VPackUtils.toVPack(st), Person.class);
+        assertEquals("admin", result.name);
+        assertNotNull(result.personZ);
+        assertEquals("wyatt", result.personZ.name);
+    }
+
+    @Test
+    public void testRecursiveWithCollectionDeser() throws Exception
+    {
+        String st = a2q("{ 'name': 'admin',\n"
+                + "    'person_z': [ { 'name': 'Foor' }, { 'name' : 'Bar' } ]"
+                + "}");
+        Persons result = MAPPER.readValue(VPackUtils.toVPack(st), Persons.class);
+        assertEquals("admin", result.name);
+        assertNotNull(result.personZ);
+        assertEquals(2, result.personZ.size());
+    }
+
+    @Test
+    public void testRecursiveForSer() throws Exception
+    {
+        Person input = new Person();
+        input.name = "Bob";
+        Person p2 = new Person();
+        p2.name = "Bill";
+        input.personZ = p2;
+        p2.personZ = input;
+
+        String json = VPackUtils.toJson(MAPPER.writeValueAsBytes(input));
+        assertNotNull(json);
+    }
+
+    // for [databind#1755]
+    @Test
+    public void testRecursiveIgnore1755() throws Exception
+    {
+        final String JSON = a2q("{\n"
+                +"'id': '1',\n"
+                +"'quantity': 5,\n"
+                +"'ignoreMe': 'yzx',\n"
+                +"'metadata': [\n"
+                +"           {\n"
+                +"              'key': 'position',\n"
+                +"              'value': '2'\n"
+                +"          }\n"
+                +"       ],\n"
+                +"'linked': [\n"
+                +"     {\n"
+                +"         'id': '1',\n"
+                +"         'quantity': 5,\n"
+                +"         'ignoreMe': 'yzx',\n"
+                +"         'metadata': [\n"
+                +"          {\n"
+                +"              'key': 'position',\n"
+                +"             'value': '2'\n"
+                +"         }\n"
+                +"     ]\n"
+                +"   }\n"
+                +"  ]\n"
+                +"}");
+        JackExt value = MAPPER.readValue(VPackUtils.toVPack(JSON), JackExt.class);
+        assertNotNull(value);
+    }
+
+    // for [databind#4417]
+    @Test
+    public void testRecursiveIgnore4417() throws Exception
+    {
+        Item4417 result = MAPPER.readValue(VPackUtils.toVPack(a2q("{'items': [{'items': []}]}")),
+                Item4417.class);
+        assertEquals(1, result.items.size(), 1);
+    }
+}

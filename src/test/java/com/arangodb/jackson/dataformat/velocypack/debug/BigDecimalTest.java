@@ -1,21 +1,20 @@
 package com.arangodb.jackson.dataformat.velocypack.debug;
 
 import com.arangodb.jackson.dataformat.velocypack.VPackMapper;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import tools.jackson.databind.ObjectMapper;
 
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.List;
 
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.is;
+import static org.assertj.core.api.Assertions.assertThat;
+
 
 public class BigDecimalTest {
 
     @Test
-    public void roundTripSholdKeepSameScale() throws IOException {
+    public void roundTripSholdKeepSameScale() {
 
         final ObjectMapper jsonMapper = new ObjectMapper();
         final ObjectMapper vPackMapper = new VPackMapper();
@@ -35,10 +34,10 @@ public class BigDecimalTest {
         }
     }
 
-    private void doTestRoundTrip(ObjectMapper mapper, BigDecimal bd) throws IOException {
+    private void doTestRoundTrip(ObjectMapper mapper, BigDecimal bd) {
         byte[] serialized = mapper.writeValueAsBytes(bd);
         BigDecimal deserialized = mapper.readValue(serialized, BigDecimal.class);
-        assertThat(deserialized.scale(), is(bd.scale()));
+        assertThat(deserialized.scale()).isEqualTo(bd.scale());
     }
 
 }

@@ -1,0 +1,251 @@
+package tools.jackson.databind.introspect;
+
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
+import org.junit.jupiter.api.Test;
+import tools.jackson.databind.*;
+import tools.jackson.databind.VPackUtils;
+import tools.jackson.databind.cfg.MapperConfig;
+import tools.jackson.databind.testutil.DatabindTestUtil;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+// for [databind#2800]
+@SuppressWarnings("serial")
+public class AccessorNamingStrategyTest extends DatabindTestUtil
+{
+    @JsonPropertyOrder({ "X", "x", "Z", "z" }) // since our naming strategy casings vary
+    static class GetterBean2800_XZ {
+        public int GetX() { return 3; }
+        public int getY() { return 5; }
+        public boolean IsZ() { return true; }
+    }
+
+    static class SetterBean2800_Y {
+        int yyy;
+
+        public void PutY(int y) { yyy = y; }
+
+        public void y(int y) { throw new Error(); }
+        public void setY(int y) { throw new Error(); }
+    }
+
+    static class FieldBean2800_X {
+        public int _x = 1;
+        public int y = 2;
+        public int __z = 3;
+    }
+
+    static class MixedBean2800_X {
+        public int x = 72;
+
+        public int getY() { return 3; }
+    }
+
+    // Bean for checking optional
+    @JsonPropertyOrder(alphabetic = true)
+    static class FirstLetterVariesBean {
+        // Do we allow lower-case letter as first letter following prefix?
+        public boolean island() { return true; }
+
+        // Do we allow non-letter
+        public int get4Roses() { return 42; }
+
+        // But good old upper-case letter is solid always...
+        public int getValue() { return 31337; }
+    }
+
+    static class AccNaming2800Underscore extends AccessorNamingStrategy
+    {
+        @Override
+        public String findNameForIsGetter(AnnotatedMethod method, String name) {
+            if (name.startsWith("Is")) {
+                return name.substring(2);
+            }
+            return null;
+        }
+
+        @Override
+        public String findNameForRegularGetter(AnnotatedMethod method, String name) {
+            if (name.startsWith("Get")) {
+                return name.substring(3);
+            }
+            return null;
+        }
+
+        @Override
+        public String findNameForMutator(AnnotatedMethod method, String name) {
+            if (name.startsWith("Put")) {
+                return name.substring(3);
+            }
+            return null;
+        }
+
+        @Override
+        public String modifyFieldName(AnnotatedField field, String name) {
+            if (name.startsWith("_") && !name.startsWith("__")) {
+                return name.substring(1);
+            }
+            return null;
+        }
+    }
+
+    static class AccNaming2800Provider extends DefaultAccessorNamingStrategy.Provider
+    {
+        @Override
+        public AccessorNamingStrategy forPOJO(MapperConfig<?> config, AnnotatedClass valueClass) {
+            return new AccNaming2800Underscore();
+        }
+    }
+
+    static class BaseNamingProvider extends DefaultAccessorNamingStrategy.Provider
+    {
+        @Override
+        public AccessorNamingStrategy forPOJO(MapperConfig<?> config, AnnotatedClass valueClass) {
+            return new AccessorNamingStrategy.Base();
+        }
+    }
+
+    /*
+    /********************************************************
+    /* Test methods, custom accessor naming impl
+    /********************************************************
+     */
+
+    private final ObjectMapper ACCNAMING2800_MAPPER = vpackMapperBuilder()
+            .accessorNaming(new AccNaming2800Provider())
+            .build();
+
+    @Test
+    public void testGetterNaming() throws Exception
+    {
+        assertEquals(a2q("{'X':3,'Z':true}"),
+                VPackUtils.toJson(ACCNAMING2800_MAPPER.writeValueAsBytes(new GetterBean2800_XZ())));
+    }
+
+    @Test
+    public void testSetterNaming() throws Exception
+    {
+        SetterBean2800_Y result = ACCNAMING2800_MAPPER.readValue(VPackUtils.toVPack(a2q("{'Y':42}")), SetterBean2800_Y.class);
+        assertEquals(42, result.yyy);
+    }
+
+    @Test
+    public void testFieldNaming() throws Exception
+    {
+        // first serialization
+        assertEquals(a2q("{'x':1}"),
+                VPackUtils.toJson(ACCNAMING2800_MAPPER.writeValueAsBytes(new FieldBean2800_X())));
+
+        // then deserialization
+        FieldBean2800_X result = ACCNAMING2800_MAPPER.readValue(VPackUtils.toVPack(a2q("{'x':28}")),
+                FieldBean2800_X.class);
+        assertEquals(28, result._x);
+        assertEquals(2, result.y);
+        assertEquals(3, result.__z);
+    }
+
+    /*
+    /********************************************************
+    /* Test methods, base provider impl
+    /********************************************************
+     */
+
+    // Test to verify that the base naming impl works as advertised
+    @Test
+    public void testBaseAccessorNaming() throws Exception
+    {
+        ObjectMapper mapper = vpackMapperBuilder()
+                .accessorNaming(new BaseNamingProvider())
+                .build();
+        assertEquals(a2q("{'x':72}"),
+                VPackUtils.toJson(mapper.writeValueAsBytes(new MixedBean2800_X())));
+    }
+
+    /*
+    /********************************************************
+    /* Test methods, default provider with alternate config
+    /********************************************************
+     */
+
+    @Test
+    public void testBaseAccessorCustomGetter() throws Exception
+    {
+        // First: without customizations, see "y"
+        ObjectMapper mapper = vpackMapperBuilder()
+                .accessorNaming(new DefaultAccessorNamingStrategy.Provider())
+                .build();
+        assertEquals(a2q("{'y':5}"),
+                VPackUtils.toJson(mapper.writeValueAsBytes(new GetterBean2800_XZ())));
+
+        // But with configurable prefixes will find alternatives, do mangling too:
+        mapper = vpackMapperBuilder()
+                .accessorNaming(new DefaultAccessorNamingStrategy.Provider()
+                        .withGetterPrefix("Get")
+                        .withIsGetterPrefix("Is")
+                )
+                .build();
+        assertEquals(a2q("{'x':3,'z':true}"),
+                VPackUtils.toJson(mapper.writeValueAsBytes(new GetterBean2800_XZ())));
+    }
+
+    @Test
+    public void testBaseAccessorCustomSetter() throws Exception
+    {
+        ObjectMapper mapper = vpackMapperBuilder()
+                .accessorNaming(new DefaultAccessorNamingStrategy.Provider()
+                        .withSetterPrefix("Put")
+                )
+                .build();
+
+        SetterBean2800_Y result = mapper.readValue(VPackUtils.toVPack(a2q("{'y':42}")), SetterBean2800_Y.class);
+        assertEquals(42, result.yyy);
+    }
+
+    /*
+        public boolean island() { return true; }
+
+        // Do we allow non-letter
+        public int get_lost() { return 42; }
+
+        // But good old upper-case letter is solid always...
+        public int getValue() { return 31337; }
+     */
+
+    @Test
+    public void testFirstLetterConfigs() throws Exception
+    {
+        final FirstLetterVariesBean input = new FirstLetterVariesBean();
+
+        // First: new (3.0) defaults -- no weird stuff
+        assertEquals(a2q("{'value':31337}"),
+                VPackUtils.toJson(newVPackMapper().writeValueAsBytes(input)));
+
+        // First: let's configure with "anything goes" (2.x default):
+        // also if explicitly configured as default:
+        ObjectMapper mapper = vpackMapperBuilder()
+                .accessorNaming(new DefaultAccessorNamingStrategy.Provider()
+                        .withFirstCharAcceptance(true, true))
+                .build();
+        assertEquals(a2q("{'4Roses':42,'land':true,'value':31337}"),
+                VPackUtils.toJson(mapper.writeValueAsBytes(input)));
+
+        // But we can vary it
+        mapper = vpackMapperBuilder()
+                .accessorNaming(new DefaultAccessorNamingStrategy.Provider()
+                        // lower-case = ok; non-letter = not ok
+                        .withFirstCharAcceptance(true, false))
+                .build();
+        assertEquals(a2q("{'land':true,'value':31337}"),
+                VPackUtils.toJson(mapper.writeValueAsBytes(input)));
+
+        mapper = vpackMapperBuilder()
+                .accessorNaming(new DefaultAccessorNamingStrategy.Provider()
+                        // lower-case = not ok; non-letter = ok
+                        .withFirstCharAcceptance(false, true))
+                .build();
+        assertEquals(a2q("{'4Roses':42,'value':31337}"),
+                VPackUtils.toJson(mapper.writeValueAsBytes(input)));
+
+        
+    }
+}

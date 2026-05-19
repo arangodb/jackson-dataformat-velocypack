@@ -1,0 +1,861 @@
+package tools.jackson.databind;
+
+import org.junit.jupiter.api.Test;
+import tools.jackson.core.*;
+import tools.jackson.core.type.ResolvedType;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.cfg.DeserializationContexts;
+import tools.jackson.databind.cfg.SerializationContexts;
+import tools.jackson.databind.deser.DeserializerCache;
+import tools.jackson.databind.introspect.JacksonAnnotationIntrospector;
+import tools.jackson.databind.module.SimpleModule;
+import tools.jackson.databind.node.*;
+import tools.jackson.databind.testutil.DatabindTestUtil;
+import tools.jackson.databind.type.SimpleType;
+import com.arangodb.jackson.dataformat.velocypack.VPackMapper;
+
+import java.io.*;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.*;
+import java.util.zip.ZipOutputStream;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+public class ObjectMapperTest extends DatabindTestUtil
+{
+    static class Bean {
+        int value = 3;
+
+        public void setX(int v) { value = v; }
+
+        protected Bean() { }
+        public Bean(int v) { value = v; }
+    }
+
+    static class EmptyBean { }
+
+    @SuppressWarnings("serial")
+    static class MyAnnotationIntrospector extends JacksonAnnotationIntrospector { }
+
+    static class CloseableValue implements Closeable
+    {
+        public int x;
+
+        public boolean closed;
+
+        @Override
+        public void close() throws IOException {
+            closed = true;
+        }
+    }
+
+    private final VPackMapper MAPPER = newVPackMapper();
+
+    /*
+    /**********************************************************************
+    /* Test methods, config
+    /**********************************************************************
+     */
+
+    @Test
+    public void testFeatureDefaults()
+    {
+        assertTrue(MAPPER.isEnabled(TokenStreamFactory.Feature.CANONICALIZE_PROPERTY_NAMES));
+        // REMOVED: JSON-only feature not applicable to VelocyPack
+        // assertTrue(MAPPER.isEnabled(VPackWriteFeature.QUOTE_PROPERTY_NAMES));
+        assertTrue(MAPPER.isEnabled(StreamReadFeature.AUTO_CLOSE_SOURCE));
+        assertTrue(MAPPER.isEnabled(StreamWriteFeature.AUTO_CLOSE_TARGET));
+        // REMOVED: JSON-only feature not applicable to VelocyPack
+        // assertFalse(MAPPER.isEnabled(VPackWriteFeature.ESCAPE_NON_ASCII));
+        // REMOVED: JSON-only feature not applicable to VelocyPack
+        // assertTrue(MAPPER.isEnabled(VPackWriteFeature.WRITE_NAN_AS_STRINGS));
+        VPackMapper mapper = VPackMapper.builder()
+                .disable(StreamWriteFeature.FLUSH_PASSED_TO_STREAM)
+        // REMOVED: JSON-only feature not applicable to VelocyPack
+        // .disable(VPackWriteFeature.WRITE_NAN_AS_STRINGS)
+                .build();
+        assertFalse(mapper.isEnabled(StreamWriteFeature.FLUSH_PASSED_TO_STREAM));
+        // REMOVED: JSON-only feature not applicable to VelocyPack
+        // assertFalse(mapper.isEnabled(VPackWriteFeature.WRITE_NAN_AS_STRINGS));
+    }
+
+    @Test
+    public void testRebuild()
+    {
+        ObjectMapper legacyMapper = new VPackMapper();
+        assertNotNull(legacyMapper.version());
+        assertNotNull(legacyMapper.tokenStreamFactory());
+        assertNotSame(legacyMapper, legacyMapper.rebuild().build());
+
+        VPackMapper newMapper = VPackMapper.builder().build();
+        assertNotNull(newMapper.version());
+        assertNotNull(newMapper.tokenStreamFactory());
+        assertNotSame(newMapper, newMapper.rebuild().build());
+    }
+
+    @Test
+    public void testProps()
+    {
+        // should have default factory
+        assertNotNull(MAPPER.getNodeFactory());
+        JsonNodeFactory nf = new JsonNodeFactory();
+        VPackMapper m = VPackMapper.builder()
+                .nodeFactory(nf)
+                .build();
+        assertNull(m.getInjectableValues());
+        assertSame(nf, m.getNodeFactory());
+    }
+
+    // Test to ensure that we can check property ordering defaults...
+    @Test
+    public void testConfigForPropertySorting() throws Exception
+    {
+        ObjectMapper m = newVPackMapper();
+
+        // sort-alphabetically is disabled by default:
+        assertEquals(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY.enabledByDefault(),
+                m.isEnabled(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY));
+        assertEquals(MapperFeature.SORT_CREATOR_PROPERTIES_FIRST.enabledByDefault(),
+                m.isEnabled(MapperFeature.SORT_CREATOR_PROPERTIES_FIRST));
+
+        SerializationConfig sc = m.serializationConfig();
+        assertEquals(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY.enabledByDefault(),
+                sc.isEnabled(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY));
+        assertEquals(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY.enabledByDefault(),
+                sc.shouldSortPropertiesAlphabetically());
+        assertEquals(MapperFeature.SORT_CREATOR_PROPERTIES_FIRST.enabledByDefault(),
+                sc.isEnabled(MapperFeature.SORT_CREATOR_PROPERTIES_FIRST));
+
+        DeserializationConfig dc = m.deserializationConfig();
+        assertEquals(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY.enabledByDefault(),
+                dc.isEnabled(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY));
+        assertEquals(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY.enabledByDefault(),
+                dc.shouldSortPropertiesAlphabetically());
+        assertEquals(MapperFeature.SORT_CREATOR_PROPERTIES_FIRST.enabledByDefault(),
+                dc.isEnabled(MapperFeature.SORT_CREATOR_PROPERTIES_FIRST));
+
+        // but when enabled, should be visible:
+        m = vpackMapperBuilder()
+                .enable(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY)
+                .disable(MapperFeature.SORT_CREATOR_PROPERTIES_FIRST)
+                .build();
+        assertTrue(m.isEnabled(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY));
+        assertFalse(m.isEnabled(MapperFeature.SORT_CREATOR_PROPERTIES_FIRST));
+        sc = m.serializationConfig();
+        assertTrue(sc.isEnabled(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY));
+        assertTrue(sc.shouldSortPropertiesAlphabetically());
+        assertFalse(sc.isEnabled(MapperFeature.SORT_CREATOR_PROPERTIES_FIRST));
+        dc = m.deserializationConfig();
+        // and not just via SerializationConfig, but also via DeserializationConfig
+        assertTrue(dc.isEnabled(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY));
+        assertTrue(dc.shouldSortPropertiesAlphabetically());
+        assertFalse(dc.isEnabled(MapperFeature.SORT_CREATOR_PROPERTIES_FIRST));
+    }
+
+    /*
+    /**********************************************************************
+    /* Test methods, other
+    /**********************************************************************
+     */
+    
+    @Test
+    public void testDeserializationContextCache() throws Exception
+    {
+        ObjectMapper m = newVPackMapper();
+        final String JSON = "{ \"x\" : 3 }";
+
+        DeserializationContexts.DefaultImpl dc = (DeserializationContexts.DefaultImpl) m._deserializationContexts;
+        DeserializerCache cache = dc.cacheForTests();
+
+        assertEquals(0, cache.cachedDeserializersCount());
+        // and then should get one constructed for:
+        Bean bean = m.readValue(VPackUtils.toVPack(JSON), Bean.class);
+        assertNotNull(bean);
+        // Since 2.6, serializer for int also cached:
+        assertEquals(2, cache.cachedDeserializersCount());
+        cache.flushCachedDeserializers();
+        assertEquals(0, cache.cachedDeserializersCount());
+
+        // 07-Nov-2014, tatu: As per [databind#604] verify that Maps also get cached
+        m = new VPackMapper();
+        dc = (DeserializationContexts.DefaultImpl) m._deserializationContexts;
+        cache = dc.cacheForTests();
+
+        List<?> stuff = m.readValue(VPackUtils.toVPack("[ ]"), List.class);
+        assertNotNull(stuff);
+        // may look odd, but due to "Untyped" deserializer thing, we actually have
+        // 4 deserializers (int, List<?>, Map<?,?>, Object)
+        assertEquals(4, cache.cachedDeserializersCount());
+    }
+
+    // For [databind#689]
+    @Test
+    public void testCustomDefaultPrettyPrinter() throws Exception
+    {
+        final int[] input = new int[] { 1, 2 };
+
+        VPackMapper vanilla = newVPackMapper();
+
+        // without anything else, compact:
+        assertEquals("[1,2]", VPackUtils.toJson(vanilla.writeValueAsBytes(input)));
+        assertEquals("[1,2]", VPackUtils.toJson(vanilla.writer().writeValueAsBytes(input)));
+    }
+
+    @Test
+    public void testDataOutputViaMapper() throws Exception
+    {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        ObjectNode input = MAPPER.createObjectNode();
+        input.put("a", 1);
+        final String exp = "{\"a\":1}";
+        try (DataOutputStream data = new DataOutputStream(bytes)) {
+            MAPPER.writeValue((DataOutput) data, input);
+        }
+        assertEquals(exp, VPackUtils.toJson(bytes.toByteArray()));
+
+        // and also via ObjectWriter...
+        bytes.reset();
+        try (DataOutputStream data = new DataOutputStream(bytes)) {
+            MAPPER.writer().writeValue((DataOutput) data, input);
+        }
+        assertEquals(exp, VPackUtils.toJson(bytes.toByteArray()));
+    }
+
+    @Test
+    public void testRegisterDependentModules() {
+
+        final SimpleModule secondModule = new SimpleModule() {
+            @Override
+            public Object getRegistrationId() {
+                return "dep1";
+            }
+        };
+
+        final SimpleModule thirdModule = new SimpleModule() {
+            @Override
+            public Object getRegistrationId() {
+                return "dep2";
+            }
+        };
+
+        final SimpleModule mainModule = new SimpleModule() {
+            @Override
+            public Iterable<? extends JacksonModule> getDependencies() {
+                return Arrays.asList(secondModule, thirdModule);
+            }
+
+            @Override
+            public Object getRegistrationId() {
+                return "main";
+            }
+        };
+
+        ObjectMapper objectMapper = vpackMapperBuilder()
+                .addModule(mainModule)
+                .build();
+
+        Collection<JacksonModule> mods = objectMapper.registeredModules();
+        List<Object> ids = mods.stream().map(mod -> mod.getRegistrationId())
+                .toList();
+        assertEquals(Arrays.asList("dep1", "dep2", "main"), ids);
+    }
+
+    // [databind#5941]: transitive (multi-level) module dependencies must all be registered
+    @Test
+    public void testRegisterTransitiveModuleDependencies() {
+        final SimpleModule moduleA = new SimpleModule() {
+            @Override
+            public Object getRegistrationId() { return "A"; }
+        };
+        final SimpleModule moduleB = new SimpleModule() {
+            @Override
+            public Iterable<? extends JacksonModule> getDependencies() {
+                return Arrays.asList(moduleA);
+            }
+            @Override
+            public Object getRegistrationId() { return "B"; }
+        };
+        final SimpleModule moduleC = new SimpleModule() {
+            @Override
+            public Iterable<? extends JacksonModule> getDependencies() {
+                return Arrays.asList(moduleB);
+            }
+            @Override
+            public Object getRegistrationId() { return "C"; }
+        };
+
+        ObjectMapper mapper = vpackMapperBuilder()
+                .addModule(moduleC)
+                .build();
+
+        List<Object> ids = mapper.registeredModules().stream()
+                .map(JacksonModule::getRegistrationId)
+                .toList();
+        assertEquals(Arrays.asList("A", "B", "C"), ids);
+    }
+
+    @Test
+    public void testHasExplicitTimeZone() throws Exception
+    {
+        final TimeZone DEFAULT_TZ = TimeZone.getTimeZone("UTC");
+
+        // By default, not explicitly set
+        assertFalse(MAPPER.serializationConfig().hasExplicitTimeZone());
+        assertFalse(MAPPER.deserializationConfig().hasExplicitTimeZone());
+        assertEquals(DEFAULT_TZ, MAPPER.serializationConfig().getTimeZone());
+        assertEquals(DEFAULT_TZ, MAPPER.deserializationConfig().getTimeZone());
+        assertFalse(MAPPER.reader().getConfig().hasExplicitTimeZone());
+        assertFalse(MAPPER.writer().getConfig().hasExplicitTimeZone());
+
+        final TimeZone TZ = TimeZone.getTimeZone("GMT+4");
+
+        // should be able to set it via mapper
+        ObjectMapper mapper = VPackMapper.builder()
+                .defaultTimeZone(TZ)
+                .build();
+        assertSame(TZ, mapper.serializationConfig().getTimeZone());
+        assertSame(TZ, mapper.deserializationConfig().getTimeZone());
+        assertTrue(mapper.serializationConfig().hasExplicitTimeZone());
+        assertTrue(mapper.deserializationConfig().hasExplicitTimeZone());
+        assertTrue(mapper.reader().getConfig().hasExplicitTimeZone());
+        assertTrue(mapper.writer().getConfig().hasExplicitTimeZone());
+
+        // ... as well as via ObjectReader/-Writer
+        {
+            final ObjectReader r = MAPPER.reader().with(TZ);
+            assertTrue(r.getConfig().hasExplicitTimeZone());
+            assertSame(TZ, r.getConfig().getTimeZone());
+            final ObjectWriter w = MAPPER.writer().with(TZ);
+            assertTrue(w.getConfig().hasExplicitTimeZone());
+            assertSame(TZ, w.getConfig().getTimeZone());
+
+            // but can also remove explicit definition
+            final ObjectReader r2 = r.with((TimeZone) null);
+            assertFalse(r2.getConfig().hasExplicitTimeZone());
+            assertEquals(DEFAULT_TZ, r2.getConfig().getTimeZone());
+            final ObjectWriter w2 = w.with((TimeZone) null);
+            assertFalse(w2.getConfig().hasExplicitTimeZone());
+            assertEquals(DEFAULT_TZ, w2.getConfig().getTimeZone());
+        }
+    }
+
+    // Tons of test for [databind#2013] (and other similar)
+
+    @Test
+    public void test_createParser_InputStream() throws Exception
+    {
+        InputStream inputStream = new ByteArrayInputStream(VPackUtils.toVPack("\"value\""));
+        JsonParser jsonParser =  MAPPER.createParser(inputStream);
+
+        assertEquals(jsonParser.nextStringValue(), "value");
+    }
+
+    @Test
+    public void test_createParser_File() throws Exception
+    {
+        Path path = Files.createTempFile("", "");
+        Files.write(path, VPackUtils.toVPack("\"value\""));
+        JsonParser jsonParser = MAPPER.createParser(path.toFile());
+
+        assertEquals(jsonParser.nextStringValue(), "value");
+    }
+
+    @Test
+    public void test_createParser_Path() throws Exception
+    {
+        Path path = Files.createTempFile("", "");
+        Files.write(path, VPackUtils.toVPack("\"value\""));
+        JsonParser jsonParser = MAPPER.createParser(path);
+
+        assertEquals(jsonParser.nextStringValue(), "value");
+    }
+
+    @Test
+    public void test_createParser_ByteArray() throws Exception
+    {
+        byte[] bytes = VPackUtils.toVPack("\"value\"");
+        JsonParser jsonParser = MAPPER.createParser(bytes);
+
+        assertEquals(jsonParser.nextStringValue(), "value");
+    }
+
+    @Test
+    public void test_createParser_String() throws Exception
+    {
+        String string = "\"value\"";
+        JsonParser jsonParser = MAPPER.createParser(VPackUtils.toVPack(string));
+
+        assertEquals(jsonParser.nextStringValue(), "value");
+    }
+
+    @Test
+    public void test_createParser_failsIfArgumentIsNull() throws Exception
+    {
+        ObjectMapper objectMapper = MAPPER;
+        test_method_failsIfArgumentIsNull(() -> objectMapper.createParser((InputStream) null));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.createParser((DataInput) null));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.createParser((Path) null));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.createParser((File) null));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.createParser((Reader) null));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.createParser(VPackUtils.toVPack((String) null)));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.createParser((byte[]) null));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.createParser((byte[]) null, -1, -1));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.createParser((char[]) null));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.createParser((char[]) null, -1, -1));
+    }
+
+    @Test
+    public void test_createGenerator_OutputStream() throws Exception
+    {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        JsonGenerator jsonGenerator = MAPPER.createGenerator(outputStream);
+
+        jsonGenerator.writeString("value");
+        jsonGenerator.close();
+
+        assertEquals(VPackUtils.toJson(outputStream.toByteArray()), "\"value\"");
+
+        // the stream has not been closed by close
+        outputStream.write(1);
+    }
+
+    @Test
+    public void test_createGenerator_File() throws Exception
+    {
+        Path path = Files.createTempFile("", "");
+        JsonGenerator jsonGenerator = MAPPER.createGenerator(path.toFile(), JsonEncoding.UTF8);
+
+        jsonGenerator.writeString("value");
+        jsonGenerator.close();
+
+        assertEquals(VPackUtils.toJson(Files.readAllBytes(path)), "\"value\"");
+    }
+
+    @Test
+    public void test_createGenerator_Path() throws Exception
+    {
+        Path path = Files.createTempFile("", "");
+        JsonGenerator jsonGenerator = MAPPER.createGenerator(path, JsonEncoding.UTF8);
+
+        jsonGenerator.writeString("value");
+        jsonGenerator.close();
+
+        assertEquals(VPackUtils.toJson(Files.readAllBytes(path)), "\"value\"");
+    }
+
+    @Test
+    public void test_createGenerator_Writer() throws Exception
+    {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        JsonGenerator jsonGenerator = MAPPER.createGenerator(out);
+
+        jsonGenerator.writeString("value");
+        jsonGenerator.close();
+
+        assertEquals(VPackUtils.toJson(out.toByteArray()), "\"value\"");
+
+        // the writer has not been closed by close
+        out.write(1);
+    }
+
+    @Test
+    public void test_createGenerator_DataOutput() throws Exception
+    {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        DataOutput dataOutput = new DataOutputStream(outputStream);
+        JsonGenerator jsonGenerator = MAPPER.createGenerator(dataOutput);
+
+        jsonGenerator.writeString("value");
+        jsonGenerator.close();
+
+        assertEquals(VPackUtils.toJson(outputStream.toByteArray()), "\"value\"");
+
+        // the data output has not been closed by close
+        dataOutput.write(1);
+    }
+
+    @Test
+    public void test_createGenerator_failsIfArgumentIsNull() throws Exception
+    {
+        ObjectMapper objectMapper = MAPPER;
+        test_method_failsIfArgumentIsNull(() -> objectMapper.createGenerator((OutputStream) null));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.createGenerator((OutputStream) null, null));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.createGenerator((DataOutput) null));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.createGenerator((Path) null, null));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.createGenerator((File) null, null));
+    }
+
+    @Test
+    public void test_readTree_InputStream() throws Exception
+    {
+        InputStream inputStream = new ByteArrayInputStream(VPackUtils.toVPack("\"value\""));
+        JsonNode jsonNode =  MAPPER.readTree(inputStream);
+
+        assertEquals(jsonNode.stringValue(), "value");
+    }
+
+    @Test
+    public void test_readTree_File() throws Exception
+    {
+        Path path = Files.createTempFile("", "");
+        Files.write(path, VPackUtils.toVPack("\"value\""));
+        JsonNode jsonNode = MAPPER.readTree(path.toFile());
+
+        assertEquals(jsonNode.stringValue(), "value");
+    }
+
+    @Test
+    public void test_readTree_Path() throws Exception
+    {
+        Path path = Files.createTempFile("", "");
+        Files.write(path, VPackUtils.toVPack("\"value\""));
+        JsonNode jsonNode = MAPPER.readTree(path);
+
+        assertEquals(jsonNode.stringValue(), "value");
+    }
+
+    @Test
+    public void test_readTree_ByteArray() throws Exception
+    {
+        // with offset and length
+        byte[] bytes = VPackUtils.toVPack("\"value\"");
+        JsonNode jsonNode1 = MAPPER.readTree(bytes);
+
+        assertEquals(jsonNode1.stringValue(), "value");
+
+        // without offset and length
+        JsonNode jsonNode2 = MAPPER.readTree(bytes, 0, bytes.length);
+
+        assertEquals(jsonNode2.stringValue(), "value");
+    }
+
+    @Test
+    public void test_readTree_String() throws Exception
+    {
+        String string = "\"value\"";
+        JsonNode jsonNode = MAPPER.readTree(VPackUtils.toVPack(string));
+
+        assertEquals(jsonNode.stringValue(), "value");
+    }
+
+    @Test
+    public void test_readTree_failsIfArgumentIsNull() throws Exception
+    {
+        ObjectMapper objectMapper = MAPPER;
+        test_method_failsIfArgumentIsNull(() -> objectMapper.readTree((InputStream) null));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.readTree((Path) null));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.readTree((File) null));
+        // REMOVED: JSON-only feature not applicable to VelocyPack
+//        test_method_failsIfArgumentIsNull(() -> objectMapper.readTree((Reader) null));
+//        test_method_failsIfArgumentIsNull(() -> objectMapper.readTree((String) null));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.readTree((byte[]) null));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.readTree((byte[]) null, -1, -1));
+    }
+
+    @Test
+    public void test_readValue_InputStream() throws Exception
+    {
+        InputStream inputStream = new ByteArrayInputStream(VPackUtils.toVPack("\"value\""));
+        String result1 = MAPPER.readValue(inputStream, String.class);
+        assertEquals(result1, "value");
+
+        inputStream.reset();
+        String result2 = MAPPER.readValue(inputStream, MAPPER.constructType(String.class));
+        assertEquals(result2, "value");
+
+        inputStream.reset();
+        String result3 = MAPPER.readValue(inputStream, new TypeReference<String>() {});
+        assertEquals(result3, "value");
+    }
+
+    @Test
+    public void test_readValue_File() throws Exception
+    {
+        Path path = Files.createTempFile("", "");
+        Files.write(path, VPackUtils.toVPack("\"value\""));
+        String result1 = MAPPER.readValue(path.toFile(), String.class);
+        assertEquals(result1, "value");
+        String result2 = MAPPER.readValue(path.toFile(), MAPPER.constructType(String.class));
+        assertEquals(result2, "value");
+        String result3 = MAPPER.readValue(path.toFile(), new TypeReference<String>() {});
+        assertEquals(result3, "value");
+    }
+
+    @Test
+    public void test_readValue_Path() throws Exception
+    {
+        Path path = Files.createTempFile("", "");
+        Files.write(path, VPackUtils.toVPack("\"value\""));
+        String result1 = MAPPER.readValue(path, String.class);
+        assertEquals(result1, "value");
+        String result2 = MAPPER.readValue(path, MAPPER.constructType(String.class));
+        assertEquals(result2, "value");
+        String result3 = MAPPER.readValue(path, new TypeReference<String>() {});
+        assertEquals(result3, "value");
+    }
+
+    @Test
+    public void test_readValue_ByteArray() throws Exception
+    {
+        byte[] bytes = VPackUtils.toVPack("\"value\"");
+        String result1 = MAPPER.readValue(bytes, String.class);
+        assertEquals(result1, "value");
+        String result2 = MAPPER.readValue(bytes, MAPPER.constructType(String.class));
+        assertEquals(result2, "value");
+        String result3 = MAPPER.readValue(bytes, new TypeReference<String>() {});
+        assertEquals(result3, "value");
+        String result4 = MAPPER.readValue(bytes, 0, bytes.length, String.class);
+        assertEquals(result4, "value");
+        String result5 = MAPPER.readValue(bytes, 0, bytes.length, SimpleType.constructUnsafe(String.class));
+        assertEquals(result5, "value");
+        String result6 = MAPPER.readValue(bytes, 0, bytes.length, new TypeReference<String>() {});
+        assertEquals(result6, "value");
+    }
+
+    @Test
+    public void test_readValue_String() throws Exception
+    {
+        String string = "\"value\"";
+        String result1 = MAPPER.readValue(VPackUtils.toVPack(string), String.class);
+        assertEquals(result1, "value");
+        String result2 = MAPPER.readValue(VPackUtils.toVPack(string), MAPPER.constructType(String.class));
+        assertEquals(result2, "value");
+        String result3 = MAPPER.readValue(VPackUtils.toVPack(string), new TypeReference<String>() {});
+        assertEquals(result3, "value");
+    }
+
+    @Test
+    public void test_readValue_JsonParser() throws Exception
+    {
+        String string = q("value");
+
+        try (JsonParser p = MAPPER.createParser(VPackUtils.toVPack(string))) {
+            assertEquals("value", MAPPER.readValue(p, String.class));
+        }
+
+        JsonParser p2 = MAPPER.createParser(VPackUtils.toVPack(string));
+        assertEquals("value",
+                MAPPER.readValue(p2, MAPPER.constructType(String.class)));
+
+        JsonParser p3 = MAPPER.createParser(VPackUtils.toVPack(string));
+        assertEquals("value",
+                MAPPER.readValue(p3, (ResolvedType) MAPPER.constructType(String.class)));
+
+        JsonParser p4 = MAPPER.createParser(VPackUtils.toVPack(string));
+        assertEquals("value",
+                MAPPER.readValue(p4, new TypeReference<String>() {}));
+    }
+
+    @SuppressWarnings("rawtypes")
+    @Test
+    public void test_readValue_failsIfArgumentIsNull() throws Exception
+    {
+        final ObjectMapper objectMapper = MAPPER;
+        test_method_failsIfArgumentIsNull(() -> objectMapper.readValue((InputStream) null, Map.class));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.readValue((InputStream) null, SimpleType.constructUnsafe(Map.class)));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.readValue((InputStream) null, new TypeReference<Map>() {}));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.readValue((DataInput) null, Map.class));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.readValue((DataInput) null, SimpleType.constructUnsafe(Map.class)));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.readValue((DataInput) null, new TypeReference<Map>() {}));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.readValue((Path) null, Map.class));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.readValue((Path) null, SimpleType.constructUnsafe(Map.class)));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.readValue((Path) null, new TypeReference<Map>() {}));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.readValue((File) null, Map.class));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.readValue((File) null, SimpleType.constructUnsafe(Map.class)));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.readValue((File) null, new TypeReference<Map>() {}));
+        // REMOVED: JSON-only feature not applicable to VelocyPack
+//        test_method_failsIfArgumentIsNull(() -> objectMapper.readValue((Reader) null, Map.class));
+//        test_method_failsIfArgumentIsNull(() -> objectMapper.readValue((Reader) null, SimpleType.constructUnsafe(Map.class)));
+//        test_method_failsIfArgumentIsNull(() -> objectMapper.readValue((Reader) null, new TypeReference<Map>() {}));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.readValue(VPackUtils.toVPack((String) null), Map.class));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.readValue(VPackUtils.toVPack((String) null), SimpleType.constructUnsafe(Map.class)));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.readValue(VPackUtils.toVPack((String) null), new TypeReference<Map>() {}));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.readValue((JsonParser) null, Map.class));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.readValue((JsonParser) null, SimpleType.constructUnsafe(Map.class)));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.readValue((JsonParser) null, new TypeReference<Map>() {}));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.readValue((byte[]) null, Map.class));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.readValue((byte[]) null, SimpleType.constructUnsafe(Map.class)));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.readValue((byte[]) null, new TypeReference<Map>() {}));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.readValue((byte[]) null, -1, -1, Map.class));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.readValue((byte[]) null, -1, -1, SimpleType.constructUnsafe(Map.class)));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.readValue((byte[]) null, -1, -1, new TypeReference<Map>() {}));
+    }
+
+    @Test
+    public void test_writeValue_OutputStream() throws Exception
+    {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        MAPPER.writeValue(outputStream, "value");
+
+        assertEquals(VPackUtils.toJson(outputStream.toByteArray()), "\"value\"");
+
+        // the stream has not been closed by close
+        outputStream.write(1);
+    }
+
+    @Test
+    public void test_writeValue_File() throws Exception
+    {
+        Path path = Files.createTempFile("", "");
+        MAPPER.writeValue(path.toFile(), "value");
+
+        assertEquals(VPackUtils.toJson(Files.readAllBytes(path)), "\"value\"");
+    }
+
+    @Test
+    public void test_writeValue_Path() throws Exception
+    {
+        Path path = Files.createTempFile("", "");
+        MAPPER.writeValue(path, "value");
+
+        assertEquals(VPackUtils.toJson(Files.readAllBytes(path)), "\"value\"");
+    }
+
+    @Test
+    public void test_writeValue_Writer() throws Exception
+    {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        MAPPER.writeValue(out, "value");
+
+        assertEquals(VPackUtils.toJson(out.toByteArray()), "\"value\"");
+
+        // the writer has not been closed by close
+        out.write('1');
+    }
+
+    @Test
+    public void test_writeValue_DataOutput() throws Exception
+    {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        DataOutput dataOutput = new DataOutputStream(outputStream);
+        MAPPER.writeValue(dataOutput, "value");
+
+        assertEquals(VPackUtils.toJson(outputStream.toByteArray()), "\"value\"");
+
+        // the data output has not been closed by close
+        dataOutput.write(1);
+    }
+
+    @Test
+    public void test_writeValue_JsonGenerator() throws Exception
+    {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        JsonGenerator jsonGenerator = MAPPER.createGenerator(outputStream);
+        MAPPER.writeValue(jsonGenerator, "value");
+
+        assertEquals(VPackUtils.toJson(outputStream.toByteArray()), "\"value\"");
+
+        // the output stream has not been closed by close
+        outputStream.write(1);
+    }
+
+    @Test
+    public void test_writeValue_failsIfArgumentIsNull() throws Exception
+    {
+        ObjectMapper objectMapper = MAPPER;
+        test_method_failsIfArgumentIsNull(() -> objectMapper.writeValue((OutputStream) null, null));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.writeValue((DataOutput) null, null));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.writeValue((Path) null, null));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.writeValue((File) null, null));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.writeValue((Writer) null, null));
+        test_method_failsIfArgumentIsNull(() -> objectMapper.writeValue((JsonGenerator) null, null));
+    }
+
+    /**
+     * Verifies that {@link ObjectMapper} can read from and write to {@link Path}s
+     * whose {@link Path#getFileSystem()} is not the {@linkplain FileSystems#getDefault() default file system}.
+     */
+    @Test
+    public void test_readValue_writeValue_Path_nonDefaultFileSystem() throws IOException {
+        Path zipFile = Files.createTempFile("", ".zip");
+        // write an empty zip archive to the temp file
+        try (OutputStream out = Files.newOutputStream(zipFile);
+             ZipOutputStream zipped = new ZipOutputStream(out)) {
+        }
+
+        // Open the empty zip archive as a file system.
+        try (FileSystem zipFs = FileSystems.newFileSystem(zipFile, (ClassLoader) null)) {
+            ObjectMapper mapper = MAPPER;
+
+            Path jsonFile = zipFs.getPath("/test.json");
+            mapper.writeValue(jsonFile, "value");
+
+            String serialized = VPackUtils.toJson(Files.readAllBytes(jsonFile));
+            assertEquals(serialized, "\"value\"");
+
+            String result = mapper.readValue(jsonFile, String.class);
+            assertEquals(result, "value");
+        }
+    }
+
+    private void test_method_failsIfArgumentIsNull(Runnable runnable) throws Exception
+    {
+        try {
+            runnable.run();
+            fail("IllegalArgumentException expected.");
+        } catch (IllegalArgumentException expected) {
+            verifyException(expected, "Argument \"");
+            verifyException(expected, "\" is null");
+        }
+    }
+
+    @Test
+    public void testWithCloseCloseable() throws Exception
+    {
+        ObjectMapper mapper = vpackMapperBuilder()
+                .enable(SerializationFeature.CLOSE_CLOSEABLE)
+                .build();
+        CloseableValue input = new CloseableValue();
+        assertFalse(input.closed);
+        byte[] json = mapper.writeValueAsBytes(input);
+        assertNotNull(json);
+        assertTrue(input.closed);
+
+        // and diff overload
+        input = new CloseableValue();
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        try (JsonGenerator g = mapper.createGenerator(out)) {
+            mapper.writeValue(g, input);
+        }
+        assertNotNull(VPackUtils.toJson(out.toByteArray()));
+        assertTrue(input.closed);
+    }
+
+    @Test
+    public void testClearCaches() throws Exception
+    {
+        ObjectMapper m = newVPackMapper();
+
+        // At first, ser/deser caches should be empty
+        assertEquals(0, ((DeserializationContexts.DefaultImpl) m._deserializationContexts)
+                .cacheForTests().cachedDeserializersCount());
+        assertEquals(0, m._rootDeserializers.size());
+        assertEquals(0, ((SerializationContexts.DefaultImpl) m._serializationContexts)
+                .cacheForTests().size());
+
+        // Serialize and deserialize to fill caches
+        final String JSON = "{ \"x\" : 3 }";
+        Bean bean = m.readValue(VPackUtils.toVPack(JSON), Bean.class);
+        assertNotNull(bean);
+        VPackUtils.toJson(m.writeValueAsBytes("test"));
+        // Caches should not be empty any longer
+        assertNotEquals(0, m._rootDeserializers.size());
+        assertNotEquals(0, ((DeserializationContexts.DefaultImpl) m._deserializationContexts)
+                .cacheForTests().cachedDeserializersCount());
+        assertNotEquals(0, ((SerializationContexts.DefaultImpl)m._serializationContexts)
+                .cacheForTests().size());
+
+        // Clear caches
+        m.clearCaches();
+
+        // Caches should be empty
+        assertEquals(0, ((DeserializationContexts.DefaultImpl) m._deserializationContexts)
+                .cacheForTests().cachedDeserializersCount());
+        assertEquals(0, m._rootDeserializers.size());
+        assertEquals(0, ((SerializationContexts.DefaultImpl) m._serializationContexts)
+                .cacheForTests().size());
+    }
+}

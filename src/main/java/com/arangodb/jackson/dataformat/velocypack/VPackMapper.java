@@ -1,70 +1,198 @@
-/*
- * DISCLAIMER
- *
- * Copyright 2016 ArangoDB GmbH, Cologne, Germany
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- * Copyright holder is ArangoDB GmbH, Cologne, Germany
- */
-
 package com.arangodb.jackson.dataformat.velocypack;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.cfg.MapperBuilder;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.cfg.MapperBuilder;
+import tools.jackson.databind.cfg.MapperBuilderState;
 
 /**
- * @author Mark Vollmary
+ * Specialized {@link ObjectMapper} to use with VelocyPack format backend.
  */
-public class VPackMapper extends ObjectMapper {
+public class VPackMapper extends ObjectMapper
+{
+    private static final long serialVersionUID = 1L;
 
-	private static final long serialVersionUID = 1L;
+    /**
+     * Base implementation for "Vanilla" {@link ObjectMapper}, used with
+     * VelocyPack backend.
+     */
+    public static class Builder extends MapperBuilder<VPackMapper, Builder>
+    {
+        public Builder(VPackFactory f) {
+            super(f);
+        }
 
-	public static class Builder extends MapperBuilder<VPackMapper, Builder> {
-		public Builder(VPackMapper m) {
-			super(m);
-		}
-	}
+        public Builder(StateImpl state) {
+            super(state);
+        }
 
-	public static VPackMapper.Builder builder() {
-		return new VPackMapper.Builder(new VPackMapper());
-	}
+        @Override
+        public VPackMapper build() {
+            return new VPackMapper(this);
+        }
 
-	public static VPackMapper.Builder builder(VPackFactory jf) {
-		return new VPackMapper.Builder(new VPackMapper(jf));
-	}
+        @Override
+        protected MapperBuilderState _saveState() {
+            return new StateImpl(this);
+        }
 
-	public VPackMapper() {
-		this(new VPackFactory());
-	}
+        /*
+        /******************************************************************
+        /* Format features
+        /******************************************************************
+         */
 
-	public VPackMapper(VPackFactory jf) {
-		super(jf);
-	}
+        public Builder enable(VPackReadFeature... features) {
+            for (VPackReadFeature f : features) {
+                _formatReadFeatures |= f.getMask();
+            }
+            return this;
+        }
 
-	protected VPackMapper(VPackMapper src) {
-		super(src);
-	}
+        public Builder disable(VPackReadFeature... features) {
+            for (VPackReadFeature f : features) {
+                _formatReadFeatures &= ~f.getMask();
+            }
+            return this;
+        }
 
-	@Override
-	public VPackMapper copy() {
-		_checkInvalidCopy(VPackMapper.class);
-		return new VPackMapper(this);
-	}
+        public Builder configure(VPackReadFeature feature, boolean state)
+        {
+            if (state) {
+                _formatReadFeatures |= feature.getMask();
+            } else {
+                _formatReadFeatures &= ~feature.getMask();
+            }
+            return this;
+        }
 
-	@Override
-	public VPackFactory getFactory() {
-		return (VPackFactory) _jsonFactory;
-	}
+        public Builder enable(VPackWriteFeature... features) {
+            for (VPackWriteFeature f : features) {
+                _formatWriteFeatures |= f.getMask();
+            }
+            return this;
+        }
 
+        public Builder disable(VPackWriteFeature... features) {
+            for (VPackWriteFeature f : features) {
+                _formatWriteFeatures &= ~f.getMask();
+            }
+            return this;
+        }
+
+        public Builder configure(VPackWriteFeature feature, boolean state)
+        {
+            if (state) {
+                _formatWriteFeatures |= feature.getMask();
+            } else {
+                _formatWriteFeatures &= ~feature.getMask();
+            }
+            return this;
+        }
+
+        protected static class StateImpl extends MapperBuilderState
+            implements java.io.Serializable // important!
+        {
+            private static final long serialVersionUID = 3L;
+
+            public StateImpl(Builder src) {
+                super(src);
+            }
+
+            // We also need actual instance of state as base class can not implement logic
+            // for reinstating mapper (via mapper builder) from state.
+            @Override
+            protected Object readResolve() {
+                return new Builder(this).build();
+            }
+        }
+    }
+
+    /*
+    /**********************************************************************
+    /* Life-cycle
+    /**********************************************************************
+     */
+
+    public VPackMapper() {
+        this(new VPackFactory());
+    }
+
+    public VPackMapper(VPackFactory f) {
+        this(new Builder(f));
+    }
+
+    public VPackMapper(Builder b) {
+        super(b);
+    }
+
+    public static Builder builder() {
+        return new Builder(new VPackFactory());
+    }
+
+    public static Builder builder(VPackFactory streamFactory) {
+        return new Builder(streamFactory);
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public Builder rebuild() {
+        return new Builder((Builder.StateImpl) _savedBuilderState);
+    }
+
+    /*
+    /**********************************************************************
+    /* Life-cycle, shared "vanilla" (default configuration) instance
+    /**********************************************************************
+     */
+
+    /**
+     * Accessor method for getting globally shared "default" {@link VPackMapper}
+     * instance: one that has default configuration, no modules registered, no
+     * config overrides. Usable mostly when dealing "untyped" or Tree-style
+     * content reading and writing.
+     */
+    public static VPackMapper shared() {
+        return SharedWrapper.wrapped();
+    }
+
+    /*
+    /**********************************************************************
+    /* Basic accessor overrides
+    /**********************************************************************
+     */
+
+    @Override
+    public VPackFactory tokenStreamFactory() {
+        return (VPackFactory) _streamFactory;
+    }
+
+    /*
+    /**********************************************************************
+    /* Format-specific
+    /**********************************************************************
+     */
+
+    public boolean isEnabled(VPackReadFeature f) {
+        return _deserializationConfig.hasFormatFeature(f);
+    }
+
+    public boolean isEnabled(VPackWriteFeature f) {
+        return _serializationConfig.hasFormatFeature(f);
+    }
+
+    /*
+    /**********************************************************************
+    /* Helper class(es)
+    /**********************************************************************
+     */
+
+    /**
+     * Helper class to contain dynamically constructed "shared" instance of
+     * mapper, should one be needed via {@link #shared}.
+     */
+    private final static class SharedWrapper {
+        private final static VPackMapper MAPPER = VPackMapper.builder().build();
+
+        public static VPackMapper wrapped() { return MAPPER; }
+    }
 }

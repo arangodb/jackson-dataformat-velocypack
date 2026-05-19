@@ -1,0 +1,171 @@
+package tools.jackson.databind.deser.creators;
+
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonValue;
+import org.junit.jupiter.api.Test;
+import tools.jackson.databind.*;
+import tools.jackson.databind.VPackUtils;
+import tools.jackson.databind.cfg.MapperConfig;
+import tools.jackson.databind.introspect.*;
+import tools.jackson.databind.testutil.DatabindTestUtil;
+import com.arangodb.jackson.dataformat.velocypack.VPackMapper;
+
+import java.util.Objects;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+public class DelegatingCreatorImplicitNamesTest
+    extends DatabindTestUtil
+{
+    // [databind#1001]
+    static class D
+    {
+        private String raw1 = "";
+        private String raw2 = "";
+
+        private D(String raw1, String raw2) {
+            this.raw1 = raw1;
+            this.raw2 = raw2;
+        }
+
+        // not needed strictly speaking, but added for good measure
+        @JsonCreator
+        public static D make(String value) {
+            String[] split = value.split(":");
+            return new D(split[0], split[1]);
+        }
+
+        @JsonValue
+        public String getMyValue() {
+            return raw1 + ":" + raw2;
+        }
+
+        @Override
+        public String toString() {
+            return getMyValue();
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            D other = (D) o;
+            return other.raw1.equals(raw1)
+                    && other.raw2.equals(raw2);
+        }
+    }
+
+    // To test equivalent of parameter-names, let's use this one
+    protected static class CreatorNameIntrospector1001 extends JacksonAnnotationIntrospector
+    {
+        private static final long serialVersionUID = 1L;
+
+        @Override
+        public String findImplicitPropertyName(MapperConfig<?> config, AnnotatedMember member) {
+            if (member instanceof AnnotatedParameter ap) {
+                AnnotatedWithParams owner = ap.getOwner();
+                if (owner instanceof AnnotatedMethod) {
+                    if (ap.getIndex() == 0) {
+                        return "value";
+                    }
+                }
+            }
+            return super.findImplicitPropertyName(config, member);
+        }
+    }
+
+    static class Data2543 {
+
+        final String part1;
+        final String part2;
+
+        // this creator is considered a source of settable bean properties,
+        // used during deserialization
+        @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
+        public Data2543(@JsonProperty("part1") String part1,
+                    @JsonProperty("part2") String part2) {
+            this.part1 = part1;
+            this.part2 = part2;
+        }
+
+        // no properties should be collected from this creator,
+        // even though it has an argument with an implicit name
+        @JsonCreator(mode = JsonCreator.Mode.DELEGATING)
+        public static Data2543 fromFullData(String fullData) {
+            String[] parts = fullData.split("\\s+", 2);
+            return new Data2543(parts[0], parts[1]);
+        }
+    }
+
+    static class DelegatingCreatorNamedArgumentIntrospector2543
+            extends JacksonAnnotationIntrospector
+    {
+        private static final long serialVersionUID = 1L;
+
+        @Override
+        public String findImplicitPropertyName(MapperConfig<?> config, AnnotatedMember member) {
+            if (member instanceof AnnotatedParameter ap) {
+                AnnotatedWithParams owner = ap.getOwner();
+                if (owner instanceof AnnotatedMethod method) {
+                    if (Objects.requireNonNull(method.getAnnotation(JsonCreator.class)).mode() == JsonCreator.Mode.DELEGATING)
+                        return "fullData";
+                }
+            }
+            return super.findImplicitPropertyName(config, member);
+        }
+    }
+
+    private final ObjectMapper MAPPER = newVPackMapper();
+
+    private final ObjectMapper MAPPER_2543 = VPackMapper.builder()
+            .annotationIntrospector(new DelegatingCreatorNamedArgumentIntrospector2543())
+            .build();
+
+    // [databind#1001]
+
+    @Test
+    public void testWithoutNamedParameters1001() throws Exception
+    {
+        D d = D.make("abc:def");
+
+        String actualJson = VPackUtils.toJson(MAPPER.writeValueAsBytes(d));
+        D actualD = MAPPER.readValue(VPackUtils.toVPack(actualJson), D.class);
+
+        assertEquals("\"abc:def\"", actualJson);
+        assertEquals(d, actualD);
+    }
+
+    @Test
+    public void testWithNamedParameters1001() throws Exception
+    {
+        ObjectMapper sut = vpackMapperBuilder()
+            .annotationIntrospector(new CreatorNameIntrospector1001())
+            .build();
+
+        D d = D.make("abc:def");
+
+        String actualJson = VPackUtils.toJson(sut.writeValueAsBytes(d));
+        D actualD = sut.readValue(VPackUtils.toVPack(actualJson), D.class);
+
+        assertEquals("\"abc:def\"", actualJson);
+        assertEquals(d, actualD);
+    }
+
+    // [databind#2543]
+    @Test
+    public void testDeserialization2543() throws Exception {
+        Data2543 data = MAPPER_2543.readValue(VPackUtils.toVPack(a2q("{'part1':'a','part2':'b'}")), Data2543.class);
+
+        assertThat(data.part1).isEqualTo("a");
+        assertThat(data.part2).isEqualTo("b");
+    }
+
+    @Test
+    public void testDelegatingDeserialization2543() throws Exception {
+        Data2543 data = MAPPER_2543.readValue(VPackUtils.toVPack(a2q("'a b'")), Data2543.class);
+
+        assertThat(data.part1).isEqualTo("a");
+        assertThat(data.part2).isEqualTo("b");
+    }
+
+}

@@ -1,0 +1,64 @@
+package tools.jackson.databind.deser.enums;
+
+import com.fasterxml.jackson.annotation.JsonFormat;
+import org.junit.jupiter.api.Test;
+import tools.jackson.databind.*;
+import tools.jackson.databind.VPackUtils;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static tools.jackson.databind.testutil.DatabindTestUtil.a2q;
+import static tools.jackson.databind.testutil.DatabindTestUtil.newVPackMapper;
+
+public class EnumDeserialization3638Test
+{
+    /*
+    /**********************************************************
+    /* Set up
+    /**********************************************************
+     */
+
+    public enum Member
+    {
+        FIRST_MEMBER,
+        SECOND_MEMBER;
+    }
+
+    public static class SensitiveBean
+    {
+        @JsonFormat(without = JsonFormat.Feature.ACCEPT_CASE_INSENSITIVE_PROPERTIES)
+        public Member enumValue;
+    }
+
+    public static class InsensitiveBean
+    {
+        @JsonFormat(with = JsonFormat.Feature.ACCEPT_CASE_INSENSITIVE_PROPERTIES)
+        public Member enumValue;
+    }
+
+    private final ObjectMapper MAPPER = newVPackMapper();
+    
+    /*
+    /**********************************************************
+    /* Tests
+    /**********************************************************
+     */
+
+    @Test
+    void testCaseSensitive() throws Exception {
+        String json = a2q("{'enumValue':'1'}");
+
+        SensitiveBean sensitiveBean = MAPPER.readValue(VPackUtils.toVPack(json), SensitiveBean.class);
+
+        assertEquals(Member.SECOND_MEMBER, sensitiveBean.enumValue);
+    }
+
+
+    @Test
+    void testCaseInsensitive() throws Exception {
+        String json = a2q("{'enumValue':'1'}");
+
+        InsensitiveBean insensitiveBean = MAPPER.readValue(VPackUtils.toVPack(json), InsensitiveBean.class);
+
+        assertEquals(Member.SECOND_MEMBER, insensitiveBean.enumValue);
+    }
+}

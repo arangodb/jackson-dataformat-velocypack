@@ -1,0 +1,127 @@
+package tools.jackson.databind.node;
+
+import org.junit.jupiter.api.Test;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.VPackUtils;
+
+import java.io.ByteArrayOutputStream;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+public class NullNodeTest extends NodeTestBase
+{
+    public final static class CovarianceBean {
+        ObjectNode _object;
+        ArrayNode _array;
+
+        public void setObject(ObjectNode n) { _object = n; }
+        public void setArray(ArrayNode n) { _array = n; }
+    }
+
+    @SuppressWarnings("serial")
+    public static class MyNull extends NullNode { }
+
+    private final ObjectMapper MAPPER = sharedMapper();
+
+    @Test
+    void testBasicsWithNullNode() throws Exception
+    {
+        // Let's use something that doesn't add much beyond JsonNode base
+        NullNode n = NullNode.instance;
+
+        // basic properties
+        assertFalse(n.isContainer());
+        assertFalse(n.isBigDecimal());
+        assertFalse(n.isBigInteger());
+        assertFalse(n.isBinary());
+        assertFalse(n.isBoolean());
+        assertFalse(n.isPojo());
+        assertFalse(n.isMissingNode());
+
+        assertFalse(n.isNumber());
+        assertFalse(n.canConvertToInt());
+        assertFalse(n.canConvertToLong());
+        assertFalse(n.canConvertToExactIntegral());
+
+        // fallback accessors
+
+        assertEquals("", n.asString());
+        assertEquals("fallback", n.asString("fallback"));
+
+        assertEquals(0, n.size());
+        assertTrue(n.isEmpty());
+        assertTrue(n.values().isEmpty());
+        assertTrue(n.propertyNames().isEmpty());
+        // path is never null; but does point to missing node
+        assertNotNull(n.path("xyz"));
+        assertTrue(n.path("xyz").isMissingNode());
+
+        assertFalse(n.has("field"));
+        assertFalse(n.has(3));
+
+        assertNodeNumbersForNonNumeric(n);
+
+        assertEquals("", n.asString());
+
+        assertNonContainerStreamMethods(n);
+    }
+
+    @Test
+    void testNullHandling() throws Exception
+    {
+        // First, a stand-alone null
+        JsonNode n = MAPPER.readTree(VPackUtils.toVPack("null"));
+        assertNotNull(n);
+        assertTrue(n.isNull());
+        assertFalse(n.isNumber());
+        assertFalse(n.isString());
+        assertEquals("", n.asString()); // changed in 3.0
+        assertEquals(n, NullNode.instance);
+
+        n = objectMapper().readTree(VPackUtils.toVPack("null"));
+        assertNotNull(n);
+        assertTrue(n.isNull());
+
+        // Then object property
+        ObjectNode root = (ObjectNode) objectReader().readTree(VPackUtils.toVPack("{\"x\":null}"));
+        assertEquals(1, root.size());
+        n = root.get("x");
+        assertNotNull(n);
+        assertTrue(n.isNull());
+    }
+
+    @Test
+    void testNullSerialization() throws Exception
+    {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        MAPPER.writeValue(out, NullNode.instance);
+        assertEquals("null", VPackUtils.toJson(out.toByteArray()));
+    }
+
+    @Test
+    void testNullHandlingCovariance() throws Exception
+    {
+        String JSON = "{\"object\" : null, \"array\" : null }";
+        CovarianceBean bean = MAPPER.readValue(VPackUtils.toVPack(JSON), CovarianceBean.class);
+
+        ObjectNode on = bean._object;
+        assertNull(on);
+
+        ArrayNode an = bean._array;
+        assertNull(an);
+    }
+
+    @SuppressWarnings("unlikely-arg-type")
+    @Test
+    void testNullEquality() throws Exception
+    {
+        JsonNode n = MAPPER.nullNode();
+        assertTrue(n.isNull());
+        assertEquals(n, new MyNull());
+        assertEquals(new MyNull(), n);
+
+        assertFalse(n.equals(null));
+        assertFalse(n.equals("foo"));
+    }
+}

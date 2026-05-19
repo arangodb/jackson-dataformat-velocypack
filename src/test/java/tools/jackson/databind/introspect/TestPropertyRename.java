@@ -1,0 +1,83 @@
+package tools.jackson.databind.introspect;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
+import org.junit.jupiter.api.Test;
+import tools.jackson.databind.VPackUtils;
+import tools.jackson.databind.testutil.DatabindTestUtil;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+/**
+ * Unit tests verifying handling of potential and actual
+ * conflicts, regarding property handling.
+ */
+public class TestPropertyRename extends DatabindTestUtil
+{
+    static class Bean323WithIgnore {
+        @JsonIgnore
+        private int a;
+
+        public Bean323WithIgnore(@JsonProperty("a") final int a ) {
+            this.a = a;
+        }
+
+        @JsonProperty("b")
+        private int getA () {
+            return a;
+        }
+    }
+
+    @JsonPropertyOrder({ "a","b" })
+    static class Bean323WithExplicitCleave1 {
+        @JsonProperty("a")
+        private int a;
+
+        public Bean323WithExplicitCleave1(@JsonProperty("a") final int a ) {
+            this.a = a;
+        }
+
+        @JsonProperty("b")
+        private int getA () {
+            return a;
+        }
+    }
+
+    @JsonPropertyOrder({ "a","b" })
+    static class Bean323WithExplicitCleave2 {
+        @JsonProperty("b")
+        private int a;
+
+        public Bean323WithExplicitCleave2(@JsonProperty("a") final int a ) {
+            this.a = a;
+        }
+
+        @JsonProperty("b")
+        private int getA () {
+            return a;
+        }
+    }
+
+    /*
+    /**********************************************************
+    /* Test methods
+    /**********************************************************
+     */
+
+    @Test
+    public void testCreatorPropRenameWithIgnore() throws Exception
+    {
+        Bean323WithIgnore input = new Bean323WithIgnore(7);
+        assertEquals("{\"b\":7}", VPackUtils.toJson(objectWriter().writeValueAsBytes(input)));
+    }
+
+    @Test
+    public void testCreatorPropRenameWithCleave() throws Exception
+    {
+        assertEquals("{\"a\":7,\"b\":7}",
+        		VPackUtils.toJson(objectWriter().writeValueAsBytes(new Bean323WithExplicitCleave1(7))));
+        // note: 'a' NOT included as only ctor property found for it, no getter/field
+        assertEquals("{\"b\":7}", VPackUtils.toJson(objectWriter().writeValueAsBytes(new Bean323WithExplicitCleave2(7))));
+    }
+}

@@ -1,0 +1,346 @@
+package tools.jackson.databind.ser;
+
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
+import org.junit.jupiter.api.Test;
+import tools.jackson.databind.*;
+import tools.jackson.databind.VPackUtils;
+import tools.jackson.databind.testutil.DatabindTestUtil;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+/**
+ * Unit tests for verifying that constraints on ordering of serialized
+ * properties are held.
+ */
+public class SerializationOrderTest
+    extends DatabindTestUtil
+{
+    static class BeanWithCreator
+    {
+        public int a;
+        public int b;
+        public int c;
+
+        @JsonCreator
+        public BeanWithCreator(@JsonProperty("c") int c, @JsonProperty("a") int a) {
+            this.a = a;
+            this.c = c;
+        }
+    }
+
+    @JsonPropertyOrder({"c", "a", "b"})
+    static class BeanWithOrder
+    {
+        public int d, b, a, c;
+
+        public BeanWithOrder(int a, int b, int c, int d) {
+            this.a = a;
+            this.b = b;
+            this.c = c;
+            this.d = d;
+        }
+    }
+
+    @JsonPropertyOrder(value={"d"}, alphabetic=true)
+    static class SubBeanWithOrder extends BeanWithOrder
+    {
+        public SubBeanWithOrder(int a, int b, int c, int d) {
+            super(a, b, c, d);
+        }
+    }
+
+    @JsonPropertyOrder({"b", "a",
+        // note: including non-existant properties is fine (has no effect, but not an error)
+        "foobar",
+        "c"
+    })
+    static class OrderMixIn { }
+
+    @JsonPropertyOrder(value={"a","b","x","z"})
+    static class BeanFor268 {
+        @JsonProperty("a") public String xA = "a";
+        @JsonProperty("z") public String aZ = "z";
+    	   @JsonProperty("b") public String xB() { return "b"; }
+    	   @JsonProperty("x") public String aX() { return "x"; }
+    }
+
+    static class BeanFor459 {
+        public int d = 4;
+        public int c = 3;
+        public int b = 2;
+        public int a = 1;
+    }
+
+    // For [databind#311]
+    @JsonPropertyOrder(alphabetic = true)
+    static class BeanForGH311 {
+        private final int a;
+        private final int b;
+
+        @JsonCreator
+        public BeanForGH311(@JsonProperty("b") int b, @JsonProperty("a") int a) { //b and a are out of order, although alphabetic = true
+            this.a = a;
+            this.b = b;
+        }
+
+        public int getA() { return a; }
+        public int getB() { return b; }
+    }
+
+    // We'll expect ordering of "FUBAR"
+    @JsonPropertyOrder({ "f"  })
+    static class OrderingByIndexBean {
+        public int r;
+        public int a;
+
+        @JsonProperty(index = 1)
+        public int b;
+
+        @JsonProperty(index = 0)
+        public int u;
+
+        public int f;
+    }
+
+    // For [databind#2879]
+    @JsonPropertyOrder({ "a", "c" })
+    static class BeanFor2879 {
+        public int c;
+        public int b;
+        public int a;
+
+        @JsonCreator
+        public BeanFor2879(@JsonProperty("a") int a,
+                @JsonProperty("b") int b,
+                @JsonProperty("c") int c) {
+            this.a = a;
+            this.b = b;
+            this.c = c;
+        }
+    }
+
+    // For [databind#2879]
+    static class BeanForStrictOrdering {
+        private final int a;
+        private int b;
+        private final int c;
+
+        @JsonCreator
+        public BeanForStrictOrdering(@JsonProperty("c") int c, @JsonProperty("a") int a) { //b and a are out of order, although alphabetic = true
+            this.a = a;
+            this.c = c;
+        }
+
+        public int getA() { return a; }
+        public int getB() { return b; }
+        public int getC() { return c; }
+    }
+
+    // For [databind#5918]
+    static class BeanForGH5918 {
+        private String notes;
+        private String firstName;
+        private String lastName;
+
+        @JsonCreator
+        public BeanForGH5918(@JsonProperty("lastName") String lastName,
+                @JsonProperty("firstName") String firstName) {
+            this.firstName = firstName;
+            this.lastName = lastName;
+        }
+
+        public String getNotes() { return notes; }
+        public void setNotes(String notes) { this.notes = notes; }
+        public String getFirstName() { return firstName; }
+        public String getLastName() { return lastName; }
+    }
+
+    // For [databind#3064]
+    @JsonPropertyOrder(alphabetic = true)
+    static class AlphaWithIndexBean {
+        @JsonProperty(index = 2)
+        public int c;
+        @JsonProperty(index = 0)
+        public int a;
+        public int b;
+    }
+
+    // For [databind#3064]: explicit name order + index
+    @JsonPropertyOrder({ "b", "a" })
+    static class ExplicitOrderWithIndexBean {
+        @JsonProperty(index = 2)
+        public int c;
+        @JsonProperty(index = 0)
+        public int a;
+        public int b;
+    }
+
+    /*
+    /*********************************************
+    /* Unit tests
+    /*********************************************
+     */
+
+    private final ObjectMapper MAPPER = newVPackMapper();
+
+    private final ObjectMapper ALPHA_MAPPER = vpackMapperBuilder()
+            .enable(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY)
+            .build();
+
+    @Test
+    public void testImplicitOrderByCreator() throws Exception {
+        assertEquals("{\"c\":1,\"a\":2,\"b\":0}",
+                VPackUtils.toJson(MAPPER.writeValueAsBytes(new BeanWithCreator(1, 2))));
+    }
+
+    @Test
+    public void testExplicitOrder() throws Exception {
+        assertEquals("{\"c\":3,\"a\":1,\"b\":2,\"d\":4}",
+                VPackUtils.toJson(MAPPER.writeValueAsBytes(new BeanWithOrder(1, 2, 3, 4))));
+    }
+
+    @Test
+    public void testAlphabeticOrder() throws Exception {
+        assertEquals("{\"d\":4,\"a\":1,\"b\":2,\"c\":3}",
+                VPackUtils.toJson(MAPPER.writeValueAsBytes(new SubBeanWithOrder(1, 2, 3, 4))));
+    }
+
+    @Test
+    public void testOrderWithMixins() throws Exception
+    {
+        ObjectMapper mapper = vpackMapperBuilder()
+                .addMixIn(BeanWithOrder.class, OrderMixIn.class)
+                .build();
+        assertEquals("{\"b\":2,\"a\":1,\"c\":3,\"d\":4}",
+                VPackUtils.toJson(mapper.writeValueAsBytes(new BeanWithOrder(1, 2, 3, 4))));
+    }
+
+    @Test
+    public void testOrderWrt268() throws Exception
+    {
+        assertEquals("{\"a\":\"a\",\"b\":\"b\",\"x\":\"x\",\"z\":\"z\"}",
+                VPackUtils.toJson(MAPPER.writeValueAsBytes(new BeanFor268())));
+    }
+
+    @Test
+    public void testOrderWithFeature() throws Exception
+    {
+        assertEquals("{\"a\":1,\"b\":2,\"c\":3,\"d\":4}",
+                VPackUtils.toJson(ALPHA_MAPPER.writeValueAsBytes(new BeanFor459())));
+    }
+
+    // [databind#2879]: verify that Creator properties never override explicit
+    //   order
+    @Test
+    public void testCreatorVsExplicitOrdering() throws Exception
+    {
+        assertEquals(a2q("{'a':1,'c':3,'b':2}"),
+                VPackUtils.toJson(MAPPER.writeValueAsBytes(new BeanFor2879(1, 2, 3))));
+        assertEquals(a2q("{'a':1,'c':3,'b':2}"),
+                VPackUtils.toJson(ALPHA_MAPPER.writeValueAsBytes(new BeanFor2879(1, 2, 3))));
+    }
+
+    // [databind#311]
+    @Test
+    public void testAlphaAndCreatorOrdering() throws Exception
+    {
+        assertEquals(a2q("{'b':2,'a':1}"),
+                VPackUtils.toJson(ALPHA_MAPPER.writeValueAsBytes(new BeanForGH311(2, 1))));
+        final ObjectMapper mapper = vpackMapperBuilder()
+                .disable(MapperFeature.SORT_CREATOR_PROPERTIES_FIRST)
+                .build();
+        assertEquals(a2q("{'a':1,'b':2}"),
+                VPackUtils.toJson(mapper.writeValueAsBytes(new BeanForGH311(2, 1))));
+    }
+
+    // [databind#2555]
+    @Test
+    public void testOrderByIndexEtc() throws Exception
+    {
+        // since "default" order can actually vary with later JDKs, only verify
+        // case of alphabetic-as-default
+        assertEquals(a2q("{'f':0,'u':0,'b':0,'a':0,'r':0}"),
+                VPackUtils.toJson(ALPHA_MAPPER.writeValueAsBytes(new OrderingByIndexBean())));
+    }
+
+    // [databind#2879]: allow preventing Creator properties from overriding
+    //    alphabetic ordering
+    @Test
+    public void testStrictAlphaAndCreatorOrdering() throws Exception
+    {
+        // without changing defaults, creators are sorted before other properties
+        // BUT are sorted within their own category
+        assertTrue(ALPHA_MAPPER.isEnabled(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY));
+        assertTrue(ALPHA_MAPPER.isEnabled(MapperFeature.SORT_CREATOR_PROPERTIES_FIRST));
+        assertEquals(a2q("{'c':2,'a':3,'b':0}"),
+                VPackUtils.toJson(ALPHA_MAPPER.writeValueAsBytes(new BeanForStrictOrdering(2, 3))));
+
+        // but can change that
+        final ObjectMapper STRICT_ALPHA_MAPPER = vpackMapperBuilder()
+                .enable(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY)
+                .disable(MapperFeature.SORT_CREATOR_PROPERTIES_FIRST)
+                .build();
+
+        assertEquals(a2q("{'a':2,'b':0,'c':1}"),
+                VPackUtils.toJson(STRICT_ALPHA_MAPPER.writeValueAsBytes(new BeanForStrictOrdering(1, 2))));
+    }
+
+    // [databind#3064]: default behavior — class-level alphabetic + index → index wins
+    @Test
+    public void testAlphabeticWithIndexDefaultBehavior() throws Exception {
+        // AlphaWithIndexBean has @JsonPropertyOrder(alphabetic=true)
+        // but index is enabled by default, so indexed props (a:0, c:2) come first
+        assertEquals(a2q("{'a':0,'c':0,'b':0}"),
+                VPackUtils.toJson(MAPPER.writeValueAsBytes(new AlphaWithIndexBean())));
+    }
+
+    // [databind#3064]: index disabled → class-level alphabetic annotation wins
+    @Test
+    public void testAlphabeticWithIndexDisabled() throws Exception {
+        final ObjectMapper mapper = vpackMapperBuilder()
+                .disable(MapperFeature.SORT_PROPERTIES_BY_INDEX)
+                .build();
+        assertEquals(a2q("{'a':0,'b':0,'c':0}"),
+                VPackUtils.toJson(mapper.writeValueAsBytes(new AlphaWithIndexBean())));
+    }
+
+    // [databind#3064]: global alphabetic + index disabled → alphabetic wins
+    @Test
+    public void testGlobalAlphabeticWithIndexDisabled() throws Exception {
+        final ObjectMapper mapper = vpackMapperBuilder()
+                .enable(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY)
+                .disable(MapperFeature.SORT_PROPERTIES_BY_INDEX)
+                .build();
+        assertEquals(a2q("{'a':0,'b':0,'c':0}"),
+                VPackUtils.toJson(mapper.writeValueAsBytes(new AlphaWithIndexBean())));
+    }
+
+    // [databind#3064]: explicit name order takes precedence even when index disabled
+    @Test
+    public void testExplicitNameOrderWinsWhenIndexDisabled() throws Exception {
+        final ObjectMapper mapper = vpackMapperBuilder()
+                .disable(MapperFeature.SORT_PROPERTIES_BY_INDEX)
+                .build();
+        assertEquals(a2q("{'b':0,'a':0,'c':0}"),
+                VPackUtils.toJson(mapper.writeValueAsBytes(new ExplicitOrderWithIndexBean())));
+    }
+
+    // [databind#5918]: disabling SORT_CREATOR_PROPERTIES_FIRST should work
+    //   even when SORT_PROPERTIES_ALPHABETICALLY is also disabled
+    @Test
+    public void testCreatorPropsNotFirstWhenBothSortingDisabled() throws Exception {
+        final ObjectMapper mapper = vpackMapperBuilder()
+                .disable(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY)
+                .disable(MapperFeature.SORT_CREATOR_PROPERTIES_FIRST)
+                .build();
+        BeanForGH5918 person = new BeanForGH5918("last", "first");
+        person.setNotes("notes");
+        String json = VPackUtils.toJson(mapper.writeValueAsBytes(person));
+        // Creator properties (lastName, firstName) should NOT be forced first;
+        // "notes" should appear before them based on declaration order
+        assertEquals(a2q("{'notes':'notes','firstName':'first','lastName':'last'}"),
+                json);
+    }
+}
