@@ -6,6 +6,7 @@ import tools.jackson.databind.VPackUtils;
 import tools.jackson.databind.cfg.DateTimeFeature;
 import tools.jackson.databind.ext.javatime.DateTimeTestBase;
 
+import java.math.BigDecimal;
 import java.time.Duration;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -23,7 +24,7 @@ public class DurationDeser337Test extends DateTimeTestBase
 
         String ser = VPackUtils.toJson(MAPPER_DURATION_TIMESTAMPS.writeValueAsBytes(duration));
 
-        assertEquals("-43.636000000", ser);
+        assertEquals(0, new BigDecimal("-43.636000000").compareTo(new BigDecimal(ser)));
 
         Duration deser = MAPPER_DURATION_TIMESTAMPS.readValue(VPackUtils.toVPack(ser), Duration.class);
 

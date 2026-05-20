@@ -1,14 +1,35 @@
 package tools.jackson.databind;
 
 
+import com.arangodb.jackson.dataformat.velocypack.VPackFactory;
 import com.arangodb.jackson.dataformat.velocypack.VPackMapper;
+import tools.jackson.core.StreamReadConstraints;
+import tools.jackson.core.StreamWriteConstraints;
+import tools.jackson.core.json.JsonFactory;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * @author Michele Rastelli
  */
 public final class VPackUtils {
-    private final static ObjectMapper JSON_MAPPER = new ObjectMapper();
-    private final static ObjectMapper VPACK_MAPPER = new VPackMapper();
+    private final static JsonMapper JSON_MAPPER = JsonMapper.builder(JsonFactory.builder()
+            .streamReadConstraints(StreamReadConstraints.builder()
+                    .maxNestingDepth(Integer.MAX_VALUE)
+                    .build())
+            .streamWriteConstraints(StreamWriteConstraints.builder()
+                    .maxNestingDepth(Integer.MAX_VALUE)
+                    .build())
+            .build()
+    ).build();
+    private final static VPackMapper VPACK_MAPPER = VPackMapper.builder(VPackFactory.builder()
+            .streamReadConstraints(StreamReadConstraints.builder()
+                    .maxNestingDepth(Integer.MAX_VALUE)
+                    .build())
+            .streamWriteConstraints(StreamWriteConstraints.builder()
+                    .maxNestingDepth(Integer.MAX_VALUE)
+                    .build())
+            .build()
+    ).build();
 
     private VPackUtils() {
     }

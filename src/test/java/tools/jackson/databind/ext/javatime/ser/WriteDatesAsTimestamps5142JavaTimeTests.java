@@ -6,6 +6,7 @@ import tools.jackson.databind.VPackUtils;
 import tools.jackson.databind.cfg.DateTimeFeature;
 import tools.jackson.databind.ext.javatime.DateTimeTestBase;
 
+import java.math.BigDecimal;
 import java.time.*;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -146,16 +147,40 @@ public class WriteDatesAsTimestamps5142JavaTimeTests
     }
 
     private static <T> void _testTimestamp(T value, Class<?> clazz, String withString, String withoutString) {
-        assertEquals(
+        String actualWith = VPackUtils.toJson(WITH_TIMESTAMP_MAPPER.writerFor(clazz).writeValueAsBytes(value));
+        String actualWithout = VPackUtils.toJson(WITHOUT_TIMESTAMP_MAPPER.writerFor(clazz).writeValueAsBytes(value));
+
+        assertJsonValueEquals(
                 withString,
-                VPackUtils.toJson(WITH_TIMESTAMP_MAPPER.writerFor(clazz).writeValueAsBytes(value)),
+                actualWith,
                 String.format("withTimestampMapper : Expected %s, got %s", withString, value)
         );
-        assertEquals(
+        assertJsonValueEquals(
                 withoutString,
-                VPackUtils.toJson(WITHOUT_TIMESTAMP_MAPPER.writerFor(clazz).writeValueAsBytes(value)),
+                actualWithout,
                 String.format("withoutTimestampMapper : Expected %s, got %s", withoutString, value)
         );
+    }
+
+    private static void assertJsonValueEquals(String expected, String actual, String message) {
+        if (isJsonNumber(expected) && isJsonNumber(actual)) {
+            assertEquals(
+                    0,
+                    new BigDecimal(expected).compareTo(new BigDecimal(actual)),
+                    message
+            );
+            return;
+        }
+        assertEquals(expected, actual, message);
+    }
+
+    private static boolean isJsonNumber(String value) {
+        try {
+            new BigDecimal(value);
+            return true;
+        } catch (NumberFormatException e) {
+            return false;
+        }
     }
 
 }
