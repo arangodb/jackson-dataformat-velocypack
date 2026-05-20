@@ -704,7 +704,7 @@ public class POJOAsArrayTest extends DatabindTestUtil
         assertEquals(input.getContent().getUri(), output.getContent().getUri());
 
         // compare re-serialization as a simple check as well
-        assertEquals(vpack, MAPPER.writer().writeValueAsBytes(output));
+        assertArrayEquals(vpack, MAPPER.writer().writeValueAsBytes(output));
     }
 
     /*

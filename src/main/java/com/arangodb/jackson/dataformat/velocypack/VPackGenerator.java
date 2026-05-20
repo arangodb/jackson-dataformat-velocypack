@@ -1080,6 +1080,16 @@ public class VPackGenerator extends GeneratorBase
     @Override
     protected void _closeInput() throws JacksonException {
         _flushBuffer();
+        try {
+            if (_ioContext.isResourceManaged()
+                    || isEnabled(StreamWriteFeature.AUTO_CLOSE_TARGET)) {
+                _out.close();
+            } else if (isEnabled(StreamWriteFeature.FLUSH_PASSED_TO_STREAM)) {
+                _out.flush();
+            }
+        } catch (IOException e) {
+            throw _wrapIOFailure(e);
+        }
         if (_outputBuffer != null && _bufferRecyclable) {
             byte[] buf = _outputBuffer;
             _outputBuffer = null;
