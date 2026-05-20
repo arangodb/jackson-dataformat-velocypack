@@ -117,7 +117,7 @@ public class VPackParserBufTest extends BaseTestForVPack
             assertThat(p.nextToken()).isEqualTo(JsonToken.PROPERTY_NAME);
             assertThat(p.getString()).isEqualTo("tax");
             assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_NUMBER_FLOAT);
-            assertThat(p.getDecimalValue()).isEqualTo("-0.01");
+            assertThat(p.getDecimalValue()).isEqualByComparingTo("-0.01");
             assertThat(p.nextToken()).isEqualTo(JsonToken.END_OBJECT);
         }
     }

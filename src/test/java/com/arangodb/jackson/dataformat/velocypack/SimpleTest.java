@@ -20,6 +20,7 @@
 
 package com.arangodb.jackson.dataformat.velocypack;
 
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import org.junit.jupiter.api.Test;
 import tools.jackson.core.JsonParser;
 import tools.jackson.core.JsonToken;
@@ -91,6 +92,7 @@ public class SimpleTest {
         assertThat(entity.getValue2()).isEqualTo(TEST_INT);
     }
 
+    @JsonPropertyOrder({"id", "trailer", "data"})
     static class Binary {
         public int id, trailer;
         public byte[] data;
@@ -134,9 +136,11 @@ public class SimpleTest {
         assertToken(JsonToken.START_OBJECT, p.nextToken());
 
         assertToken(JsonToken.PROPERTY_NAME, p.nextToken());
-        assertThat(p.hasStringCharacters()).isFalse();
+        assertThat(p.hasStringCharacters()).isTrue();
+        assertThat(p.currentName()).isEqualTo("id");
         assertToken(JsonToken.VALUE_NUMBER_INT, p.nextToken());
         assertToken(JsonToken.PROPERTY_NAME, p.nextToken());
+        assertThat(p.currentName()).isEqualTo("trailer");
         assertToken(JsonToken.VALUE_NUMBER_INT, p.nextToken());
         assertThat(p.getIntValue()).isEqualTo(input.trailer);
         assertToken(JsonToken.PROPERTY_NAME, p.nextToken());

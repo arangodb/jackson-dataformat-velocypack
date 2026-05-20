@@ -277,6 +277,7 @@ public class VPackMapperTest extends BaseTestForVPack
     public void testUnsortedObjects_roundTrip() {
         VPackMapper m = VPackMapper.builder()
                 .disable(VPackWriteFeature.WRITE_OBJECT_KEYS_SORTED)
+                .disable(VPackWriteFeature.WRITE_COMPACT_OBJECTS)
                 .build();
         SimplePojo original = new SimplePojo("world", 7);
         byte[] bytes = m.writeValueAsBytes(original);

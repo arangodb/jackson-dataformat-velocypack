@@ -70,7 +70,10 @@ public class VPackGeneratorContainerTest extends BaseTestForVPack {
     @Test
     public void testIndexArray_mixedLengths() {
         // Mixed lengths: small int (1 byte) and long string (>1 byte)
-        byte[] bytes = gen(g -> {
+        VPackMapper m = VPackMapper.builder()
+                .disable(VPackWriteFeature.WRITE_COMPACT_ARRAYS)
+                .build();
+        byte[] bytes = genWith(m, g -> {
             g.writeStartArray();
             g.writeNumber(1); // 1 byte (small int)
             g.writeString("hello"); // 6 bytes
@@ -125,6 +128,7 @@ public class VPackGeneratorContainerTest extends BaseTestForVPack {
     public void testSortedObject_typeByte() {
         VPackMapper m = VPackMapper.builder()
                 .enable(VPackWriteFeature.WRITE_OBJECT_KEYS_SORTED)
+                .disable(VPackWriteFeature.WRITE_COMPACT_OBJECTS)
                 .build();
         byte[] bytes = genWith(m, g -> {
             g.writeStartObject();
@@ -141,7 +145,9 @@ public class VPackGeneratorContainerTest extends BaseTestForVPack {
 
     @Test
     public void testUnsortedObject_typeByte() {
-        VPackMapper m = new VPackMapper();
+        VPackMapper m = VPackMapper.builder()
+                .disable(VPackWriteFeature.WRITE_COMPACT_OBJECTS)
+                .build();
         byte[] bytes = genWith(m, g -> {
             g.writeStartObject();
             g.writeName("z");

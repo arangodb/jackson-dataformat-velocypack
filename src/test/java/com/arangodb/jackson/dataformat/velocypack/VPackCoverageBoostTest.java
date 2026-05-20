@@ -404,10 +404,10 @@ public class VPackCoverageBoostTest extends BaseTestForVPack
             assertThat(p.nextToken()).isEqualTo(JsonToken.START_ARRAY);
             assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_NUMBER_FLOAT);
             BigDecimal d1 = p.getDecimalValue();
-            assertThat(d1).isEqualTo("12345.67");
+            assertThat(d1).isEqualByComparingTo("12345.67");
             assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_NUMBER_FLOAT);
             BigDecimal d2 = p.getDecimalValue();
-            assertThat(d2).isEqualTo("-99.5");
+            assertThat(d2).isEqualByComparingTo("-99.5");
             assertThat(p.nextToken()).isEqualTo(JsonToken.END_ARRAY);
         }
     }
@@ -525,7 +525,9 @@ public class VPackCoverageBoostTest extends BaseTestForVPack
 
     @Test
     public void testNoIndexArray_withNegativeSmallInts() {
-        VPackMapper m = new VPackMapper();
+        VPackMapper m = VPackMapper.builder()
+                .disable(VPackWriteFeature.WRITE_COMPACT_ARRAYS)
+                .build();
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         try (JsonGenerator g = m.createGenerator(baos)) {
             g.writeStartArray();

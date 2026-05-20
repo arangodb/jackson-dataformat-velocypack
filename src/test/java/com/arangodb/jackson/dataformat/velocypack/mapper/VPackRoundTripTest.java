@@ -229,12 +229,13 @@ public class VPackRoundTripTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testObjectKeysSortedByDefault() {
+    public void testObjectKeysSorted() {
+        VPackMapper vPackMapper = VPackMapper.builder().enable(VPackWriteFeature.WRITE_OBJECT_KEYS_SORTED).build();
         // Write {b:1, a:2} and assert the wire bytes have 'a' before 'b'
         Map<String, Integer> map = new LinkedHashMap<>();
         map.put("b", 1);
         map.put("a", 2);
-        byte[] bytes = mapper.writeValueAsBytes(map);
+        byte[] bytes = vPackMapper.writeValueAsBytes(map);
         // Parse back and verify order in the bytes
         // We can check this by looking at the serialized bytes for 'a' and 'b'
         // 'a' as VPack short string: 0x41 0x61
@@ -254,6 +255,7 @@ public class VPackRoundTripTest extends BaseTestForVPack
     public void testObjectKeysUnsortedWhenFeatureDisabled() {
         VPackMapper unsortedMapper = VPackMapper.builder()
                 .disable(VPackWriteFeature.WRITE_OBJECT_KEYS_SORTED)
+                .disable(VPackWriteFeature.WRITE_COMPACT_OBJECTS)
                 .build();
         Map<String, Integer> map = new LinkedHashMap<>();
         map.put("b", 1);

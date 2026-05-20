@@ -392,7 +392,7 @@ public class VPackUtilExtendedTest extends BaseTestForVPack
         BigDecimal original = BigDecimal.ZERO;
         byte[] bcd = VPackUtil.encodeBcd(original, outExp);
         BigDecimal decoded = VPackUtil.decodeBcd(bcd, outExp[0], false);
-        assertThat(decoded).isEqualTo(original);
+        assertThat(decoded).isEqualByComparingTo(original);
     }
 
     @Test
@@ -401,7 +401,7 @@ public class VPackUtilExtendedTest extends BaseTestForVPack
         int[] outExp = new int[1];
         byte[] bcd = VPackUtil.encodeBcd(original, outExp);
         BigDecimal decoded = VPackUtil.decodeBcd(bcd, outExp[0], false);
-        assertThat((decoded)).isEqualTo(original);
+        assertThat((decoded)).isEqualByComparingTo(original);
     }
 
     @Test
@@ -428,7 +428,7 @@ public class VPackUtilExtendedTest extends BaseTestForVPack
         int[] outExp = new int[1];
         byte[] bcd = VPackUtil.encodeBcd(original, outExp);
         BigDecimal decoded = VPackUtil.decodeBcd(bcd, outExp[0], false);
-        assertThat((decoded)).isEqualTo(original);
+        assertThat((decoded)).isEqualByComparingTo(original);
     }
 
     @Test

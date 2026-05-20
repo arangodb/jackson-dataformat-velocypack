@@ -164,7 +164,7 @@ public class VPackUtilTest
 
         // Decode it back
         BigDecimal decoded = VPackUtil.decodeBcd(bcd, outExp[0], false);
-        assertThat((decoded)).isEqualTo(val);
+        assertThat((decoded)).isEqualByComparingTo(val);
     }
 
     @Test
@@ -184,7 +184,7 @@ public class VPackUtilTest
         byte[] bcd = { 0x12, 0x34, 0x50 };
         int exponent = -1;
         BigDecimal result = VPackUtil.decodeBcd(bcd, exponent, false);
-        assertThat(result).isEqualTo("12345");
+        assertThat(result).isEqualByComparingTo("12345");
     }
 
     @Test
@@ -202,7 +202,7 @@ public class VPackUtilTest
         int[] outExp = new int[1];
         byte[] bcd = VPackUtil.encodeBcd(val, outExp);
         BigDecimal decoded = VPackUtil.decodeBcd(bcd, outExp[0], false);
-        assertThat((decoded)).isEqualTo(BigDecimal.ZERO);
+        assertThat((decoded)).isEqualByComparingTo(BigDecimal.ZERO);
     }
 
     @Test

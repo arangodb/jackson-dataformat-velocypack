@@ -97,7 +97,7 @@ public class VPackParserFeaturesTest extends BaseTestForVPack
         try (JsonParser p = parserFor(bytes)) {
             assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_NUMBER_FLOAT);
             BigDecimal result = p.getDecimalValue();
-            assertThat(result).isEqualTo("12345.67");
+            assertThat(result).isEqualByComparingTo("12345.67");
         }
     }
 

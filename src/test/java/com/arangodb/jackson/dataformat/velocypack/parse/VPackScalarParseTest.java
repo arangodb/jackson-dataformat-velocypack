@@ -397,7 +397,7 @@ public class VPackScalarParseTest extends BaseTestForVPack {
         };
         try (JsonParser p = vpackParser(input)) {
             assertToken(JsonToken.VALUE_NUMBER_FLOAT, p.nextToken());
-            assertThat(p.getDecimalValue()).isEqualTo("12345");
+            assertThat(p.getDecimalValue()).isEqualByComparingTo("12345");
         }
     }
 
