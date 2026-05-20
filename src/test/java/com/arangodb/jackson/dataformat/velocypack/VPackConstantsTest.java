@@ -2,7 +2,7 @@ package com.arangodb.jackson.dataformat.velocypack;
 
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 import static com.arangodb.jackson.dataformat.velocypack.VPackConstants.*;
 
 /**
@@ -12,143 +12,143 @@ public class VPackConstantsTest
 {
     @Test
     public void testNullFalseTrueBytes() {
-        assertEquals(0x18, VPACK_NULL);
-        assertEquals(0x19, VPACK_FALSE);
-        assertEquals(0x1a, VPACK_TRUE);
+        assertThat(VPACK_NULL).isEqualTo(0x18);
+        assertThat(VPACK_FALSE).isEqualTo(0x19);
+        assertThat(VPACK_TRUE).isEqualTo(0x1a);
     }
 
     @Test
     public void testDoubleDate() {
-        assertEquals(0x1b, VPACK_DOUBLE);
-        assertEquals(0x1c, VPACK_DATE);
+        assertThat(VPACK_DOUBLE).isEqualTo(0x1b);
+        assertThat(VPACK_DATE).isEqualTo(0x1c);
     }
 
     @Test
     public void testIllegalAndSpecial() {
-        assertEquals(0x00, VPACK_NONE);
-        assertEquals(0x17, VPACK_ILLEGAL);
-        assertEquals(0x1d, VPACK_EXTERNAL);
-        assertEquals(0x1e, VPACK_MIN_KEY);
-        assertEquals(0x1f, VPACK_MAX_KEY);
+        assertThat(VPACK_NONE).isEqualTo(0x00);
+        assertThat(VPACK_ILLEGAL).isEqualTo(0x17);
+        assertThat(VPACK_EXTERNAL).isEqualTo(0x1d);
+        assertThat(VPACK_MIN_KEY).isEqualTo(0x1e);
+        assertThat(VPACK_MAX_KEY).isEqualTo(0x1f);
     }
 
     @Test
     public void testArrayTypes() {
-        assertEquals(0x01, VPACK_ARRAY_EMPTY);
-        assertEquals(0x02, VPACK_ARRAY_NO_IDX_FIRST);
-        assertEquals(0x05, VPACK_ARRAY_NO_IDX_LAST);
-        assertEquals(0x06, VPACK_ARRAY_IDX_FIRST);
-        assertEquals(0x09, VPACK_ARRAY_IDX_LAST);
-        assertEquals(0x13, VPACK_ARRAY_COMPACT);
+        assertThat(VPACK_ARRAY_EMPTY).isEqualTo(0x01);
+        assertThat(VPACK_ARRAY_NO_IDX_FIRST).isEqualTo(0x02);
+        assertThat(VPACK_ARRAY_NO_IDX_LAST).isEqualTo(0x05);
+        assertThat(VPACK_ARRAY_IDX_FIRST).isEqualTo(0x06);
+        assertThat(VPACK_ARRAY_IDX_LAST).isEqualTo(0x09);
+        assertThat(VPACK_ARRAY_COMPACT).isEqualTo(0x13);
     }
 
     @Test
     public void testObjectTypes() {
-        assertEquals(0x0a, VPACK_OBJECT_EMPTY);
-        assertEquals(0x0b, VPACK_OBJECT_SORTED_FIRST);
-        assertEquals(0x0e, VPACK_OBJECT_SORTED_LAST);
-        assertEquals(0x0f, VPACK_OBJECT_UNSORTED_FIRST);
-        assertEquals(0x12, VPACK_OBJECT_UNSORTED_LAST);
-        assertEquals(0x14, VPACK_OBJECT_COMPACT);
+        assertThat(VPACK_OBJECT_EMPTY).isEqualTo(0x0a);
+        assertThat(VPACK_OBJECT_SORTED_FIRST).isEqualTo(0x0b);
+        assertThat(VPACK_OBJECT_SORTED_LAST).isEqualTo(0x0e);
+        assertThat(VPACK_OBJECT_UNSORTED_FIRST).isEqualTo(0x0f);
+        assertThat(VPACK_OBJECT_UNSORTED_LAST).isEqualTo(0x12);
+        assertThat(VPACK_OBJECT_COMPACT).isEqualTo(0x14);
     }
 
     @Test
     public void testIntegerTypes() {
-        assertEquals(0x20, VPACK_INT_SIGNED_FIRST);
-        assertEquals(0x27, VPACK_INT_SIGNED_LAST);
-        assertEquals(0x28, VPACK_INT_UNSIGNED_FIRST);
-        assertEquals(0x2f, VPACK_INT_UNSIGNED_LAST);
-        assertEquals(0x30, VPACK_SMALL_INT_FIRST);
-        assertEquals(0x39, VPACK_SMALL_INT_LAST);
-        assertEquals(0x3a, VPACK_SMALL_NEG_FIRST);
-        assertEquals(0x3f, VPACK_SMALL_NEG_LAST);
+        assertThat(VPACK_INT_SIGNED_FIRST).isEqualTo(0x20);
+        assertThat(VPACK_INT_SIGNED_LAST).isEqualTo(0x27);
+        assertThat(VPACK_INT_UNSIGNED_FIRST).isEqualTo(0x28);
+        assertThat(VPACK_INT_UNSIGNED_LAST).isEqualTo(0x2f);
+        assertThat(VPACK_SMALL_INT_FIRST).isEqualTo(0x30);
+        assertThat(VPACK_SMALL_INT_LAST).isEqualTo(0x39);
+        assertThat(VPACK_SMALL_NEG_FIRST).isEqualTo(0x3a);
+        assertThat(VPACK_SMALL_NEG_LAST).isEqualTo(0x3f);
     }
 
     @Test
     public void testStringTypes() {
-        assertEquals(0x40, VPACK_STRING_SHORT_FIRST);
-        assertEquals(0xbe, VPACK_STRING_SHORT_LAST);
-        assertEquals(126, VPACK_STRING_SHORT_MAX_LEN);
-        assertEquals(0xbf, VPACK_STRING_LONG);
+        assertThat(VPACK_STRING_SHORT_FIRST).isEqualTo(0x40);
+        assertThat(VPACK_STRING_SHORT_LAST).isEqualTo(0xbe);
+        assertThat(VPACK_STRING_SHORT_MAX_LEN).isEqualTo(126);
+        assertThat(VPACK_STRING_LONG).isEqualTo(0xbf);
     }
 
     @Test
     public void testBinaryTypes() {
-        assertEquals(0xc0, VPACK_BINARY_FIRST);
-        assertEquals(0xc7, VPACK_BINARY_LAST);
+        assertThat(VPACK_BINARY_FIRST).isEqualTo(0xc0);
+        assertThat(VPACK_BINARY_LAST).isEqualTo(0xc7);
     }
 
     @Test
     public void testBcdTypes() {
-        assertEquals(0xc8, VPACK_BCD_POS_FIRST);
-        assertEquals(0xcf, VPACK_BCD_POS_LAST);
-        assertEquals(0xd0, VPACK_BCD_NEG_FIRST);
-        assertEquals(0xd7, VPACK_BCD_NEG_LAST);
+        assertThat(VPACK_BCD_POS_FIRST).isEqualTo(0xc8);
+        assertThat(VPACK_BCD_POS_LAST).isEqualTo(0xcf);
+        assertThat(VPACK_BCD_NEG_FIRST).isEqualTo(0xd0);
+        assertThat(VPACK_BCD_NEG_LAST).isEqualTo(0xd7);
     }
 
     @Test
     public void testTagTypes() {
-        assertEquals(0xee, VPACK_TAG_1BYTE);
-        assertEquals(0xef, VPACK_TAG_8BYTE);
+        assertThat(VPACK_TAG_1BYTE).isEqualTo(0xee);
+        assertThat(VPACK_TAG_8BYTE).isEqualTo(0xef);
     }
 
     @Test
     public void testCustomTypes() {
-        assertEquals(0xf0, VPACK_CUSTOM_FIRST);
-        assertEquals(0xff, VPACK_CUSTOM_LAST);
-        assertEquals(0xf0, VPACK_CUSTOM_1B);
-        assertEquals(0xf1, VPACK_CUSTOM_2B);
-        assertEquals(0xf2, VPACK_CUSTOM_4B);
-        assertEquals(0xf3, VPACK_CUSTOM_8B);
-        assertEquals(0xf4, VPACK_CUSTOM_LEN1_FIRST);
-        assertEquals(0xf6, VPACK_CUSTOM_LEN1_LAST);
-        assertEquals(0xf7, VPACK_CUSTOM_LEN2_FIRST);
-        assertEquals(0xf9, VPACK_CUSTOM_LEN2_LAST);
-        assertEquals(0xfa, VPACK_CUSTOM_LEN4_FIRST);
-        assertEquals(0xfc, VPACK_CUSTOM_LEN4_LAST);
-        assertEquals(0xfd, VPACK_CUSTOM_LEN8_FIRST);
-        assertEquals(0xff, VPACK_CUSTOM_LEN8_LAST);
+        assertThat(VPACK_CUSTOM_FIRST).isEqualTo(0xf0);
+        assertThat(VPACK_CUSTOM_LAST).isEqualTo(0xff);
+        assertThat(VPACK_CUSTOM_1B).isEqualTo(0xf0);
+        assertThat(VPACK_CUSTOM_2B).isEqualTo(0xf1);
+        assertThat(VPACK_CUSTOM_4B).isEqualTo(0xf2);
+        assertThat(VPACK_CUSTOM_8B).isEqualTo(0xf3);
+        assertThat(VPACK_CUSTOM_LEN1_FIRST).isEqualTo(0xf4);
+        assertThat(VPACK_CUSTOM_LEN1_LAST).isEqualTo(0xf6);
+        assertThat(VPACK_CUSTOM_LEN2_FIRST).isEqualTo(0xf7);
+        assertThat(VPACK_CUSTOM_LEN2_LAST).isEqualTo(0xf9);
+        assertThat(VPACK_CUSTOM_LEN4_FIRST).isEqualTo(0xfa);
+        assertThat(VPACK_CUSTOM_LEN4_LAST).isEqualTo(0xfc);
+        assertThat(VPACK_CUSTOM_LEN8_FIRST).isEqualTo(0xfd);
+        assertThat(VPACK_CUSTOM_LEN8_LAST).isEqualTo(0xff);
     }
 
     @Test
     public void testReservedRanges() {
-        assertEquals(0x15, VPACK_RESERVED_15);
-        assertEquals(0x16, VPACK_RESERVED_16);
-        assertEquals(0xd8, VPACK_RESERVED_D8);
-        assertEquals(0xed, VPACK_RESERVED_ED);
+        assertThat(VPACK_RESERVED_15).isEqualTo(0x15);
+        assertThat(VPACK_RESERVED_16).isEqualTo(0x16);
+        assertThat(VPACK_RESERVED_D8).isEqualTo(0xd8);
+        assertThat(VPACK_RESERVED_ED).isEqualTo(0xed);
     }
 
     // Verify contiguous ranges
     @Test
     public void testSignedIntRange() {
         // 8 signed int types: 0x20-0x27
-        assertEquals(8, VPACK_INT_SIGNED_LAST - VPACK_INT_SIGNED_FIRST + 1);
+        assertThat(VPACK_INT_SIGNED_LAST - VPACK_INT_SIGNED_FIRST + 1).isEqualTo(8);
     }
 
     @Test
     public void testUnsignedIntRange() {
         // 8 unsigned int types: 0x28-0x2f
-        assertEquals(8, VPACK_INT_UNSIGNED_LAST - VPACK_INT_UNSIGNED_FIRST + 1);
+        assertThat(VPACK_INT_UNSIGNED_LAST - VPACK_INT_UNSIGNED_FIRST + 1).isEqualTo(8);
     }
 
     @Test
     public void testSmallIntRange() {
         // 10 small ints: 0x30-0x39 = 0..9
-        assertEquals(10, VPACK_SMALL_INT_LAST - VPACK_SMALL_INT_FIRST + 1);
+        assertThat(VPACK_SMALL_INT_LAST - VPACK_SMALL_INT_FIRST + 1).isEqualTo(10);
     }
 
     @Test
     public void testSmallNegRange() {
         // 6 small negatives: 0x3a-0x3f = -6..-1
-        assertEquals(6, VPACK_SMALL_NEG_LAST - VPACK_SMALL_NEG_FIRST + 1);
+        assertThat(VPACK_SMALL_NEG_LAST - VPACK_SMALL_NEG_FIRST + 1).isEqualTo(6);
     }
 
     @Test
     public void testShortStringRange() {
         // 0x40-0xbe = 127 entries; length = 0..126
-        assertEquals(127, VPACK_STRING_SHORT_LAST - VPACK_STRING_SHORT_FIRST + 1);
+        assertThat(VPACK_STRING_SHORT_LAST - VPACK_STRING_SHORT_FIRST + 1).isEqualTo(127);
         // At 0x40: length = 0 (empty string)
         // At 0xbe: length = 0xbe - 0x40 = 126
-        assertEquals(126, 0xbe - 0x40);
+        assertThat(0xbe - 0x40).isEqualTo(126);
     }
 }

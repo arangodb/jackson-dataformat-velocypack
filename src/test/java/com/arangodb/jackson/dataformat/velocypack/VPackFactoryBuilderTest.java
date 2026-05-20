@@ -8,7 +8,7 @@ import tools.jackson.core.JsonToken;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Tests for {@link VPackFactory}, {@link VPackFactoryBuilder}: builder APIs,
@@ -23,53 +23,53 @@ public class VPackFactoryBuilderTest extends BaseTestForVPack
     @Test
     public void testFormatName() {
         VPackFactory f = new VPackFactory();
-        assertEquals("VelocyPack", f.getFormatName());
+        assertThat(f.getFormatName()).isEqualTo("VelocyPack");
     }
 
     @Test
     public void testVersion_notNull() {
         VPackFactory f = new VPackFactory();
-        assertNotNull(f.version());
+        assertThat(f.version()).isNotNull();
     }
 
     @Test
     public void testCanUseSchema_returnsFalse() {
         VPackFactory f = new VPackFactory();
-        assertFalse(f.canUseSchema(null));
+        assertThat(f.canUseSchema(null)).isFalse();
     }
 
     @Test
     public void testGetFormatReadFeatureType() {
         VPackFactory f = new VPackFactory();
-        assertEquals(VPackReadFeature.class, f.getFormatReadFeatureType());
+        assertThat(f.getFormatReadFeatureType()).isEqualTo(VPackReadFeature.class);
     }
 
     @Test
     public void testGetFormatWriteFeatureType() {
         VPackFactory f = new VPackFactory();
-        assertEquals(VPackWriteFeature.class, f.getFormatWriteFeatureType());
+        assertThat(f.getFormatWriteFeatureType()).isEqualTo(VPackWriteFeature.class);
     }
 
     @Test
     public void testCanParseAsync_returnsFalse() {
         VPackFactory f = new VPackFactory();
-        assertFalse(f.canParseAsync());
+        assertThat(f.canParseAsync()).isFalse();
     }
 
     @Test
     public void testDefaultWriteFeatures() {
         VPackFactory f = new VPackFactory();
-        assertTrue(f.isEnabled(VPackWriteFeature.WRITE_OBJECT_KEYS_SORTED));
-        assertTrue(f.isEnabled(VPackWriteFeature.WRITE_MIN_INT_WIDTH));
-        assertFalse(f.isEnabled(VPackWriteFeature.WRITE_COMPACT_ARRAYS));
-        assertFalse(f.isEnabled(VPackWriteFeature.WRITE_COMPACT_OBJECTS));
+        assertThat(f.isEnabled(VPackWriteFeature.WRITE_OBJECT_KEYS_SORTED)).isFalse();
+        assertThat(f.isEnabled(VPackWriteFeature.WRITE_MIN_INT_WIDTH)).isTrue();
+        assertThat(f.isEnabled(VPackWriteFeature.WRITE_COMPACT_ARRAYS)).isTrue();
+        assertThat(f.isEnabled(VPackWriteFeature.WRITE_COMPACT_OBJECTS)).isTrue();
     }
 
     @Test
     public void testDefaultReadFeatures() {
         VPackFactory f = new VPackFactory();
-        assertFalse(f.isEnabled(VPackReadFeature.FAIL_ON_TAGGED_VALUES));
-        assertFalse(f.isEnabled(VPackReadFeature.FAIL_ON_CUSTOM_TYPES));
+        assertThat(f.isEnabled(VPackReadFeature.FAIL_ON_TAGGED_VALUES)).isFalse();
+        assertThat(f.isEnabled(VPackReadFeature.FAIL_ON_CUSTOM_TYPES)).isFalse();
     }
 
     // =========================================================
@@ -81,7 +81,7 @@ public class VPackFactoryBuilderTest extends BaseTestForVPack
         VPackFactory f = VPackFactory.builder()
                 .enable(VPackWriteFeature.WRITE_COMPACT_ARRAYS)
                 .build();
-        assertTrue(f.isEnabled(VPackWriteFeature.WRITE_COMPACT_ARRAYS));
+        assertThat(f.isEnabled(VPackWriteFeature.WRITE_COMPACT_ARRAYS)).isTrue();
     }
 
     @Test
@@ -89,7 +89,7 @@ public class VPackFactoryBuilderTest extends BaseTestForVPack
         VPackFactory f = VPackFactory.builder()
                 .disable(VPackWriteFeature.WRITE_OBJECT_KEYS_SORTED)
                 .build();
-        assertFalse(f.isEnabled(VPackWriteFeature.WRITE_OBJECT_KEYS_SORTED));
+        assertThat(f.isEnabled(VPackWriteFeature.WRITE_OBJECT_KEYS_SORTED)).isFalse();
     }
 
     @Test
@@ -97,7 +97,7 @@ public class VPackFactoryBuilderTest extends BaseTestForVPack
         VPackFactory f = VPackFactory.builder()
                 .enable(VPackWriteFeature.WRITE_COMPACT_OBJECTS)
                 .build();
-        assertTrue(f.isEnabled(VPackWriteFeature.WRITE_COMPACT_OBJECTS));
+        assertThat(f.isEnabled(VPackWriteFeature.WRITE_COMPACT_OBJECTS)).isTrue();
     }
 
     @Test
@@ -105,7 +105,7 @@ public class VPackFactoryBuilderTest extends BaseTestForVPack
         VPackFactory f = VPackFactory.builder()
                 .disable(VPackWriteFeature.WRITE_MIN_INT_WIDTH)
                 .build();
-        assertFalse(f.isEnabled(VPackWriteFeature.WRITE_MIN_INT_WIDTH));
+        assertThat(f.isEnabled(VPackWriteFeature.WRITE_MIN_INT_WIDTH)).isFalse();
     }
 
     @Test
@@ -113,7 +113,7 @@ public class VPackFactoryBuilderTest extends BaseTestForVPack
         VPackFactory f = VPackFactory.builder()
                 .enable(VPackReadFeature.FAIL_ON_CUSTOM_TYPES)
                 .build();
-        assertTrue(f.isEnabled(VPackReadFeature.FAIL_ON_CUSTOM_TYPES));
+        assertThat(f.isEnabled(VPackReadFeature.FAIL_ON_CUSTOM_TYPES)).isTrue();
     }
 
     @Test
@@ -121,7 +121,7 @@ public class VPackFactoryBuilderTest extends BaseTestForVPack
         VPackFactory f = VPackFactory.builder()
                 .enable(VPackReadFeature.FAIL_ON_TAGGED_VALUES)
                 .build();
-        assertTrue(f.isEnabled(VPackReadFeature.FAIL_ON_TAGGED_VALUES));
+        assertThat(f.isEnabled(VPackReadFeature.FAIL_ON_TAGGED_VALUES)).isTrue();
     }
 
     @Test
@@ -130,7 +130,7 @@ public class VPackFactoryBuilderTest extends BaseTestForVPack
                 .enable(VPackReadFeature.FAIL_ON_CUSTOM_TYPES)
                 .disable(VPackReadFeature.FAIL_ON_CUSTOM_TYPES)
                 .build();
-        assertFalse(f.isEnabled(VPackReadFeature.FAIL_ON_CUSTOM_TYPES));
+        assertThat(f.isEnabled(VPackReadFeature.FAIL_ON_CUSTOM_TYPES)).isFalse();
     }
 
     @Test
@@ -138,7 +138,7 @@ public class VPackFactoryBuilderTest extends BaseTestForVPack
         VPackFactory f = VPackFactory.builder()
                 .configure(VPackWriteFeature.WRITE_COMPACT_ARRAYS, true)
                 .build();
-        assertTrue(f.isEnabled(VPackWriteFeature.WRITE_COMPACT_ARRAYS));
+        assertThat(f.isEnabled(VPackWriteFeature.WRITE_COMPACT_ARRAYS)).isTrue();
     }
 
     @Test
@@ -146,7 +146,7 @@ public class VPackFactoryBuilderTest extends BaseTestForVPack
         VPackFactory f = VPackFactory.builder()
                 .configure(VPackWriteFeature.WRITE_MIN_INT_WIDTH, false)
                 .build();
-        assertFalse(f.isEnabled(VPackWriteFeature.WRITE_MIN_INT_WIDTH));
+        assertThat(f.isEnabled(VPackWriteFeature.WRITE_MIN_INT_WIDTH)).isFalse();
     }
 
     @Test
@@ -154,7 +154,7 @@ public class VPackFactoryBuilderTest extends BaseTestForVPack
         VPackFactory f = VPackFactory.builder()
                 .configure(VPackReadFeature.FAIL_ON_CUSTOM_TYPES, true)
                 .build();
-        assertTrue(f.isEnabled(VPackReadFeature.FAIL_ON_CUSTOM_TYPES));
+        assertThat(f.isEnabled(VPackReadFeature.FAIL_ON_CUSTOM_TYPES)).isTrue();
     }
 
     @Test
@@ -162,7 +162,7 @@ public class VPackFactoryBuilderTest extends BaseTestForVPack
         VPackFactory f = VPackFactory.builder()
                 .enable(VPackWriteFeature.LENIENT_UTF_ENCODING)
                 .build();
-        assertTrue(f.isEnabled(VPackWriteFeature.LENIENT_UTF_ENCODING));
+        assertThat(f.isEnabled(VPackWriteFeature.LENIENT_UTF_ENCODING)).isTrue();
     }
 
     @Test
@@ -170,7 +170,7 @@ public class VPackFactoryBuilderTest extends BaseTestForVPack
         VPackFactory f = VPackFactory.builder()
                 .enable(VPackReadFeature.LENIENT_UTF_ENCODING)
                 .build();
-        assertTrue(f.isEnabled(VPackReadFeature.LENIENT_UTF_ENCODING));
+        assertThat(f.isEnabled(VPackReadFeature.LENIENT_UTF_ENCODING)).isTrue();
     }
 
     // =========================================================
@@ -182,8 +182,8 @@ public class VPackFactoryBuilderTest extends BaseTestForVPack
         VPackFactory original = VPackFactory.builder()
                 .enable(VPackWriteFeature.WRITE_COMPACT_ARRAYS)
                 .build();
-        VPackFactory copy = (VPackFactory) original.copy();
-        assertTrue(copy.isEnabled(VPackWriteFeature.WRITE_COMPACT_ARRAYS));
+        VPackFactory copy = original.copy();
+        assertThat(copy.isEnabled(VPackWriteFeature.WRITE_COMPACT_ARRAYS)).isTrue();
     }
 
     @Test
@@ -191,8 +191,8 @@ public class VPackFactoryBuilderTest extends BaseTestForVPack
         VPackFactory original = VPackFactory.builder()
                 .enable(VPackReadFeature.FAIL_ON_CUSTOM_TYPES)
                 .build();
-        VPackFactory copy = (VPackFactory) original.copy();
-        assertTrue(copy.isEnabled(VPackReadFeature.FAIL_ON_CUSTOM_TYPES));
+        VPackFactory copy = original.copy();
+        assertThat(copy.isEnabled(VPackReadFeature.FAIL_ON_CUSTOM_TYPES)).isTrue();
     }
 
     @Test
@@ -201,13 +201,13 @@ public class VPackFactoryBuilderTest extends BaseTestForVPack
                 .enable(VPackWriteFeature.WRITE_COMPACT_OBJECTS)
                 .build();
         VPackFactory rebuilt = original.rebuild().build();
-        assertTrue(rebuilt.isEnabled(VPackWriteFeature.WRITE_COMPACT_OBJECTS));
+        assertThat(rebuilt.isEnabled(VPackWriteFeature.WRITE_COMPACT_OBJECTS)).isTrue();
     }
 
     @Test
     public void testSnapshot_returnsSelf() {
         VPackFactory f = new VPackFactory();
-        assertSame(f, f.snapshot());
+        assertThat(f.snapshot()).isSameAs(f);
     }
 
     // =========================================================
@@ -215,34 +215,34 @@ public class VPackFactoryBuilderTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testCreateParser_fromBytes() throws Exception {
+    public void testCreateParser_fromBytes() {
         VPackMapper m = new VPackMapper();
         byte[] vpackNull = { 0x18 }; // VPACK_NULL
         try (JsonParser p = m.createParser(vpackNull)) {
-            assertEquals(JsonToken.VALUE_NULL, p.nextToken());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_NULL);
         }
     }
 
     @Test
-    public void testCreateParser_fromInputStream() throws Exception {
+    public void testCreateParser_fromInputStream() {
         VPackMapper m = new VPackMapper();
         byte[] vpackTrue = { 0x1a }; // VPACK_TRUE
         ByteArrayInputStream in = new ByteArrayInputStream(vpackTrue);
         try (JsonParser p = m.createParser(in)) {
-            assertEquals(JsonToken.VALUE_TRUE, p.nextToken());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_TRUE);
         }
     }
 
     @Test
-    public void testCreateGenerator_toOutputStream() throws Exception {
+    public void testCreateGenerator_toOutputStream() {
         VPackMapper m = new VPackMapper();
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try (JsonGenerator g = m.createGenerator(out)) {
             g.writeBoolean(false);
         }
         byte[] bytes = out.toByteArray();
-        assertEquals(1, bytes.length);
-        assertEquals((byte) 0x19, bytes[0]); // VPACK_FALSE
+        assertThat(bytes).hasSize(1);
+        assertThat(bytes[0]).isEqualTo((byte) 0x19); // VPACK_FALSE
     }
 
     // =========================================================
@@ -252,44 +252,44 @@ public class VPackFactoryBuilderTest extends BaseTestForVPack
     @Test
     public void testWriteFeature_collectDefaults() {
         int defaults = VPackWriteFeature.collectDefaults();
-        assertTrue(VPackWriteFeature.WRITE_OBJECT_KEYS_SORTED.enabledIn(defaults));
-        assertTrue(VPackWriteFeature.WRITE_MIN_INT_WIDTH.enabledIn(defaults));
-        assertFalse(VPackWriteFeature.WRITE_COMPACT_ARRAYS.enabledIn(defaults));
-        assertFalse(VPackWriteFeature.WRITE_COMPACT_OBJECTS.enabledIn(defaults));
+        assertThat(VPackWriteFeature.WRITE_OBJECT_KEYS_SORTED.enabledIn(defaults)).isFalse();
+        assertThat(VPackWriteFeature.WRITE_MIN_INT_WIDTH.enabledIn(defaults)).isTrue();
+        assertThat(VPackWriteFeature.WRITE_COMPACT_ARRAYS.enabledIn(defaults)).isTrue();
+        assertThat(VPackWriteFeature.WRITE_COMPACT_OBJECTS.enabledIn(defaults)).isTrue();
     }
 
     @Test
     public void testReadFeature_collectDefaults() {
         int defaults = VPackReadFeature.collectDefaults();
-        assertFalse(VPackReadFeature.FAIL_ON_CUSTOM_TYPES.enabledIn(defaults));
-        assertFalse(VPackReadFeature.FAIL_ON_TAGGED_VALUES.enabledIn(defaults));
+        assertThat(VPackReadFeature.FAIL_ON_CUSTOM_TYPES.enabledIn(defaults)).isFalse();
+        assertThat(VPackReadFeature.FAIL_ON_TAGGED_VALUES.enabledIn(defaults)).isFalse();
     }
 
     @Test
     public void testWriteFeature_enabledByDefault() {
         for (VPackWriteFeature f : VPackWriteFeature.values()) {
-            assertEquals(f.enabledByDefault(), f.enabledIn(VPackWriteFeature.collectDefaults()));
+            assertThat(f.enabledIn(VPackWriteFeature.collectDefaults())).isEqualTo(f.enabledByDefault());
         }
     }
 
     @Test
     public void testReadFeature_enabledByDefault() {
         for (VPackReadFeature f : VPackReadFeature.values()) {
-            assertEquals(f.enabledByDefault(), f.enabledIn(VPackReadFeature.collectDefaults()));
+            assertThat(f.enabledIn(VPackReadFeature.collectDefaults())).isEqualTo(f.enabledByDefault());
         }
     }
 
     @Test
     public void testWriteFeature_maskNotZero() {
         for (VPackWriteFeature f : VPackWriteFeature.values()) {
-            assertTrue(f.getMask() != 0);
+            assertThat(f.getMask()).isNotZero();
         }
     }
 
     @Test
     public void testReadFeature_maskNotZero() {
         for (VPackReadFeature f : VPackReadFeature.values()) {
-            assertTrue(f.getMask() != 0);
+            assertThat(f.getMask()).isNotZero();
         }
     }
 
@@ -302,7 +302,7 @@ public class VPackFactoryBuilderTest extends BaseTestForVPack
         VPackMapper m = VPackMapper.builder()
                 .enable(VPackWriteFeature.WRITE_COMPACT_ARRAYS)
                 .build();
-        assertNotNull(m);
+        assertThat(m).isNotNull();
     }
 
     @Test
@@ -310,6 +310,6 @@ public class VPackFactoryBuilderTest extends BaseTestForVPack
         VPackMapper m = VPackMapper.builder()
                 .enable(VPackReadFeature.FAIL_ON_CUSTOM_TYPES)
                 .build();
-        assertNotNull(m);
+        assertThat(m).isNotNull();
     }
 }

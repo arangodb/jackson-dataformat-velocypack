@@ -11,7 +11,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.StringWriter;
 import java.math.BigDecimal;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.*;
 
 /**
  * Tests for VPackParser buffer-based parsing paths (ParseFrame.parseValueInBuf):
@@ -32,16 +32,16 @@ public class VPackParserBufTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testObjectWithLongStringValue() throws Exception {
+    public void testObjectWithLongStringValue() {
         String longVal = "v".repeat(200);
         byte[] data = vpackBytes("{\"key\":\"" + longVal + "\"}");
         try (JsonParser p = vpackParser(data)) {
-            assertEquals(JsonToken.START_OBJECT, p.nextToken());
-            assertEquals(JsonToken.PROPERTY_NAME, p.nextToken());
-            assertEquals("key", p.getString());
-            assertEquals(JsonToken.VALUE_STRING, p.nextToken());
-            assertEquals(longVal, p.getString());
-            assertEquals(JsonToken.END_OBJECT, p.nextToken());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.START_OBJECT);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.PROPERTY_NAME);
+            assertThat(p.getString()).isEqualTo("key");
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_STRING);
+            assertThat(p.getString()).isEqualTo(longVal);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.END_OBJECT);
         }
     }
 
@@ -50,17 +50,17 @@ public class VPackParserBufTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testObjectWithLongStringKey() throws Exception {
+    public void testObjectWithLongStringKey() {
         // Long key > 126 chars
         String longKey = "k".repeat(150);
         byte[] data = vpackBytes("{\"" + longKey + "\":42}");
         try (JsonParser p = vpackParser(data)) {
-            assertEquals(JsonToken.START_OBJECT, p.nextToken());
-            assertEquals(JsonToken.PROPERTY_NAME, p.nextToken());
-            assertEquals(longKey, p.getString());
-            assertEquals(JsonToken.VALUE_NUMBER_INT, p.nextToken());
-            assertEquals(42, p.getIntValue());
-            assertEquals(JsonToken.END_OBJECT, p.nextToken());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.START_OBJECT);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.PROPERTY_NAME);
+            assertThat(p.getString()).isEqualTo(longKey);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_NUMBER_INT);
+            assertThat(p.getIntValue()).isEqualTo(42);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.END_OBJECT);
         }
     }
 
@@ -69,7 +69,7 @@ public class VPackParserBufTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testObjectWithBinaryValue() throws Exception {
+    public void testObjectWithBinaryValue() {
         // Manually construct an object with a binary value
         // Object: {"data": <binary bytes: 0x11 0x22 0x33>}
         // We use VPackGenerator to write binary inside object
@@ -82,13 +82,13 @@ public class VPackParserBufTest extends BaseTestForVPack
         }
         byte[] data = out.toByteArray();
         try (JsonParser p = vpackParser(data)) {
-            assertEquals(JsonToken.START_OBJECT, p.nextToken());
-            assertEquals(JsonToken.PROPERTY_NAME, p.nextToken());
-            assertEquals("data", p.getString());
-            assertEquals(JsonToken.VALUE_EMBEDDED_OBJECT, p.nextToken());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.START_OBJECT);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.PROPERTY_NAME);
+            assertThat(p.getString()).isEqualTo("data");
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_EMBEDDED_OBJECT);
             byte[] bin = p.getBinaryValue();
-            assertArrayEquals(new byte[]{0x11, 0x22, 0x33}, bin);
-            assertEquals(JsonToken.END_OBJECT, p.nextToken());
+            assertThat(bin).containsExactly(new byte[]{0x11, 0x22, 0x33});
+            assertThat(p.nextToken()).isEqualTo(JsonToken.END_OBJECT);
         }
     }
 
@@ -97,7 +97,7 @@ public class VPackParserBufTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testObjectWithBigDecimalValue() throws Exception {
+    public void testObjectWithBigDecimalValue() {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try (JsonGenerator g = vpackGenerator(out)) {
             g.writeStartObject();
@@ -109,16 +109,16 @@ public class VPackParserBufTest extends BaseTestForVPack
         }
         byte[] data = out.toByteArray();
         try (JsonParser p = vpackParser(data)) {
-            assertEquals(JsonToken.START_OBJECT, p.nextToken());
-            assertEquals(JsonToken.PROPERTY_NAME, p.nextToken());
-            assertEquals("price", p.getString());
-            assertEquals(JsonToken.VALUE_NUMBER_FLOAT, p.nextToken());
-            assertEquals(0, new BigDecimal("99.99").compareTo(p.getDecimalValue()));
-            assertEquals(JsonToken.PROPERTY_NAME, p.nextToken());
-            assertEquals("tax", p.getString());
-            assertEquals(JsonToken.VALUE_NUMBER_FLOAT, p.nextToken());
-            assertEquals(0, new BigDecimal("-0.01").compareTo(p.getDecimalValue()));
-            assertEquals(JsonToken.END_OBJECT, p.nextToken());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.START_OBJECT);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.PROPERTY_NAME);
+            assertThat(p.getString()).isEqualTo("price");
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_NUMBER_FLOAT);
+            assertThat(p.getDecimalValue()).isEqualTo("99.99");
+            assertThat(p.nextToken()).isEqualTo(JsonToken.PROPERTY_NAME);
+            assertThat(p.getString()).isEqualTo("tax");
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_NUMBER_FLOAT);
+            assertThat(p.getDecimalValue()).isEqualTo("-0.01");
+            assertThat(p.nextToken()).isEqualTo(JsonToken.END_OBJECT);
         }
     }
 
@@ -127,7 +127,7 @@ public class VPackParserBufTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testObjectWithTaggedValue_1byte() throws Exception {
+    public void testObjectWithTaggedValue_1byte() {
         // Manually build: object with tagged value as value
         // Key: "x" (0x41 + 'x'), Value: tagged (0xee, tag=7, then null 0x18)
         // Use a single-pair sorted object (0x0b = sorted 1-byte)
@@ -147,12 +147,12 @@ public class VPackParserBufTest extends BaseTestForVPack
             3               // index: offset of pair[0] from start = 3 (absolute from A)
         };
         try (VPackParser p = (VPackParser) new VPackMapper().createParser(obj)) {
-            assertEquals(JsonToken.START_OBJECT, p.nextToken());
-            assertEquals(JsonToken.PROPERTY_NAME, p.nextToken());
-            assertEquals("x", p.getString());
-            assertEquals(JsonToken.VALUE_NULL, p.nextToken());
-            assertEquals(7L, p.getLastTagNumber());
-            assertEquals(JsonToken.END_OBJECT, p.nextToken());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.START_OBJECT);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.PROPERTY_NAME);
+            assertThat(p.getString()).isEqualTo("x");
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_NULL);
+            assertThat(p.getLastTagNumber()).isEqualTo(7L);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.END_OBJECT);
         }
     }
 
@@ -161,21 +161,21 @@ public class VPackParserBufTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testObjectWithNestedArray() throws Exception {
+    public void testObjectWithNestedArray() {
         byte[] data = vpackBytes("{\"nums\":[1,2,3],\"strs\":[\"a\",\"b\"]}");
         try (JsonParser p = vpackParser(data)) {
-            assertEquals(JsonToken.START_OBJECT, p.nextToken());
-            assertEquals(JsonToken.PROPERTY_NAME, p.nextToken());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.START_OBJECT);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.PROPERTY_NAME);
             String key1 = p.getString();
-            assertEquals(JsonToken.START_ARRAY, p.nextToken());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.START_ARRAY);
             p.nextToken(); p.nextToken(); p.nextToken(); // 1,2,3
-            assertEquals(JsonToken.END_ARRAY, p.nextToken());
-            assertEquals(JsonToken.PROPERTY_NAME, p.nextToken());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.END_ARRAY);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.PROPERTY_NAME);
             String key2 = p.getString();
-            assertEquals(JsonToken.START_ARRAY, p.nextToken());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.START_ARRAY);
             p.nextToken(); p.nextToken(); // "a","b"
-            assertEquals(JsonToken.END_ARRAY, p.nextToken());
-            assertEquals(JsonToken.END_OBJECT, p.nextToken());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.END_ARRAY);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.END_OBJECT);
         }
     }
 
@@ -184,19 +184,19 @@ public class VPackParserBufTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testArrayWithNestedObjects() throws Exception {
+    public void testArrayWithNestedObjects() {
         byte[] data = vpackBytes("[{\"a\":1},{\"b\":2}]");
         try (JsonParser p = vpackParser(data)) {
-            assertEquals(JsonToken.START_ARRAY, p.nextToken());
-            assertEquals(JsonToken.START_OBJECT, p.nextToken());
-            assertEquals(JsonToken.PROPERTY_NAME, p.nextToken());
-            assertEquals(JsonToken.VALUE_NUMBER_INT, p.nextToken());
-            assertEquals(JsonToken.END_OBJECT, p.nextToken());
-            assertEquals(JsonToken.START_OBJECT, p.nextToken());
-            assertEquals(JsonToken.PROPERTY_NAME, p.nextToken());
-            assertEquals(JsonToken.VALUE_NUMBER_INT, p.nextToken());
-            assertEquals(JsonToken.END_OBJECT, p.nextToken());
-            assertEquals(JsonToken.END_ARRAY, p.nextToken());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.START_ARRAY);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.START_OBJECT);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.PROPERTY_NAME);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_NUMBER_INT);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.END_OBJECT);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.START_OBJECT);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.PROPERTY_NAME);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_NUMBER_INT);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.END_OBJECT);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.END_ARRAY);
         }
     }
 
@@ -205,7 +205,7 @@ public class VPackParserBufTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testArrayWithCompactSubArray() throws Exception {
+    public void testArrayWithCompactSubArray() {
         VPackMapper mapper = VPackMapper.builder()
                 .enable(VPackWriteFeature.WRITE_COMPACT_ARRAYS)
                 .build();
@@ -221,16 +221,16 @@ public class VPackParserBufTest extends BaseTestForVPack
         }
         byte[] data = out.toByteArray();
         try (JsonParser p = new VPackMapper().createParser(data)) {
-            assertEquals(JsonToken.START_ARRAY, p.nextToken());
-            assertEquals(JsonToken.START_ARRAY, p.nextToken());
-            assertEquals(JsonToken.VALUE_NUMBER_INT, p.nextToken());
-            assertEquals(10, p.getIntValue());
-            assertEquals(JsonToken.VALUE_NUMBER_INT, p.nextToken());
-            assertEquals(20, p.getIntValue());
-            assertEquals(JsonToken.END_ARRAY, p.nextToken());
-            assertEquals(JsonToken.VALUE_NUMBER_INT, p.nextToken());
-            assertEquals(99, p.getIntValue());
-            assertEquals(JsonToken.END_ARRAY, p.nextToken());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.START_ARRAY);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.START_ARRAY);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_NUMBER_INT);
+            assertThat(p.getIntValue()).isEqualTo(10);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_NUMBER_INT);
+            assertThat(p.getIntValue()).isEqualTo(20);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.END_ARRAY);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_NUMBER_INT);
+            assertThat(p.getIntValue()).isEqualTo(99);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.END_ARRAY);
         }
     }
 
@@ -239,7 +239,7 @@ public class VPackParserBufTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testObjectWithCompactSubObject() throws Exception {
+    public void testObjectWithCompactSubObject() {
         VPackMapper mapper = VPackMapper.builder()
                 .enable(VPackWriteFeature.WRITE_COMPACT_OBJECTS)
                 .build();
@@ -255,16 +255,16 @@ public class VPackParserBufTest extends BaseTestForVPack
         }
         byte[] data = out.toByteArray();
         try (JsonParser p = new VPackMapper().createParser(data)) {
-            assertEquals(JsonToken.START_OBJECT, p.nextToken());
-            assertEquals(JsonToken.PROPERTY_NAME, p.nextToken());
-            assertEquals("inner", p.getString());
-            assertEquals(JsonToken.START_OBJECT, p.nextToken());
-            assertEquals(JsonToken.PROPERTY_NAME, p.nextToken());
-            assertEquals("x", p.getString());
-            assertEquals(JsonToken.VALUE_NUMBER_INT, p.nextToken());
-            assertEquals(5, p.getIntValue());
-            assertEquals(JsonToken.END_OBJECT, p.nextToken());
-            assertEquals(JsonToken.END_OBJECT, p.nextToken());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.START_OBJECT);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.PROPERTY_NAME);
+            assertThat(p.getString()).isEqualTo("inner");
+            assertThat(p.nextToken()).isEqualTo(JsonToken.START_OBJECT);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.PROPERTY_NAME);
+            assertThat(p.getString()).isEqualTo("x");
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_NUMBER_INT);
+            assertThat(p.getIntValue()).isEqualTo(5);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.END_OBJECT);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.END_OBJECT);
         }
     }
 
@@ -273,7 +273,7 @@ public class VPackParserBufTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testObjectWithIntegerKey() throws Exception {
+    public void testObjectWithIntegerKey() {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try (JsonGenerator g = vpackGenerator(out)) {
             g.writeStartObject();
@@ -283,18 +283,18 @@ public class VPackParserBufTest extends BaseTestForVPack
         }
         byte[] data = out.toByteArray();
         try (JsonParser p = vpackParser(data)) {
-            assertEquals(JsonToken.START_OBJECT, p.nextToken());
-            assertEquals(JsonToken.PROPERTY_NAME, p.nextToken());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.START_OBJECT);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.PROPERTY_NAME);
             // Integer keys parsed as strings
-            assertNotNull(p.getString());
-            assertEquals(JsonToken.VALUE_NUMBER_INT, p.nextToken());
-            assertEquals(42, p.getIntValue());
-            assertEquals(JsonToken.END_OBJECT, p.nextToken());
+            assertThat(p.getString()).isNotNull();
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_NUMBER_INT);
+            assertThat(p.getIntValue()).isEqualTo(42);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.END_OBJECT);
         }
     }
 
     @Test
-    public void testObjectWithLargeIntegerKey() throws Exception {
+    public void testObjectWithLargeIntegerKey() {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try (JsonGenerator g = vpackGenerator(out)) {
             g.writeStartObject();
@@ -304,12 +304,12 @@ public class VPackParserBufTest extends BaseTestForVPack
         }
         byte[] data = out.toByteArray();
         try (JsonParser p = vpackParser(data)) {
-            assertEquals(JsonToken.START_OBJECT, p.nextToken());
-            assertEquals(JsonToken.PROPERTY_NAME, p.nextToken());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.START_OBJECT);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.PROPERTY_NAME);
             // The key should be parseable as a string representation of 1000
-            assertEquals("1000", p.getString());
-            assertEquals(JsonToken.VALUE_NUMBER_INT, p.nextToken());
-            assertEquals(JsonToken.END_OBJECT, p.nextToken());
+            assertThat(p.getString()).isEqualTo("1000");
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_NUMBER_INT);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.END_OBJECT);
         }
     }
 
@@ -318,25 +318,25 @@ public class VPackParserBufTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testGetString_writerInterface() throws Exception {
+    public void testGetString_writerInterface() {
         byte[] data = vpackBytes("\"hello writer\"");
         try (VPackParser p = (VPackParser) vpackParser(data)) {
-            assertEquals(JsonToken.VALUE_STRING, p.nextToken());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_STRING);
             StringWriter sw = new StringWriter();
             int len = p.getString(sw);
-            assertEquals(12, len);
-            assertEquals("hello writer", sw.toString());
+            assertThat(len).isEqualTo(12);
+            assertThat(sw.toString()).isEqualTo("hello writer");
         }
     }
 
     @Test
-    public void testGetString_writer_nullString() throws Exception {
+    public void testGetString_writer_nullString() {
         byte[] data = vpackBytes("null");
         try (VPackParser p = (VPackParser) vpackParser(data)) {
-            assertEquals(JsonToken.VALUE_NULL, p.nextToken());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_NULL);
             StringWriter sw = new StringWriter();
             int len = p.getString(sw);
-            assertEquals(0, len);
+            assertThat(len).isEqualTo(0);
         }
     }
 
@@ -345,42 +345,42 @@ public class VPackParserBufTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testGetValueAsString_fromString() throws Exception {
+    public void testGetValueAsString_fromString() {
         byte[] data = vpackBytes("\"test\"");
         try (JsonParser p = vpackParser(data)) {
-            assertEquals(JsonToken.VALUE_STRING, p.nextToken());
-            assertEquals("test", p.getValueAsString());
-            assertEquals("test", p.getValueAsString("default"));
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_STRING);
+            assertThat(p.getValueAsString()).isEqualTo("test");
+            assertThat(p.getValueAsString("default")).isEqualTo("test");
         }
     }
 
     @Test
-    public void testGetValueAsString_fromNull() throws Exception {
+    public void testGetValueAsString_fromNull() {
         byte[] data = vpackBytes("null");
         try (JsonParser p = vpackParser(data)) {
-            assertEquals(JsonToken.VALUE_NULL, p.nextToken());
-            assertNull(p.getValueAsString());
-            assertEquals("fallback", p.getValueAsString("fallback"));
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_NULL);
+            assertThat(p.getValueAsString()).isNull();
+            assertThat(p.getValueAsString("fallback")).isEqualTo("fallback");
         }
     }
 
     @Test
-    public void testGetValueAsString_fromInt() throws Exception {
+    public void testGetValueAsString_fromInt() {
         byte[] data = vpackBytes("42");
         try (JsonParser p = vpackParser(data)) {
-            assertEquals(JsonToken.VALUE_NUMBER_INT, p.nextToken());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_NUMBER_INT);
             // non-string, non-null → super.getValueAsString(default)
-            assertNotNull(p.getValueAsString());
+            assertThat(p.getValueAsString()).isNotNull();
         }
     }
 
     @Test
-    public void testGetValueAsString_propertyName() throws Exception {
+    public void testGetValueAsString_propertyName() {
         byte[] data = vpackBytes("{\"myKey\":1}");
         try (JsonParser p = vpackParser(data)) {
-            assertEquals(JsonToken.START_OBJECT, p.nextToken());
-            assertEquals(JsonToken.PROPERTY_NAME, p.nextToken());
-            assertEquals("myKey", p.getValueAsString());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.START_OBJECT);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.PROPERTY_NAME);
+            assertThat(p.getValueAsString()).isEqualTo("myKey");
         }
     }
 
@@ -389,29 +389,29 @@ public class VPackParserBufTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testReadBinaryValue_outputStream() throws Exception {
+    public void testReadBinaryValue_outputStream() {
         byte[] payload = {0x10, 0x20, 0x30, 0x40};
         ByteArrayOutputStream genOut = new ByteArrayOutputStream();
         try (JsonGenerator g = vpackGenerator(genOut)) {
             g.writeBinary(payload);
         }
         try (VPackParser p = (VPackParser) vpackParser(genOut.toByteArray())) {
-            assertEquals(JsonToken.VALUE_EMBEDDED_OBJECT, p.nextToken());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_EMBEDDED_OBJECT);
             ByteArrayOutputStream dest = new ByteArrayOutputStream();
             int n = p.readBinaryValue(dest);
-            assertEquals(4, n);
-            assertArrayEquals(payload, dest.toByteArray());
+            assertThat(n).isEqualTo(4);
+            assertThat(dest.toByteArray()).isEqualTo(payload);
         }
     }
 
     @Test
-    public void testReadBinaryValue_fromNonBinary_returnsZero() throws Exception {
+    public void testReadBinaryValue_fromNonBinary_returnsZero() {
         byte[] data = vpackBytes("null");
         try (VPackParser p = (VPackParser) vpackParser(data)) {
-            assertEquals(JsonToken.VALUE_NULL, p.nextToken());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_NULL);
             ByteArrayOutputStream dest = new ByteArrayOutputStream();
             int n = p.readBinaryValue(dest);
-            assertEquals(0, n);
+            assertThat(n).isEqualTo(0);
         }
     }
 
@@ -420,13 +420,13 @@ public class VPackParserBufTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testGetBinaryValue_fromBase64String() throws Exception {
+    public void testGetBinaryValue_fromBase64String() {
         // "AQID" is base64 for bytes {0x01, 0x02, 0x03}
         byte[] data = vpackBytes("\"AQID\"");
         try (JsonParser p = vpackParser(data)) {
-            assertEquals(JsonToken.VALUE_STRING, p.nextToken());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_STRING);
             byte[] decoded = p.getBinaryValue();
-            assertArrayEquals(new byte[]{0x01, 0x02, 0x03}, decoded);
+            assertThat(decoded).containsExactly(new byte[]{0x01, 0x02, 0x03});
         }
     }
 
@@ -435,7 +435,7 @@ public class VPackParserBufTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testCustomTypeLEN2_inArray() throws Exception {
+    public void testCustomTypeLEN2_inArray() {
         // Build an array containing a custom-type-LEN2 value (0xf7)
         // Custom LEN2: type=0xf7, 2-byte LE length, then payload
         // Payload = 3 bytes: 0xAA, 0xBB, 0xCC
@@ -448,20 +448,20 @@ public class VPackParserBufTest extends BaseTestForVPack
             (byte)0xf7, 3, 0, (byte)0xAA, (byte)0xBB, (byte)0xCC // LEN2 custom: len=3
         };
         try (VPackParser p = (VPackParser) new VPackMapper().createParser(arr)) {
-            assertEquals(JsonToken.START_ARRAY, p.nextToken());
-            assertEquals(JsonToken.VALUE_EMBEDDED_OBJECT, p.nextToken());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.START_ARRAY);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_EMBEDDED_OBJECT);
             Object embedded = p.getEmbeddedObject();
-            assertNotNull(embedded);
-            assertTrue(embedded instanceof VPackCustomValue);
+            assertThat(embedded).isNotNull();
+            assertThat(embedded).isInstanceOf(VPackCustomValue.class);
             VPackCustomValue cv = (VPackCustomValue) embedded;
-            assertEquals(0xf7, cv.getTypeByte() & 0xFF);
-            assertEquals(3, cv.getPayload().length);
-            assertEquals(JsonToken.END_ARRAY, p.nextToken());
+            assertThat(cv.getTypeByte() & 0xFF).isEqualTo(0xf7);
+            assertThat(cv.getPayload()).hasSize(3);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.END_ARRAY);
         }
     }
 
     @Test
-    public void testCustomTypeLEN4_inArray() throws Exception {
+    public void testCustomTypeLEN4_inArray() {
         // Custom LEN4: type=0xfa, 4-byte LE length, then payload
         // Payload = 2 bytes: 0x11, 0x22
         // [0xfa, 0x02, 0x00, 0x00, 0x00, 0x11, 0x22] = 7 bytes
@@ -472,19 +472,19 @@ public class VPackParserBufTest extends BaseTestForVPack
             (byte)0xfa, 2, 0, 0, 0, 0x11, 0x22   // LEN4 custom: len=2
         };
         try (VPackParser p = (VPackParser) new VPackMapper().createParser(arr)) {
-            assertEquals(JsonToken.START_ARRAY, p.nextToken());
-            assertEquals(JsonToken.VALUE_EMBEDDED_OBJECT, p.nextToken());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.START_ARRAY);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_EMBEDDED_OBJECT);
             Object embedded = p.getEmbeddedObject();
-            assertTrue(embedded instanceof VPackCustomValue);
+            assertThat(embedded).isInstanceOf(VPackCustomValue.class);
             VPackCustomValue cv = (VPackCustomValue) embedded;
-            assertEquals(0xfa, cv.getTypeByte() & 0xFF);
-            assertEquals(2, cv.getPayload().length);
-            assertEquals(JsonToken.END_ARRAY, p.nextToken());
+            assertThat(cv.getTypeByte() & 0xFF).isEqualTo(0xfa);
+            assertThat(cv.getPayload()).hasSize(2);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.END_ARRAY);
         }
     }
 
     @Test
-    public void testCustomTypeLEN8_inArray() throws Exception {
+    public void testCustomTypeLEN8_inArray() {
         // Custom LEN8: type=0xfd, 8-byte LE length, then payload
         // Payload = 2 bytes: 0x55, 0x66
         // [0xfd, 2, 0, 0, 0, 0, 0, 0, 0, 0x55, 0x66] = 11 bytes
@@ -499,13 +499,13 @@ public class VPackParserBufTest extends BaseTestForVPack
         arr[11] = (byte)0x66;
         // arr[12] = 0 (padding)
         try (VPackParser p = (VPackParser) new VPackMapper().createParser(arr)) {
-            assertEquals(JsonToken.START_ARRAY, p.nextToken());
-            assertEquals(JsonToken.VALUE_EMBEDDED_OBJECT, p.nextToken());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.START_ARRAY);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_EMBEDDED_OBJECT);
             Object embedded = p.getEmbeddedObject();
-            assertTrue(embedded instanceof VPackCustomValue);
+            assertThat(embedded).isInstanceOf(VPackCustomValue.class);
             VPackCustomValue cv = (VPackCustomValue) embedded;
-            assertEquals(0xfd, cv.getTypeByte() & 0xFF);
-            assertEquals(JsonToken.END_ARRAY, p.nextToken());
+            assertThat(cv.getTypeByte() & 0xFF).isEqualTo(0xfd);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.END_ARRAY);
         }
     }
 
@@ -514,19 +514,20 @@ public class VPackParserBufTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testCustomType_inArray_failOnCustomTypes() throws Exception {
+    public void testCustomType_inArray_failOnCustomTypes() {
         VPackMapper failMapper = VPackMapper.builder()
                 .enable(VPackReadFeature.FAIL_ON_CUSTOM_TYPES)
                 .build();
         // Simple array with custom-1B value: [0x02, 5, 0xf0, 0xAB, 0x00]
         // Wait — custom 1B: type=0xf0, payload=1byte. Total=2. Array: type+byteLen+item = 1+1+2=4
         byte[] arr = {0x02, 4, (byte)0xf0, (byte)0xAB};
-        assertThrows(StreamReadException.class, () -> {
+        assertThatThrownBy(() -> {
             try (JsonParser p = failMapper.createParser(arr)) {
                 p.nextToken(); // START_ARRAY
                 p.nextToken(); // Should throw
             }
-        });
+        })
+                .isInstanceOf(StreamReadException.class);
     }
 
     // =========================================================
@@ -534,23 +535,24 @@ public class VPackParserBufTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testTaggedValue_inArray_failOnTagged() throws Exception {
+    public void testTaggedValue_inArray_failOnTagged() {
         VPackMapper failMapper = VPackMapper.builder()
                 .enable(VPackReadFeature.FAIL_ON_TAGGED_VALUES)
                 .build();
         // Array with tagged null: [0x02, byteLen, 0xee, tag, 0x18]
         // byteLen = 1+1+3 = 5
         byte[] arr = {0x02, 5, (byte)0xee, 10, (byte)0x18};
-        assertThrows(StreamReadException.class, () -> {
+        assertThatThrownBy(() -> {
             try (JsonParser p = failMapper.createParser(arr)) {
                 p.nextToken(); // START_ARRAY
                 p.nextToken(); // Should throw
             }
-        });
+        })
+                .isInstanceOf(StreamReadException.class);
     }
 
     @Test
-    public void testTaggedValue_8byte_inArray() throws Exception {
+    public void testTaggedValue_8byte_inArray() {
         // 8-byte tag inside array: [0x02, byteLen, 0xef, tag8bytes(LE), 0x18]
         // tag value bytes: 0xef + 8-byte LE tag + 1-byte null = 10 bytes
         // no-index array: byteLen = 1(type) + 1(byteLen) + 10(items) = 12
@@ -564,10 +566,10 @@ public class VPackParserBufTest extends BaseTestForVPack
         // arr[4..9] = 0 → tag number = 42
         arr[11] = (byte)0x18;  // null value follows at index 11 (pos 9 in remaining)
         try (VPackParser p = (VPackParser) new VPackMapper().createParser(arr)) {
-            assertEquals(JsonToken.START_ARRAY, p.nextToken());
-            assertEquals(JsonToken.VALUE_NULL, p.nextToken());
-            assertEquals(42L, p.getLastTagNumber());
-            assertEquals(JsonToken.END_ARRAY, p.nextToken());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.START_ARRAY);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_NULL);
+            assertThat(p.getLastTagNumber()).isEqualTo(42L);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.END_ARRAY);
         }
     }
 
@@ -576,17 +578,17 @@ public class VPackParserBufTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testMinKey_MaxKey_inArray() throws Exception {
+    public void testMinKey_MaxKey_inArray() {
         // Manually construct array with min/max key
         // [0x02, 4, 0x1e, 0x1f] → array with two 1-byte values
         byte[] arr = {0x02, 4, (byte)0x1e, (byte)0x1f};
         try (JsonParser p = vpackParser(arr)) {
-            assertEquals(JsonToken.START_ARRAY, p.nextToken());
-            assertEquals(JsonToken.VALUE_EMBEDDED_OBJECT, p.nextToken());
-            assertEquals("minKey", p.getEmbeddedObject());
-            assertEquals(JsonToken.VALUE_EMBEDDED_OBJECT, p.nextToken());
-            assertEquals("maxKey", p.getEmbeddedObject());
-            assertEquals(JsonToken.END_ARRAY, p.nextToken());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.START_ARRAY);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_EMBEDDED_OBJECT);
+            assertThat(p.getEmbeddedObject()).isEqualTo("minKey");
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_EMBEDDED_OBJECT);
+            assertThat(p.getEmbeddedObject()).isEqualTo("maxKey");
+            assertThat(p.nextToken()).isEqualTo(JsonToken.END_ARRAY);
         }
     }
 
@@ -595,28 +597,28 @@ public class VPackParserBufTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testObjectWithEmptyArrayValue() throws Exception {
+    public void testObjectWithEmptyArrayValue() {
         byte[] data = vpackBytes("{\"list\":[]}");
         try (JsonParser p = vpackParser(data)) {
-            assertEquals(JsonToken.START_OBJECT, p.nextToken());
-            assertEquals(JsonToken.PROPERTY_NAME, p.nextToken());
-            assertEquals("list", p.getString());
-            assertEquals(JsonToken.START_ARRAY, p.nextToken());
-            assertEquals(JsonToken.END_ARRAY, p.nextToken());
-            assertEquals(JsonToken.END_OBJECT, p.nextToken());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.START_OBJECT);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.PROPERTY_NAME);
+            assertThat(p.getString()).isEqualTo("list");
+            assertThat(p.nextToken()).isEqualTo(JsonToken.START_ARRAY);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.END_ARRAY);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.END_OBJECT);
         }
     }
 
     @Test
-    public void testObjectWithEmptyObjectValue() throws Exception {
+    public void testObjectWithEmptyObjectValue() {
         byte[] data = vpackBytes("{\"nested\":{}}");
         try (JsonParser p = vpackParser(data)) {
-            assertEquals(JsonToken.START_OBJECT, p.nextToken());
-            assertEquals(JsonToken.PROPERTY_NAME, p.nextToken());
-            assertEquals("nested", p.getString());
-            assertEquals(JsonToken.START_OBJECT, p.nextToken());
-            assertEquals(JsonToken.END_OBJECT, p.nextToken());
-            assertEquals(JsonToken.END_OBJECT, p.nextToken());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.START_OBJECT);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.PROPERTY_NAME);
+            assertThat(p.getString()).isEqualTo("nested");
+            assertThat(p.nextToken()).isEqualTo(JsonToken.START_OBJECT);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.END_OBJECT);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.END_OBJECT);
         }
     }
 
@@ -625,30 +627,30 @@ public class VPackParserBufTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testHasStringCharacters_trueForString() throws Exception {
+    public void testHasStringCharacters_trueForString() {
         byte[] data = vpackBytes("\"hello\"");
         try (VPackParser p = (VPackParser) vpackParser(data)) {
-            assertEquals(JsonToken.VALUE_STRING, p.nextToken());
-            assertTrue(p.hasStringCharacters());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_STRING);
+            assertThat(p.hasStringCharacters()).isTrue();
         }
     }
 
     @Test
-    public void testHasStringCharacters_trueForPropertyName() throws Exception {
+    public void testHasStringCharacters_trueForPropertyName() {
         byte[] data = vpackBytes("{\"myProp\":1}");
         try (VPackParser p = (VPackParser) vpackParser(data)) {
-            assertEquals(JsonToken.START_OBJECT, p.nextToken());
-            assertEquals(JsonToken.PROPERTY_NAME, p.nextToken());
-            assertTrue(p.hasStringCharacters());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.START_OBJECT);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.PROPERTY_NAME);
+            assertThat(p.hasStringCharacters()).isTrue();
         }
     }
 
     @Test
-    public void testHasStringCharacters_falseForNull() throws Exception {
+    public void testHasStringCharacters_falseForNull() {
         byte[] data = vpackBytes("null");
         try (VPackParser p = (VPackParser) vpackParser(data)) {
-            assertEquals(JsonToken.VALUE_NULL, p.nextToken());
-            assertFalse(p.hasStringCharacters());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_NULL);
+            assertThat(p.hasStringCharacters()).isFalse();
         }
     }
 
@@ -657,26 +659,26 @@ public class VPackParserBufTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testGetEmbeddedObject_forBinary() throws Exception {
+    public void testGetEmbeddedObject_forBinary() {
         byte[] payload = {1, 2, 3};
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try (JsonGenerator g = vpackGenerator(out)) {
             g.writeBinary(payload);
         }
         try (VPackParser p = (VPackParser) vpackParser(out.toByteArray())) {
-            assertEquals(JsonToken.VALUE_EMBEDDED_OBJECT, p.nextToken());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_EMBEDDED_OBJECT);
             // getEmbeddedObject returns _binaryValue when no embedded object
             byte[] embedded = (byte[]) p.getEmbeddedObject();
-            assertArrayEquals(payload, embedded);
+            assertThat(embedded).isEqualTo(payload);
         }
     }
 
     @Test
-    public void testGetEmbeddedObject_forNonEmbedded_returnsNull() throws Exception {
+    public void testGetEmbeddedObject_forNonEmbedded_returnsNull() {
         byte[] data = vpackBytes("42");
         try (VPackParser p = (VPackParser) vpackParser(data)) {
-            assertEquals(JsonToken.VALUE_NUMBER_INT, p.nextToken());
-            assertNull(p.getEmbeddedObject());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_NUMBER_INT);
+            assertThat(p.getEmbeddedObject()).isNull();
         }
     }
 
@@ -685,10 +687,10 @@ public class VPackParserBufTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testGenerator_streamWriteCapabilities() throws Exception {
+    public void testGenerator_streamWriteCapabilities() {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try (JsonGenerator g = vpackGenerator(out)) {
-            assertNotNull(g.streamWriteCapabilities());
+            assertThat(g.streamWriteCapabilities()).isNotNull();
         }
     }
 
@@ -697,15 +699,15 @@ public class VPackParserBufTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testObjectWithDoubleValue() throws Exception {
+    public void testObjectWithDoubleValue() {
         byte[] data = vpackBytes("{\"pi\":3.14159}");
         try (JsonParser p = vpackParser(data)) {
-            assertEquals(JsonToken.START_OBJECT, p.nextToken());
-            assertEquals(JsonToken.PROPERTY_NAME, p.nextToken());
-            assertEquals("pi", p.getString());
-            assertEquals(JsonToken.VALUE_NUMBER_FLOAT, p.nextToken());
-            assertEquals(3.14159, p.getDoubleValue(), 1e-5);
-            assertEquals(JsonToken.END_OBJECT, p.nextToken());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.START_OBJECT);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.PROPERTY_NAME);
+            assertThat(p.getString()).isEqualTo("pi");
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_NUMBER_FLOAT);
+            assertThat(p.getDoubleValue()).isEqualTo(3.14159, offset(1e-5));
+            assertThat(p.nextToken()).isEqualTo(JsonToken.END_OBJECT);
         }
     }
 
@@ -714,7 +716,7 @@ public class VPackParserBufTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testObjectWithDateValue() throws Exception {
+    public void testObjectWithDateValue() {
         // VPack date: 0x1c + 8-byte LE signed ms
         // Date = 1000ms from epoch
         // Object: {key: date_value}
@@ -728,10 +730,10 @@ public class VPackParserBufTest extends BaseTestForVPack
             (byte)0xe8, 0x03, 0, 0, 0, 0, 0, 0     // ms = 1000
         };
         try (JsonParser p = vpackParser(arr)) {
-            assertEquals(JsonToken.START_ARRAY, p.nextToken());
-            assertEquals(JsonToken.VALUE_NUMBER_INT, p.nextToken());
-            assertEquals(1000L, p.getLongValue());
-            assertEquals(JsonToken.END_ARRAY, p.nextToken());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.START_ARRAY);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_NUMBER_INT);
+            assertThat(p.getLongValue()).isEqualTo(1000L);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.END_ARRAY);
         }
     }
 
@@ -740,14 +742,14 @@ public class VPackParserBufTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testSignedIntLongRange_inArray() throws Exception {
+    public void testSignedIntLongRange_inArray() {
         // Write a long value that won't fit in int
         byte[] data = vpackBytes("[" + Long.MAX_VALUE + "]");
         try (JsonParser p = vpackParser(data)) {
-            assertEquals(JsonToken.START_ARRAY, p.nextToken());
-            assertEquals(JsonToken.VALUE_NUMBER_INT, p.nextToken());
-            assertEquals(Long.MAX_VALUE, p.getLongValue());
-            assertEquals(JsonToken.END_ARRAY, p.nextToken());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.START_ARRAY);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_NUMBER_INT);
+            assertThat(p.getLongValue()).isEqualTo(Long.MAX_VALUE);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.END_ARRAY);
         }
     }
 
@@ -756,7 +758,7 @@ public class VPackParserBufTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testUnsignedInt_bigInteger_inArray() throws Exception {
+    public void testUnsignedInt_bigInteger_inArray() {
         // Build array with VPACK_INT_UNSIGNED 8-byte value = 0xFFFFFFFFFFFFFFFF (all ones)
         // type = 0x2f (VPACK_INT_UNSIGNED + 7 = 0x28 + 7)
         // [0x02, byteLen, 0x2f, 0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff]
@@ -768,12 +770,12 @@ public class VPackParserBufTest extends BaseTestForVPack
             (byte)0xff,(byte)0xff,(byte)0xff,(byte)0xff
         };
         try (JsonParser p = vpackParser(arr)) {
-            assertEquals(JsonToken.START_ARRAY, p.nextToken());
-            assertEquals(JsonToken.VALUE_NUMBER_INT, p.nextToken());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.START_ARRAY);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_NUMBER_INT);
             // 0xFFFFFFFFFFFFFFFF as BigInteger = 2^64 - 1
             java.math.BigInteger val = p.getBigIntegerValue();
-            assertEquals(java.math.BigInteger.ONE.shiftLeft(64).subtract(java.math.BigInteger.ONE), val);
-            assertEquals(JsonToken.END_ARRAY, p.nextToken());
+            assertThat(val).isEqualTo(java.math.BigInteger.ONE.shiftLeft(64).subtract(java.math.BigInteger.ONE));
+            assertThat(p.nextToken()).isEqualTo(JsonToken.END_ARRAY);
         }
     }
 }

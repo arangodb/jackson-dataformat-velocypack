@@ -26,18 +26,18 @@ public enum VPackWriteFeature
      * when writing arrays. Compact arrays have no index table and use VByte-encoded
      * lengths, making them more compact but requiring sequential access.
      *<p>
-     * Default value is {@code false}.
+     * Default value is {@code true}.
      */
-    WRITE_COMPACT_ARRAYS(false),
+    WRITE_COMPACT_ARRAYS(true),
 
     /**
      * Feature that controls whether the compact object type ({@code 0x14}) is used
      * when writing objects. Compact objects have no index table and use VByte-encoded
      * lengths, making them more compact but requiring sequential access.
      *<p>
-     * Default value is {@code false}.
+     * Default value is {@code true}.
      */
-    WRITE_COMPACT_OBJECTS(false),
+    WRITE_COMPACT_OBJECTS(true),
 
     /**
      * Feature that controls whether integers are written using the minimal number of

@@ -12,15 +12,17 @@ import com.arangodb.jackson.dataformat.velocypack.VPackWriteFeature;
 import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.util.Arrays;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Tests for VPackGenerator feature flags and scalar write variants.
  */
 public class VPackGeneratorFeaturesTest extends BaseTestForVPack
 {
-    private byte[] gen(WriteAction action) throws Exception {
+    private byte[] gen(WriteAction action) {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try (JsonGenerator g = vpackGenerator(out)) {
             action.write(g);
@@ -30,7 +32,7 @@ public class VPackGeneratorFeaturesTest extends BaseTestForVPack
 
     @FunctionalInterface
     interface WriteAction {
-        void write(JsonGenerator g) throws Exception;
+        void write(JsonGenerator g);
     }
 
     // =========================================================
@@ -38,26 +40,26 @@ public class VPackGeneratorFeaturesTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testEnableDisableFeature() throws Exception {
+    public void testEnableDisableFeature() {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         VPackMapper m = new VPackMapper();
         try (VPackGenerator g = (VPackGenerator) m.createGenerator(out)) {
             g.enable(VPackWriteFeature.WRITE_COMPACT_ARRAYS);
-            assertTrue(g.isEnabled(VPackWriteFeature.WRITE_COMPACT_ARRAYS));
+            assertThat(g.isEnabled(VPackWriteFeature.WRITE_COMPACT_ARRAYS)).isTrue();
             g.disable(VPackWriteFeature.WRITE_COMPACT_ARRAYS);
-            assertFalse(g.isEnabled(VPackWriteFeature.WRITE_COMPACT_ARRAYS));
+            assertThat(g.isEnabled(VPackWriteFeature.WRITE_COMPACT_ARRAYS)).isFalse();
         }
     }
 
     @Test
-    public void testConfigureFeature() throws Exception {
+    public void testConfigureFeature() {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         VPackMapper m = new VPackMapper();
         try (VPackGenerator g = (VPackGenerator) m.createGenerator(out)) {
             g.configure(VPackWriteFeature.WRITE_COMPACT_OBJECTS, true);
-            assertTrue(g.isEnabled(VPackWriteFeature.WRITE_COMPACT_OBJECTS));
+            assertThat(g.isEnabled(VPackWriteFeature.WRITE_COMPACT_OBJECTS)).isTrue();
             g.configure(VPackWriteFeature.WRITE_COMPACT_OBJECTS, false);
-            assertFalse(g.isEnabled(VPackWriteFeature.WRITE_COMPACT_OBJECTS));
+            assertThat(g.isEnabled(VPackWriteFeature.WRITE_COMPACT_OBJECTS)).isFalse();
         }
     }
 
@@ -66,61 +68,65 @@ public class VPackGeneratorFeaturesTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testWriteRaw_String_throws() throws Exception {
+    public void testWriteRaw_String_throws() {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try (JsonGenerator g = vpackGenerator(out)) {
-            assertThrows(UnsupportedOperationException.class, () -> g.writeRaw("raw"));
+            assertThatThrownBy(() -> g.writeRaw("raw"))
+                .isInstanceOf(UnsupportedOperationException.class);
         }
     }
 
     @Test
-    public void testWriteRaw_StringOffLen_throws() throws Exception {
+    public void testWriteRaw_StringOffLen_throws() {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try (JsonGenerator g = vpackGenerator(out)) {
-            assertThrows(UnsupportedOperationException.class, () -> g.writeRaw("raw", 0, 3));
+            assertThatThrownBy(() -> g.writeRaw("raw", 0, 3))
+                .isInstanceOf(UnsupportedOperationException.class);
         }
     }
 
     @Test
-    public void testWriteRaw_CharArray_throws() throws Exception {
+    public void testWriteRaw_CharArray_throws() {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try (JsonGenerator g = vpackGenerator(out)) {
-            assertThrows(UnsupportedOperationException.class,
-                    () -> g.writeRaw(new char[]{'a'}, 0, 1));
+            assertThatThrownBy(() -> g.writeRaw(new char[]{'a'}, 0, 1))
+                .isInstanceOf(UnsupportedOperationException.class);
         }
     }
 
     @Test
-    public void testWriteRaw_Char_throws() throws Exception {
+    public void testWriteRaw_Char_throws() {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try (JsonGenerator g = vpackGenerator(out)) {
-            assertThrows(UnsupportedOperationException.class, () -> g.writeRaw('a'));
+            assertThatThrownBy(() -> g.writeRaw('a'))
+                .isInstanceOf(UnsupportedOperationException.class);
         }
     }
 
     @Test
-    public void testWriteRawValue_String_throws() throws Exception {
+    public void testWriteRawValue_String_throws() {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try (JsonGenerator g = vpackGenerator(out)) {
-            assertThrows(UnsupportedOperationException.class, () -> g.writeRawValue("raw"));
+            assertThatThrownBy(() -> g.writeRawValue("raw"))
+                .isInstanceOf(UnsupportedOperationException.class);
         }
     }
 
     @Test
-    public void testWriteRawValue_StringOffLen_throws() throws Exception {
+    public void testWriteRawValue_StringOffLen_throws() {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try (JsonGenerator g = vpackGenerator(out)) {
-            assertThrows(UnsupportedOperationException.class,
-                    () -> g.writeRawValue("raw", 0, 3));
+            assertThatThrownBy(() -> g.writeRawValue("raw", 0, 3))
+                .isInstanceOf(UnsupportedOperationException.class);
         }
     }
 
     @Test
-    public void testWriteRawValue_CharArray_throws() throws Exception {
+    public void testWriteRawValue_CharArray_throws() {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try (JsonGenerator g = vpackGenerator(out)) {
-            assertThrows(UnsupportedOperationException.class,
-                    () -> g.writeRawValue(new char[]{'a'}, 0, 1));
+            assertThatThrownBy(() -> g.writeRawValue(new char[]{'a'}, 0, 1))
+                .isInstanceOf(UnsupportedOperationException.class);
         }
     }
 
@@ -129,82 +135,81 @@ public class VPackGeneratorFeaturesTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testWriteNumberString_integer() throws Exception {
+    public void testWriteNumberString_integer() {
         byte[] bytes = gen(g -> g.writeNumber("42"));
-        assertEquals(2, bytes.length);
-        assertEquals((byte) 0x20, bytes[0]); // 1-byte signed int
-        assertEquals((byte) 42, bytes[1]);
+        assertThat(bytes).hasSize(2);
+        assertThat(bytes[0]).isEqualTo((byte) 0x20); // 1-byte signed int
+        assertThat(bytes[1]).isEqualTo((byte) 42);
     }
 
     @Test
-    public void testWriteNumberString_decimal() throws Exception {
+    public void testWriteNumberString_decimal() {
         byte[] bytes = gen(g -> g.writeNumber("3.14"));
         // Should produce BCD (BigDecimal path)
-        assertTrue(bytes.length > 1);
+        assertThat(bytes.length > 1).isTrue();
         int tb = bytes[0] & 0xFF;
-        assertTrue(tb >= 0xc8 && tb <= 0xcf, "Expected BCD type, got 0x" + Integer.toHexString(tb));
+        assertThat(tb).as("Expected BCD type, got 0x" + Integer.toHexString(tb)).isBetween(0xc8 , 0xcf);
     }
 
     @Test
-    public void testWriteNumberString_withExponent() throws Exception {
+    public void testWriteNumberString_withExponent() {
         byte[] bytes = gen(g -> g.writeNumber("1e5"));
-        assertTrue(bytes.length > 0);
+        assertThat(bytes.length ).isPositive();
     }
 
     @Test
-    public void testWriteNumberString_null_writesNull() throws Exception {
+    public void testWriteNumberString_null_writesNull() {
         byte[] bytes = gen(g -> g.writeNumber((String) null));
-        assertEquals(1, bytes.length);
-        assertEquals((byte) 0x18, bytes[0]); // VPACK_NULL
+        assertThat(bytes).hasSize(1);
+        assertThat(bytes[0]).isEqualTo((byte) 0x18); // VPACK_NULL
     }
 
     @Test
-    public void testWriteNumberString_invalid_throws() throws Exception {
+    public void testWriteNumberString_invalid_throws() {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try (JsonGenerator g = vpackGenerator(out)) {
-            assertThrows(tools.jackson.core.exc.StreamWriteException.class,
-                    () -> g.writeNumber("not_a_number"));
+            assertThatThrownBy(() -> g.writeNumber("not_a_number"))
+                .isInstanceOf(tools.jackson.core.exc.StreamWriteException.class);
         }
     }
 
     @Test
-    public void testWriteNumber_BigInteger_null_writesNull() throws Exception {
+    public void testWriteNumber_BigInteger_null_writesNull() {
         byte[] bytes = gen(g -> g.writeNumber((BigInteger) null));
-        assertEquals(1, bytes.length);
-        assertEquals((byte) 0x18, bytes[0]);
+        assertThat(bytes).hasSize(1);
+        assertThat(bytes[0]).isEqualTo((byte) 0x18);
     }
 
     @Test
-    public void testWriteNumber_BigDecimal_null_writesNull() throws Exception {
+    public void testWriteNumber_BigDecimal_null_writesNull() {
         byte[] bytes = gen(g -> g.writeNumber((BigDecimal) null));
-        assertEquals(1, bytes.length);
-        assertEquals((byte) 0x18, bytes[0]);
+        assertThat(bytes).hasSize(1);
+        assertThat(bytes[0]).isEqualTo((byte) 0x18);
     }
 
     @Test
-    public void testWriteNumber_BigDecimal_negative() throws Exception {
+    public void testWriteNumber_BigDecimal_negative() {
         byte[] bytes = gen(g -> g.writeNumber(new BigDecimal("-12345")));
         // Should produce negative BCD
         int tb = bytes[0] & 0xFF;
-        assertTrue(tb >= 0xd0 && tb <= 0xd7,
-                "Expected negative BCD type, got 0x" + Integer.toHexString(tb));
+        assertThat(tb).as("Expected negative BCD type, got 0x" + Integer.toHexString(tb)).isBetween(0xd0, 0xd7);
     }
 
     @Test
-    public void testWriteNumber_short() throws Exception {
+    public void testWriteNumber_short() {
         byte[] bytes = gen(g -> g.writeNumber((short) 100));
         // Short is cast to int, 100 > 9 → 1-byte signed
-        assertEquals(2, bytes.length);
-        assertEquals((byte) 0x20, bytes[0]);
-        assertEquals((byte) 100, bytes[1]);
+        assertThat(bytes).hasSize(2);
+        assertThat(bytes[0]).isEqualTo((byte) 0x20);
+        assertThat(bytes[1]).isEqualTo((byte) 100);
     }
 
     @Test
-    public void testWriteNumber_float() throws Exception {
+    public void testWriteNumber_float() {
         byte[] bytes = gen(g -> g.writeNumber(1.5f));
         // Float is cast to double
-        assertEquals(9, bytes.length);
-        assertEquals((byte) 0x1b, bytes[0]); // VPACK_DOUBLE
+        assertThat(bytes).hasSize(9);
+        assertThat(bytes[0]).isEqualTo((byte) 0x1b); // VPACK_DOUBLE
     }
 
     // =========================================================
@@ -212,41 +217,41 @@ public class VPackGeneratorFeaturesTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testWriteString_charArray() throws Exception {
+    public void testWriteString_charArray() {
         char[] chars = {'h', 'i'};
         byte[] bytes = gen(g -> g.writeString(chars, 0, 2));
-        assertEquals(3, bytes.length); // 0x42 'h' 'i'
-        assertEquals((byte) 0x42, bytes[0]);
+        assertThat(bytes).hasSize(3); // 0x42 'h' 'i'
+        assertThat(bytes[0]).isEqualTo((byte) 0x42);
     }
 
     @Test
-    public void testWriteString_serializableString() throws Exception {
+    public void testWriteString_serializableString() {
         byte[] bytes = gen(g -> g.writeString(new tools.jackson.core.io.SerializedString("ok")));
-        assertEquals(3, bytes.length); // 0x42 'o' 'k'
-        assertEquals((byte) 0x42, bytes[0]);
+        assertThat(bytes).hasSize(3); // 0x42 'o' 'k'
+        assertThat(bytes[0]).isEqualTo((byte) 0x42);
     }
 
     @Test
-    public void testWriteRawUTF8String() throws Exception {
+    public void testWriteRawUTF8String() {
         byte[] utf8 = "hi".getBytes(java.nio.charset.StandardCharsets.UTF_8);
         byte[] bytes = gen(g -> g.writeRawUTF8String(utf8, 0, utf8.length));
-        assertEquals(3, bytes.length);
-        assertEquals((byte) 0x42, bytes[0]);
+        assertThat(bytes).hasSize(3);
+        assertThat(bytes[0]).isEqualTo((byte) 0x42);
     }
 
     @Test
-    public void testWriteUTF8String() throws Exception {
+    public void testWriteUTF8String() {
         byte[] utf8 = "ab".getBytes(java.nio.charset.StandardCharsets.UTF_8);
         byte[] bytes = gen(g -> g.writeUTF8String(utf8, 0, utf8.length));
-        assertEquals(3, bytes.length);
-        assertEquals((byte) 0x42, bytes[0]);
+        assertThat(bytes).hasSize(3);
+        assertThat(bytes[0]).isEqualTo((byte) 0x42);
     }
 
     @Test
-    public void testWriteString_null_writesNull() throws Exception {
+    public void testWriteString_null_writesNull() {
         byte[] bytes = gen(g -> g.writeString((String) null));
-        assertEquals(1, bytes.length);
-        assertEquals((byte) 0x18, bytes[0]);
+        assertThat(bytes).hasSize(1);
+        assertThat(bytes[0]).isEqualTo((byte) 0x18);
     }
 
     // =========================================================
@@ -254,19 +259,19 @@ public class VPackGeneratorFeaturesTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testWriteBinary_fromInputStream_success() throws Exception {
+    public void testWriteBinary_fromInputStream_success() {
         byte[] data = { 0x01, 0x02, 0x03 };
         java.io.InputStream in = new java.io.ByteArrayInputStream(data);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try (JsonGenerator g = vpackGenerator(out)) {
             int written = g.writeBinary(in, 3);
-            assertEquals(3, written);
+            assertThat(written).isEqualTo(3);
         }
         byte[] bytes = out.toByteArray();
         // 0xc0 + 03 + data
-        assertEquals((byte) 0xc0, bytes[0]);
-        assertEquals((byte) 0x03, bytes[1]);
-        assertArrayEquals(data, java.util.Arrays.copyOfRange(bytes, 2, 5));
+        assertThat(bytes[0]).isEqualTo((byte) 0xc0);
+        assertThat(bytes[1]).isEqualTo((byte) 0x03);
+        assertThat(data).containsExactly(Arrays.copyOfRange(bytes, 2, 5));
     }
 
     // =========================================================
@@ -274,7 +279,7 @@ public class VPackGeneratorFeaturesTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testWritePropertyId() throws Exception {
+    public void testWritePropertyId() {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         VPackMapper m = new VPackMapper();
         try (JsonGenerator g = m.createGenerator(out)) {
@@ -284,8 +289,8 @@ public class VPackGeneratorFeaturesTest extends BaseTestForVPack
             g.writeEndObject();
         }
         byte[] bytes = out.toByteArray();
-        assertNotNull(bytes);
-        assertTrue(bytes.length > 0);
+        assertThat(bytes).isNotNull();
+        assertThat(bytes.length ).isPositive();
     }
 
     // =========================================================
@@ -293,53 +298,53 @@ public class VPackGeneratorFeaturesTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testStreamWriteOutputTarget() throws Exception {
+    public void testStreamWriteOutputTarget() {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try (VPackGenerator g = (VPackGenerator) vpackGenerator(out)) {
-            assertSame(out, g.streamWriteOutputTarget());
+            assertThat(g.streamWriteOutputTarget()).isSameAs(out);
         }
     }
 
     @Test
-    public void testStreamWriteOutputBuffered() throws Exception {
+    public void testStreamWriteOutputBuffered() {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try (VPackGenerator g = (VPackGenerator) vpackGenerator(out)) {
-            assertEquals(0, g.streamWriteOutputBuffered());
+            assertThat(g.streamWriteOutputBuffered()).isEqualTo(0);
         }
     }
 
     @Test
-    public void testGetPrettyPrinter_null() throws Exception {
+    public void testGetPrettyPrinter_null() {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try (VPackGenerator g = (VPackGenerator) vpackGenerator(out)) {
-            assertNull(g.getPrettyPrinter());
+            assertThat(g.getPrettyPrinter()).isNull();
         }
     }
 
     @Test
-    public void testStreamWriteCapabilities() throws Exception {
+    public void testStreamWriteCapabilities() {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try (VPackGenerator g = (VPackGenerator) vpackGenerator(out)) {
-            assertNotNull(g.streamWriteCapabilities());
+            assertThat(g.streamWriteCapabilities()).isNotNull();
         }
     }
 
     @Test
-    public void testVersion() throws Exception {
+    public void testVersion() {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try (VPackGenerator g = (VPackGenerator) vpackGenerator(out)) {
-            assertNotNull(g.version());
+            assertThat(g.version()).isNotNull();
         }
     }
 
     @Test
-    public void testAssignCurrentValue() throws Exception {
+    public void testAssignCurrentValue() {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try (VPackGenerator g = (VPackGenerator) vpackGenerator(out)) {
             g.writeStartObject();
             g.writeName("k");
             g.assignCurrentValue("v");
-            assertEquals("v", g.currentValue());
+            assertThat(g.currentValue()).isEqualTo("v");
             g.writeNumber(1);
             g.writeEndObject();
         }
@@ -350,35 +355,35 @@ public class VPackGeneratorFeaturesTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testWriteArray_intArray() throws Exception {
+    public void testWriteArray_intArray() {
         int[] arr = {1, 2, 3};
         byte[] bytes = gen(g -> g.writeArray(arr, 0, arr.length));
         VPackMapper m = new VPackMapper();
         try (JsonParser p = m.createParser(bytes)) {
-            assertEquals(JsonToken.START_ARRAY, p.nextToken());
-            assertEquals(JsonToken.VALUE_NUMBER_INT, p.nextToken());
-            assertEquals(1, p.getIntValue());
-            assertEquals(JsonToken.VALUE_NUMBER_INT, p.nextToken());
-            assertEquals(2, p.getIntValue());
-            assertEquals(JsonToken.VALUE_NUMBER_INT, p.nextToken());
-            assertEquals(3, p.getIntValue());
-            assertEquals(JsonToken.END_ARRAY, p.nextToken());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.START_ARRAY);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_NUMBER_INT);
+            assertThat(p.getIntValue()).isEqualTo(1);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_NUMBER_INT);
+            assertThat(p.getIntValue()).isEqualTo(2);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_NUMBER_INT);
+            assertThat(p.getIntValue()).isEqualTo(3);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.END_ARRAY);
         }
     }
 
     @Test
-    public void testWriteArray_longArray() throws Exception {
+    public void testWriteArray_longArray() {
         long[] arr = {100L, 200L};
         byte[] bytes = gen(g -> g.writeArray(arr, 0, arr.length));
-        assertNotNull(bytes);
-        assertTrue(bytes.length > 0);
+        assertThat(bytes).isNotNull();
+        assertThat(bytes.length ).isPositive();
     }
 
     @Test
-    public void testWriteArray_doubleArray() throws Exception {
+    public void testWriteArray_doubleArray() {
         double[] arr = {1.1, 2.2};
         byte[] bytes = gen(g -> g.writeArray(arr, 0, arr.length));
-        assertNotNull(bytes);
-        assertTrue(bytes.length > 0);
+        assertThat(bytes).isNotNull();
+        assertThat(bytes.length ).isPositive();
     }
 }

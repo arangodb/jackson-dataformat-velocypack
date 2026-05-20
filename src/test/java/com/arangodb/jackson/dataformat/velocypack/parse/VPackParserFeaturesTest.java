@@ -15,7 +15,8 @@ import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Tests for parser read features and number type conversions.
@@ -28,7 +29,7 @@ public class VPackParserFeaturesTest extends BaseTestForVPack
     }
 
     // Helper: generate bytes for a value
-    private byte[] genBytes(WriteAction action) throws Exception {
+    private byte[] genBytes(WriteAction action) {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try (JsonGenerator g = vpackGenerator(out)) {
             action.write(g);
@@ -38,7 +39,7 @@ public class VPackParserFeaturesTest extends BaseTestForVPack
 
     @FunctionalInterface
     interface WriteAction {
-        void write(JsonGenerator g) throws Exception;
+        void write(JsonGenerator g);
     }
 
     // =========================================================
@@ -46,153 +47,153 @@ public class VPackParserFeaturesTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testGetIntValue_fromSmallInt() throws Exception {
+    public void testGetIntValue_fromSmallInt() {
         byte[] bytes = genBytes(g -> g.writeNumber(5));
         try (JsonParser p = parserFor(bytes)) {
-            assertEquals(JsonToken.VALUE_NUMBER_INT, p.nextToken());
-            assertEquals(5, p.getIntValue());
-            assertEquals(5L, p.getLongValue());
-            assertEquals(BigInteger.valueOf(5), p.getBigIntegerValue());
-            assertEquals(5.0, p.getDoubleValue(), 0.0);
-            assertEquals(new BigDecimal("5"), p.getDecimalValue());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_NUMBER_INT);
+            assertThat(p.getIntValue()).isEqualTo(5);
+            assertThat(p.getLongValue()).isEqualTo(5L);
+            assertThat(p.getBigIntegerValue()).isEqualTo(BigInteger.valueOf(5));
+            assertThat(p.getDoubleValue()).isEqualTo(5.0);
+            assertThat(p.getDecimalValue()).isEqualTo(("5"));
         }
     }
 
     @Test
-    public void testGetIntValue_fromSignedInt() throws Exception {
+    public void testGetIntValue_fromSignedInt() {
         byte[] bytes = genBytes(g -> g.writeNumber(127));
         try (JsonParser p = parserFor(bytes)) {
-            assertEquals(JsonToken.VALUE_NUMBER_INT, p.nextToken());
-            assertEquals(127, p.getIntValue());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_NUMBER_INT);
+            assertThat(p.getIntValue()).isEqualTo(127);
         }
     }
 
     @Test
-    public void testGetLongValue_fromLong() throws Exception {
+    public void testGetLongValue_fromLong() {
         byte[] bytes = genBytes(g -> g.writeNumber(Long.MAX_VALUE));
         try (JsonParser p = parserFor(bytes)) {
-            assertEquals(JsonToken.VALUE_NUMBER_INT, p.nextToken());
-            assertEquals(Long.MAX_VALUE, p.getLongValue());
-            assertEquals((int) Long.MAX_VALUE, p.getIntValue()); // truncated
-            assertEquals(BigInteger.valueOf(Long.MAX_VALUE), p.getBigIntegerValue());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_NUMBER_INT);
+            assertThat(p.getLongValue()).isEqualTo(Long.MAX_VALUE);
+            assertThat(p.getIntValue()).isEqualTo((int) Long.MAX_VALUE); // truncated
+            assertThat(p.getBigIntegerValue()).isEqualTo(BigInteger.valueOf(Long.MAX_VALUE));
         }
     }
 
     @Test
-    public void testGetDoubleValue_fromDouble() throws Exception {
+    public void testGetDoubleValue_fromDouble() {
         byte[] bytes = genBytes(g -> g.writeNumber(3.14));
         try (JsonParser p = parserFor(bytes)) {
-            assertEquals(JsonToken.VALUE_NUMBER_FLOAT, p.nextToken());
-            assertEquals(3.14, p.getDoubleValue(), 0.0001);
-            assertEquals((float) 3.14, p.getFloatValue(), 0.001f);
-            assertEquals(3, p.getIntValue()); // truncated
-            assertEquals(3L, p.getLongValue());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_NUMBER_FLOAT);
+            assertThat(p.getDoubleValue()).isEqualTo(3.14);
+            assertThat(p.getFloatValue()).isEqualTo((float) 3.14);
+            assertThat(p.getIntValue()).isEqualTo(3); // truncated
+            assertThat(p.getLongValue()).isEqualTo(3L);
         }
     }
 
     @Test
-    public void testGetDecimalValue_fromBigDecimal() throws Exception {
+    public void testGetDecimalValue_fromBigDecimal() {
         byte[] bytes = genBytes(g -> g.writeNumber(new BigDecimal("12345.67")));
         try (JsonParser p = parserFor(bytes)) {
-            assertEquals(JsonToken.VALUE_NUMBER_FLOAT, p.nextToken());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_NUMBER_FLOAT);
             BigDecimal result = p.getDecimalValue();
-            assertEquals(0, new BigDecimal("12345.67").compareTo(result));
+            assertThat(result).isEqualTo("12345.67");
         }
     }
 
     @Test
-    public void testGetDecimalValue_fromDouble() throws Exception {
+    public void testGetDecimalValue_fromDouble() {
         byte[] bytes = genBytes(g -> g.writeNumber(1.5));
         try (JsonParser p = parserFor(bytes)) {
-            assertEquals(JsonToken.VALUE_NUMBER_FLOAT, p.nextToken());
-            assertNotNull(p.getDecimalValue());
-            assertEquals(1L, p.getLongValue());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_NUMBER_FLOAT);
+            assertThat(p.getDecimalValue()).isNotNull();
+            assertThat(p.getLongValue()).isEqualTo(1L);
         }
     }
 
     @Test
-    public void testGetBigIntegerValue_fromBigDecimal() throws Exception {
+    public void testGetBigIntegerValue_fromBigDecimal() {
         byte[] bytes = genBytes(g -> g.writeNumber(new BigDecimal("99999999999999999999.5")));
         try (JsonParser p = parserFor(bytes)) {
-            assertEquals(JsonToken.VALUE_NUMBER_FLOAT, p.nextToken());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_NUMBER_FLOAT);
             BigInteger bi = p.getBigIntegerValue();
-            assertNotNull(bi);
+            assertThat(bi).isNotNull();
         }
     }
 
     @Test
-    public void testNumberType_INT() throws Exception {
+    public void testNumberType_INT() {
         byte[] bytes = genBytes(g -> g.writeNumber(5));
         try (JsonParser p = parserFor(bytes)) {
             p.nextToken();
-            assertEquals(JsonParser.NumberType.INT, p.getNumberType());
-            assertEquals(5, ((Number) p.getNumberValue()).intValue());
+            assertThat(p.getNumberType()).isEqualTo(JsonParser.NumberType.INT);
+            assertThat(p.getNumberValue().intValue()).isEqualTo(5);
         }
     }
 
     @Test
-    public void testNumberType_LONG() throws Exception {
+    public void testNumberType_LONG() {
         // Write a value that won't fit in int
         byte[] bytes = genBytes(g -> g.writeNumber(Long.MAX_VALUE));
         try (JsonParser p = parserFor(bytes)) {
             p.nextToken();
-            assertEquals(JsonParser.NumberType.LONG, p.getNumberType());
-            assertEquals(Long.MAX_VALUE, ((Number) p.getNumberValue()).longValue());
+            assertThat(p.getNumberType()).isEqualTo(JsonParser.NumberType.LONG);
+            assertThat(p.getNumberValue().longValue()).isEqualTo(Long.MAX_VALUE);
         }
     }
 
     @Test
-    public void testNumberType_DOUBLE() throws Exception {
+    public void testNumberType_DOUBLE() {
         byte[] bytes = genBytes(g -> g.writeNumber(3.14));
         try (JsonParser p = parserFor(bytes)) {
             p.nextToken();
-            assertEquals(JsonParser.NumberType.DOUBLE, p.getNumberType());
-            assertEquals(3.14, ((Number) p.getNumberValue()).doubleValue(), 0.0001);
+            assertThat(p.getNumberType()).isEqualTo(JsonParser.NumberType.DOUBLE);
+            assertThat(p.getNumberValue().doubleValue()).isEqualTo(3.14);
         }
     }
 
     @Test
-    public void testNumberType_BIG_DECIMAL() throws Exception {
+    public void testNumberType_BIG_DECIMAL() {
         byte[] bytes = genBytes(g -> g.writeNumber(new BigDecimal("12345")));
         try (JsonParser p = parserFor(bytes)) {
             p.nextToken();
-            assertEquals(JsonParser.NumberType.BIG_DECIMAL, p.getNumberType());
+            assertThat(p.getNumberType()).isEqualTo(JsonParser.NumberType.BIG_DECIMAL);
         }
     }
 
     @Test
-    public void testIsNaN_forNaN() throws Exception {
+    public void testIsNaN_forNaN() {
         byte[] bytes = genBytes(g -> g.writeNumber(Double.NaN));
         try (JsonParser p = parserFor(bytes)) {
             p.nextToken();
-            assertTrue(p.isNaN());
+            assertThat(p.isNaN()).isTrue();
         }
     }
 
     @Test
-    public void testIsNaN_forInfinity() throws Exception {
+    public void testIsNaN_forInfinity() {
         byte[] bytes = genBytes(g -> g.writeNumber(Double.POSITIVE_INFINITY));
         try (JsonParser p = parserFor(bytes)) {
             p.nextToken();
-            assertTrue(p.isNaN());
+            assertThat(p.isNaN()).isTrue();
         }
     }
 
     @Test
-    public void testIsNaN_forNormalDouble() throws Exception {
+    public void testIsNaN_forNormalDouble() {
         byte[] bytes = genBytes(g -> g.writeNumber(1.5));
         try (JsonParser p = parserFor(bytes)) {
             p.nextToken();
-            assertFalse(p.isNaN());
+            assertThat(p.isNaN()).isFalse();
         }
     }
 
     @Test
-    public void testIsNaN_forInt() throws Exception {
+    public void testIsNaN_forInt() {
         byte[] bytes = genBytes(g -> g.writeNumber(42));
         try (JsonParser p = parserFor(bytes)) {
             p.nextToken();
-            assertFalse(p.isNaN());
+            assertThat(p.isNaN()).isFalse();
         }
     }
 
@@ -201,71 +202,71 @@ public class VPackParserFeaturesTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testGetValueAsString_forString() throws Exception {
+    public void testGetValueAsString_forString() {
         byte[] bytes = genBytes(g -> g.writeString("test"));
         try (JsonParser p = parserFor(bytes)) {
             p.nextToken();
-            assertEquals("test", p.getValueAsString());
-            assertEquals("test", p.getValueAsString("default"));
+            assertThat(p.getValueAsString()).isEqualTo("test");
+            assertThat(p.getValueAsString("default")).isEqualTo("test");
         }
     }
 
     @Test
-    public void testGetValueAsString_forNull() throws Exception {
-        byte[] bytes = genBytes(g -> g.writeNull());
+    public void testGetValueAsString_forNull() {
+        byte[] bytes = genBytes(JsonGenerator::writeNull);
         try (JsonParser p = parserFor(bytes)) {
             p.nextToken();
-            assertNull(p.getValueAsString());
-            assertEquals("default", p.getValueAsString("default"));
+            assertThat(p.getValueAsString()).isNull();
+            assertThat(p.getValueAsString("default")).isEqualTo("default");
         }
     }
 
     @Test
-    public void testGetValueAsString_forInt() throws Exception {
+    public void testGetValueAsString_forInt() {
         byte[] bytes = genBytes(g -> g.writeNumber(42));
         try (JsonParser p = parserFor(bytes)) {
             p.nextToken();
-            assertNotNull(p.getValueAsString("default"));
+            assertThat(p.getValueAsString("default")).isNotNull();
         }
     }
 
     @Test
-    public void testHasStringCharacters_forString() throws Exception {
+    public void testHasStringCharacters_forString() {
         byte[] bytes = genBytes(g -> g.writeString("hi"));
         try (JsonParser p = parserFor(bytes)) {
             p.nextToken();
-            assertTrue(p.hasStringCharacters());
+            assertThat(p.hasStringCharacters()).isTrue();
         }
     }
 
     @Test
-    public void testHasStringCharacters_forInt() throws Exception {
+    public void testHasStringCharacters_forInt() {
         byte[] bytes = genBytes(g -> g.writeNumber(5));
         try (JsonParser p = parserFor(bytes)) {
             p.nextToken();
-            assertFalse(p.hasStringCharacters());
+            assertThat(p.hasStringCharacters()).isFalse();
         }
     }
 
     @Test
-    public void testGetStringLength() throws Exception {
+    public void testGetStringLength() {
         byte[] bytes = genBytes(g -> g.writeString("hello"));
         try (JsonParser p = parserFor(bytes)) {
             p.nextToken();
-            assertEquals(5, p.getStringLength());
-            assertEquals(0, p.getStringOffset());
+            assertThat(p.getStringLength()).isEqualTo(5);
+            assertThat(p.getStringOffset()).isEqualTo(0);
         }
     }
 
     @Test
-    public void testGetString_writer() throws Exception {
+    public void testGetString_writer() {
         byte[] bytes = genBytes(g -> g.writeString("abc"));
         try (JsonParser p = parserFor(bytes)) {
             p.nextToken();
             java.io.StringWriter sw = new java.io.StringWriter();
             int len = p.getString(sw);
-            assertEquals(3, len);
-            assertEquals("abc", sw.toString());
+            assertThat(len).isEqualTo(3);
+            assertThat(sw.toString()).isEqualTo("abc");
         }
     }
 
@@ -274,57 +275,57 @@ public class VPackParserFeaturesTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testGetBinaryValue() throws Exception {
+    public void testGetBinaryValue() {
         byte[] data = { 0x01, 0x02, 0x03 };
         byte[] bytes = genBytes(g -> g.writeBinary(data));
         try (JsonParser p = parserFor(bytes)) {
             p.nextToken();
-            assertEquals(JsonToken.VALUE_EMBEDDED_OBJECT, p.currentToken());
+            assertThat(p.currentToken()).isEqualTo(JsonToken.VALUE_EMBEDDED_OBJECT);
             byte[] result = p.getBinaryValue();
-            assertArrayEquals(data, result);
+            assertThat(result).isEqualTo(data);
         }
     }
 
     @Test
-    public void testGetBinaryValue_fromString() throws Exception {
+    public void testGetBinaryValue_fromString() {
         // Binary from base64 string
         byte[] bytes = genBytes(g -> g.writeString("AAEC")); // base64 of [0,1,2]
         try (JsonParser p = parserFor(bytes)) {
             p.nextToken();
             byte[] result = p.getBinaryValue();
-            assertNotNull(result);
+            assertThat(result).isNotNull();
         }
     }
 
     @Test
-    public void testGetEmbeddedObject_binary() throws Exception {
+    public void testGetEmbeddedObject_binary() {
         byte[] data = { 0x42 };
         byte[] bytes = genBytes(g -> g.writeBinary(data));
         try (JsonParser p = parserFor(bytes)) {
             p.nextToken();
-            assertNotNull(p.getEmbeddedObject());
+            assertThat(p.getEmbeddedObject()).isNotNull();
         }
     }
 
     @Test
-    public void testGetEmbeddedObject_nonEmbedded() throws Exception {
+    public void testGetEmbeddedObject_nonEmbedded() {
         byte[] bytes = genBytes(g -> g.writeNumber(5));
         try (JsonParser p = parserFor(bytes)) {
             p.nextToken();
-            assertNull(p.getEmbeddedObject());
+            assertThat(p.getEmbeddedObject()).isNull();
         }
     }
 
     @Test
-    public void testReadBinaryValue() throws Exception {
+    public void testReadBinaryValue() {
         byte[] data = { 0x0A, 0x0B, 0x0C };
         byte[] bytes = genBytes(g -> g.writeBinary(data));
         try (JsonParser p = parserFor(bytes)) {
             p.nextToken();
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             int count = p.readBinaryValue(out);
-            assertEquals(3, count);
-            assertArrayEquals(data, out.toByteArray());
+            assertThat(count).isEqualTo(3);
+            assertThat(out.toByteArray()).isEqualTo(data);
         }
     }
 
@@ -333,41 +334,41 @@ public class VPackParserFeaturesTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testCurrentLocation_notNull() throws Exception {
+    public void testCurrentLocation_notNull() {
         byte[] bytes = genBytes(g -> g.writeNumber(5));
         try (JsonParser p = parserFor(bytes)) {
             p.nextToken();
-            assertNotNull(p.currentLocation());
+            assertThat(p.currentLocation()).isNotNull();
         }
     }
 
     @Test
-    public void testCurrentTokenLocation_notNull() throws Exception {
+    public void testCurrentTokenLocation_notNull() {
         byte[] bytes = genBytes(g -> g.writeString("test"));
         try (JsonParser p = parserFor(bytes)) {
             p.nextToken();
-            assertNotNull(p.currentTokenLocation());
+            assertThat(p.currentTokenLocation()).isNotNull();
         }
     }
 
     @Test
-    public void testVersion() throws Exception {
-        byte[] bytes = genBytes(g -> g.writeNull());
+    public void testVersion() {
+        byte[] bytes = genBytes(JsonGenerator::writeNull);
         try (JsonParser p = parserFor(bytes)) {
-            assertNotNull(p.version());
+            assertThat(p.version()).isNotNull();
         }
     }
 
     @Test
-    public void testStreamReadCapabilities() throws Exception {
-        byte[] bytes = genBytes(g -> g.writeNull());
+    public void testStreamReadCapabilities() {
+        byte[] bytes = genBytes(JsonGenerator::writeNull);
         try (JsonParser p = parserFor(bytes)) {
-            assertNotNull(p.streamReadCapabilities());
+            assertThat(p.streamReadCapabilities()).isNotNull();
         }
     }
 
     @Test
-    public void testStreamReadContext() throws Exception {
+    public void testStreamReadContext() {
         byte[] bytes = genBytes(g -> {
             g.writeStartObject();
             g.writeName("key");
@@ -377,27 +378,27 @@ public class VPackParserFeaturesTest extends BaseTestForVPack
         try (JsonParser p = parserFor(bytes)) {
             p.nextToken(); // START_OBJECT
             p.nextToken(); // PROPERTY_NAME
-            assertEquals("key", p.currentName());
+            assertThat(p.currentName()).isEqualTo("key");
         }
     }
 
     @Test
-    public void testAssignCurrentValue() throws Exception {
+    public void testAssignCurrentValue() {
         byte[] bytes = genBytes(g -> g.writeNumber(1));
         try (JsonParser p = parserFor(bytes)) {
             p.nextToken();
             p.assignCurrentValue("testValue");
-            assertEquals("testValue", p.currentValue());
+            assertThat(p.currentValue()).isEqualTo("testValue");
         }
     }
 
     @Test
-    public void testIsClosed_afterClose() throws Exception {
-        byte[] bytes = genBytes(g -> g.writeNull());
+    public void testIsClosed_afterClose() {
+        byte[] bytes = genBytes(JsonGenerator::writeNull);
         JsonParser p = parserFor(bytes);
-        assertFalse(p.isClosed());
+        assertThat(p.isClosed()).isFalse();
         p.close();
-        assertTrue(p.isClosed());
+        assertThat(p.isClosed()).isTrue();
     }
 
     // =========================================================
@@ -405,23 +406,23 @@ public class VPackParserFeaturesTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testFailOnTaggedValues_disabled_readsTransparently() throws Exception {
+    public void testFailOnTaggedValues_disabled_readsTransparently() {
         // 0xee 0x42 0x1a = tag(0x42) + true
         byte[] bytes = { (byte) 0xee, (byte) 0x42, (byte) 0x1a };
         VPackMapper m = new VPackMapper();
         try (JsonParser p = m.createParser(bytes)) {
-            assertEquals(JsonToken.VALUE_TRUE, p.nextToken());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_TRUE);
         }
     }
 
     @Test
-    public void testFailOnTaggedValues_enabled_throws() throws Exception {
+    public void testFailOnTaggedValues_enabled_throws() {
         byte[] bytes = { (byte) 0xee, (byte) 0x42, (byte) 0x1a };
         VPackMapper m = VPackMapper.builder()
                 .enable(VPackReadFeature.FAIL_ON_TAGGED_VALUES)
                 .build();
         try (JsonParser p = m.createParser(bytes)) {
-            assertThrows(StreamReadException.class, () -> p.nextToken());
+            assertThatThrownBy(p::nextToken).isInstanceOf(StreamReadException.class);
         }
     }
 
@@ -430,27 +431,27 @@ public class VPackParserFeaturesTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testFailOnCustomTypes_disabled_returnsEmbedded() throws Exception {
+    public void testFailOnCustomTypes_disabled_returnsEmbedded() {
         // 0xf0 0xAB = custom type 0xf0 with 1-byte payload 0xAB
         byte[] bytes = { (byte) 0xf0, (byte) 0xAB };
         VPackMapper m = new VPackMapper();
         try (JsonParser p = m.createParser(bytes)) {
-            assertEquals(JsonToken.VALUE_EMBEDDED_OBJECT, p.nextToken());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_EMBEDDED_OBJECT);
             Object embedded = p.getEmbeddedObject();
-            assertInstanceOf(VPackCustomValue.class, embedded);
+            assertThat(embedded).isInstanceOf(VPackCustomValue.class);
             VPackCustomValue cv = (VPackCustomValue) embedded;
-            assertEquals(0xf0, cv.getTypeByte());
+            assertThat(cv.getTypeByte()).isEqualTo(0xf0);
         }
     }
 
     @Test
-    public void testFailOnCustomTypes_enabled_throws() throws Exception {
+    public void testFailOnCustomTypes_enabled_throws() {
         byte[] bytes = { (byte) 0xf0, (byte) 0xAB };
         VPackMapper m = VPackMapper.builder()
                 .enable(VPackReadFeature.FAIL_ON_CUSTOM_TYPES)
                 .build();
         try (JsonParser p = m.createParser(bytes)) {
-            assertThrows(StreamReadException.class, () -> p.nextToken());
+            assertThatThrownBy(p::nextToken).isInstanceOf(StreamReadException.class);
         }
     }
 
@@ -459,20 +460,20 @@ public class VPackParserFeaturesTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testMinKey() throws Exception {
+    public void testMinKey() {
         byte[] bytes = { 0x1e }; // VPACK_MIN_KEY
         try (JsonParser p = parserFor(bytes)) {
-            assertEquals(JsonToken.VALUE_EMBEDDED_OBJECT, p.nextToken());
-            assertEquals("minKey", p.getEmbeddedObject());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_EMBEDDED_OBJECT);
+            assertThat(p.getEmbeddedObject()).isEqualTo("minKey");
         }
     }
 
     @Test
-    public void testMaxKey() throws Exception {
+    public void testMaxKey() {
         byte[] bytes = { 0x1f }; // VPACK_MAX_KEY
         try (JsonParser p = parserFor(bytes)) {
-            assertEquals(JsonToken.VALUE_EMBEDDED_OBJECT, p.nextToken());
-            assertEquals("maxKey", p.getEmbeddedObject());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_EMBEDDED_OBJECT);
+            assertThat(p.getEmbeddedObject()).isEqualTo("maxKey");
         }
     }
 
@@ -481,7 +482,7 @@ public class VPackParserFeaturesTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testUnsignedInt_overflows_to_BigInteger() throws Exception {
+    public void testUnsignedInt_overflows_to_BigInteger() {
         // 0x2f = unsigned 8-byte int; FFFFFFFFFFFFFFFF = 18446744073709551615
         byte[] bytes = {
             (byte) 0x2f,
@@ -489,10 +490,10 @@ public class VPackParserFeaturesTest extends BaseTestForVPack
             (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF
         };
         try (JsonParser p = parserFor(bytes)) {
-            assertEquals(JsonToken.VALUE_NUMBER_INT, p.nextToken());
-            assertEquals(JsonParser.NumberType.BIG_INTEGER, p.getNumberType());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_NUMBER_INT);
+            assertThat(p.getNumberType()).isEqualTo(JsonParser.NumberType.BIG_INTEGER);
             BigInteger bi = p.getBigIntegerValue();
-            assertEquals(new BigInteger("18446744073709551615"), bi);
+            assertThat(bi).isEqualTo(("18446744073709551615"));
         }
     }
 
@@ -501,7 +502,7 @@ public class VPackParserFeaturesTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testStrictDuplicateDetection_enabled_throws() throws Exception {
+    public void testStrictDuplicateDetection_enabled_throws() {
         VPackMapper m = VPackMapper.builder()
                 .enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
                 .build();

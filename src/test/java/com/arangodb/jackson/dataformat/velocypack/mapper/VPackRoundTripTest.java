@@ -7,7 +7,7 @@ import com.arangodb.jackson.dataformat.velocypack.VPackWriteFeature;
 
 import java.util.*;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Round-trip tests: serialize then deserialize, verifying the result equals the original.
@@ -17,7 +17,7 @@ public class VPackRoundTripTest extends BaseTestForVPack
     private final VPackMapper mapper = new VPackMapper();
 
     // Helper
-    private <T> T roundTrip(T value, Class<T> type) throws Exception {
+    private <T> T roundTrip(T value, Class<T> type) {
         byte[] bytes = mapper.writeValueAsBytes(value);
         return mapper.readValue(bytes, type);
     }
@@ -27,100 +27,100 @@ public class VPackRoundTripTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testRoundTripNull() throws Exception {
+    public void testRoundTripNull() {
         byte[] bytes = mapper.writeValueAsBytes(null);
         Object result = mapper.readValue(bytes, Object.class);
-        assertNull(result);
+        assertThat(result).isNull();
     }
 
     @Test
-    public void testRoundTripBoolean_false() throws Exception {
+    public void testRoundTripBoolean_false() {
         Boolean result = roundTrip(Boolean.FALSE, Boolean.class);
-        assertEquals(Boolean.FALSE, result);
+        assertThat(result).isEqualTo(Boolean.FALSE);
     }
 
     @Test
-    public void testRoundTripBoolean_true() throws Exception {
+    public void testRoundTripBoolean_true() {
         Boolean result = roundTrip(Boolean.TRUE, Boolean.class);
-        assertEquals(Boolean.TRUE, result);
+        assertThat(result).isEqualTo(Boolean.TRUE);
     }
 
     @Test
-    public void testRoundTripInteger_0() throws Exception {
-        assertEquals(Integer.valueOf(0), roundTrip(0, Integer.class));
+    public void testRoundTripInteger_0() {
+        assertThat(roundTrip(0, Integer.class)).isEqualTo(Integer.valueOf(0));
     }
 
     @Test
-    public void testRoundTripInteger_9() throws Exception {
-        assertEquals(Integer.valueOf(9), roundTrip(9, Integer.class));
+    public void testRoundTripInteger_9() {
+        assertThat(roundTrip(9, Integer.class)).isEqualTo(Integer.valueOf(9));
     }
 
     @Test
-    public void testRoundTripInteger_negative1() throws Exception {
-        assertEquals(Integer.valueOf(-1), roundTrip(-1, Integer.class));
+    public void testRoundTripInteger_negative1() {
+        assertThat(roundTrip(-1, Integer.class)).isEqualTo(Integer.valueOf(-1));
     }
 
     @Test
-    public void testRoundTripInteger_negative6() throws Exception {
-        assertEquals(Integer.valueOf(-6), roundTrip(-6, Integer.class));
+    public void testRoundTripInteger_negative6() {
+        assertThat(roundTrip(-6, Integer.class)).isEqualTo(Integer.valueOf(-6));
     }
 
     @Test
-    public void testRoundTripInteger_maxValue() throws Exception {
-        assertEquals(Integer.MAX_VALUE, (int) roundTrip(Integer.MAX_VALUE, Integer.class));
+    public void testRoundTripInteger_maxValue() {
+        assertThat(roundTrip(Integer.MAX_VALUE, Integer.class)).isEqualTo(Integer.MAX_VALUE);
     }
 
     @Test
-    public void testRoundTripInteger_minValue() throws Exception {
-        assertEquals(Integer.MIN_VALUE, (int) roundTrip(Integer.MIN_VALUE, Integer.class));
+    public void testRoundTripInteger_minValue() {
+        assertThat(roundTrip(Integer.MIN_VALUE, Integer.class)).isEqualTo(Integer.MIN_VALUE);
     }
 
     @Test
-    public void testRoundTripLong_maxValue() throws Exception {
-        assertEquals(Long.MAX_VALUE, (long) roundTrip(Long.MAX_VALUE, Long.class));
+    public void testRoundTripLong_maxValue() {
+        assertThat(roundTrip(Long.MAX_VALUE, Long.class)).isEqualTo(Long.MAX_VALUE);
     }
 
     @Test
-    public void testRoundTripLong_minValue() throws Exception {
-        assertEquals(Long.MIN_VALUE, (long) roundTrip(Long.MIN_VALUE, Long.class));
+    public void testRoundTripLong_minValue() {
+        assertThat(roundTrip(Long.MIN_VALUE, Long.class)).isEqualTo(Long.MIN_VALUE);
     }
 
     @Test
-    public void testRoundTripDouble_zero() throws Exception {
-        assertEquals(0.0, (double) roundTrip(0.0, Double.class), 0.0);
+    public void testRoundTripDouble_zero() {
+        assertThat(roundTrip(0.0, Double.class)).isEqualTo(0.0);
     }
 
     @Test
-    public void testRoundTripDouble_pi() throws Exception {
-        assertEquals(Math.PI, (double) roundTrip(Math.PI, Double.class), 0.0);
+    public void testRoundTripDouble_pi() {
+        assertThat(roundTrip(Math.PI, Double.class)).isEqualTo(Math.PI);
     }
 
     @Test
-    public void testRoundTripString_empty() throws Exception {
-        assertEquals("", roundTrip("", String.class));
+    public void testRoundTripString_empty() {
+        assertThat(roundTrip("", String.class)).isEmpty();
     }
 
     @Test
-    public void testRoundTripString_hello() throws Exception {
-        assertEquals("hello", roundTrip("hello", String.class));
+    public void testRoundTripString_hello() {
+        assertThat(roundTrip("hello", String.class)).isEqualTo("hello");
     }
 
     @Test
-    public void testRoundTripString_126chars() throws Exception {
+    public void testRoundTripString_126chars() {
         String s = "A".repeat(126);
-        assertEquals(s, roundTrip(s, String.class));
+        assertThat(roundTrip(s, String.class)).isEqualTo(s);
     }
 
     @Test
-    public void testRoundTripString_127chars() throws Exception {
+    public void testRoundTripString_127chars() {
         String s = "B".repeat(127);
-        assertEquals(s, roundTrip(s, String.class));
+        assertThat(roundTrip(s, String.class)).isEqualTo(s);
     }
 
     @Test
-    public void testRoundTripString_unicode() throws Exception {
+    public void testRoundTripString_unicode() {
         String s = "Hello \u4e16\u754c!"; // "Hello 世界!"
-        assertEquals(s, roundTrip(s, String.class));
+        assertThat(roundTrip(s, String.class)).isEqualTo(s);
     }
 
     // =========================================================
@@ -128,59 +128,59 @@ public class VPackRoundTripTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testRoundTripEmptyArray() throws Exception {
+    public void testRoundTripEmptyArray() {
         List<Object> list = new ArrayList<>();
         byte[] bytes = mapper.writeValueAsBytes(list);
         List<?> result = mapper.readValue(bytes, List.class);
-        assertTrue(result.isEmpty());
+        assertThat(result).isEmpty();
     }
 
     @Test
-    public void testRoundTripIntArray() throws Exception {
+    public void testRoundTripIntArray() {
         List<Integer> original = Arrays.asList(1, 2, 3, 4, 5);
         byte[] bytes = mapper.writeValueAsBytes(original);
         List<?> result = mapper.readValue(bytes, List.class);
-        assertEquals(5, result.size());
-        assertEquals(1, ((Number) result.get(0)).intValue());
-        assertEquals(5, ((Number) result.get(4)).intValue());
+        assertThat(result).hasSize(5);
+        assertThat(((Number) result.get(0)).intValue()).isEqualTo(1);
+        assertThat(((Number) result.get(4)).intValue()).isEqualTo(5);
     }
 
     @Test
-    public void testRoundTripMixedArray() throws Exception {
+    public void testRoundTripMixedArray() {
         List<Object> original = Arrays.asList("hello", 42, true, null);
         byte[] bytes = mapper.writeValueAsBytes(original);
         List<?> result = mapper.readValue(bytes, List.class);
-        assertEquals(4, result.size());
-        assertEquals("hello", result.get(0));
-        assertEquals(42, ((Number) result.get(1)).intValue());
-        assertEquals(Boolean.TRUE, result.get(2));
-        assertNull(result.get(3));
+        assertThat(result).hasSize(4);
+        assertThat(result.get(0)).isEqualTo("hello");
+        assertThat(((Number) result.get(1)).intValue()).isEqualTo(42);
+        assertThat(result.get(2)).isEqualTo(Boolean.TRUE);
+        assertThat(result.get(3)).isNull();
     }
 
     @Test
-    public void testRoundTripEmptyObject() throws Exception {
+    public void testRoundTripEmptyObject() {
         Map<String, Object> map = new LinkedHashMap<>();
         byte[] bytes = mapper.writeValueAsBytes(map);
         Map<?, ?> result = mapper.readValue(bytes, Map.class);
-        assertTrue(result.isEmpty());
+        assertThat(result).isEmpty();
     }
 
     @Test
-    public void testRoundTripSimpleObject() throws Exception {
+    public void testRoundTripSimpleObject() {
         Map<String, Object> original = new LinkedHashMap<>();
         original.put("name", "Alice");
         original.put("age", 30);
         original.put("active", true);
         byte[] bytes = mapper.writeValueAsBytes(original);
         Map<?, ?> result = mapper.readValue(bytes, Map.class);
-        assertEquals(3, result.size());
-        assertEquals("Alice", result.get("name"));
-        assertEquals(30, ((Number) result.get("age")).intValue());
-        assertEquals(Boolean.TRUE, result.get("active"));
+        assertThat(result).hasSize(3);
+        assertThat(result.get("name")).isEqualTo("Alice");
+        assertThat(((Number) result.get("age")).intValue()).isEqualTo(30);
+        assertThat(result.get("active")).isEqualTo(Boolean.TRUE);
     }
 
     @Test
-    public void testRoundTripNestedObject() throws Exception {
+    public void testRoundTripNestedObject() {
         Map<String, Object> inner = new LinkedHashMap<>();
         inner.put("x", 1);
         inner.put("y", 2);
@@ -190,12 +190,12 @@ public class VPackRoundTripTest extends BaseTestForVPack
 
         byte[] bytes = mapper.writeValueAsBytes(outer);
         Map<?, ?> result = mapper.readValue(bytes, Map.class);
-        assertEquals(2, result.size());
-        assertEquals("origin", result.get("label"));
+        assertThat(result).hasSize(2);
+        assertThat(result.get("label")).isEqualTo("origin");
         Map<?, ?> pointResult = (Map<?, ?>) result.get("point");
-        assertNotNull(pointResult);
-        assertEquals(1, ((Number) pointResult.get("x")).intValue());
-        assertEquals(2, ((Number) pointResult.get("y")).intValue());
+        assertThat(pointResult).isNotNull();
+        assertThat(((Number) pointResult.get("x")).intValue()).isEqualTo(1);
+        assertThat(((Number) pointResult.get("y")).intValue()).isEqualTo(2);
     }
 
     // =========================================================
@@ -211,18 +211,17 @@ public class VPackRoundTripTest extends BaseTestForVPack
 
         @Override
         public boolean equals(Object o) {
-            if (!(o instanceof Point)) return false;
-            Point p = (Point) o;
+            if (!(o instanceof Point p)) return false;
             return x == p.x && y == p.y;
         }
     }
 
     @Test
-    public void testRoundTripPojo() throws Exception {
+    public void testRoundTripPojo() {
         Point original = new Point(3, 7);
         byte[] bytes = mapper.writeValueAsBytes(original);
         Point result = mapper.readValue(bytes, Point.class);
-        assertEquals(original, result);
+        assertThat(result).isEqualTo(original);
     }
 
     // =========================================================
@@ -230,7 +229,7 @@ public class VPackRoundTripTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testObjectKeysSortedByDefault() throws Exception {
+    public void testObjectKeysSortedByDefault() {
         // Write {b:1, a:2} and assert the wire bytes have 'a' before 'b'
         Map<String, Integer> map = new LinkedHashMap<>();
         map.put("b", 1);
@@ -246,13 +245,13 @@ public class VPackRoundTripTest extends BaseTestForVPack
             if ((bytes[i] & 0xFF) == 0x41 && bytes[i + 1] == 0x61 && posA < 0) posA = i;
             if ((bytes[i] & 0xFF) == 0x41 && bytes[i + 1] == 0x62 && posB < 0) posB = i;
         }
-        assertTrue(posA >= 0, "Key 'a' not found in wire bytes");
-        assertTrue(posB >= 0, "Key 'b' not found in wire bytes");
-        assertTrue(posA < posB, "Expected 'a' before 'b' in sorted wire format");
+        assertThat(posA).as("Key 'a' not found in wire bytes").isGreaterThanOrEqualTo(0);
+        assertThat(posB).as("Key 'b' not found in wire bytes").isGreaterThanOrEqualTo(0);
+        assertThat(posA).as("Expected 'a' before 'b' in sorted wire format").isLessThan(posB);
     }
 
     @Test
-    public void testObjectKeysUnsortedWhenFeatureDisabled() throws Exception {
+    public void testObjectKeysUnsortedWhenFeatureDisabled() {
         VPackMapper unsortedMapper = VPackMapper.builder()
                 .disable(VPackWriteFeature.WRITE_OBJECT_KEYS_SORTED)
                 .build();
@@ -262,6 +261,6 @@ public class VPackRoundTripTest extends BaseTestForVPack
         byte[] bytes = unsortedMapper.writeValueAsBytes(map);
         // With unsorted: type byte should be 0x0f (unsorted 1-byte width)
         // rather than 0x0b (sorted 1-byte width)
-        assertEquals((byte) 0x0f, bytes[0], "Expected unsorted object type 0x0f");
+        assertThat(bytes[0]).as("Expected unsorted object type 0x0f").isEqualTo((byte) 0x0f);
     }
 }

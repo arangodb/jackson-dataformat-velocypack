@@ -3,7 +3,7 @@ package com.arangodb.jackson.dataformat.velocypack;
 import org.junit.jupiter.api.Test;
 import tools.jackson.core.Version;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Tests for basic factory properties.
@@ -13,39 +13,39 @@ public class VPackFactoryPropertiesTest extends BaseTestForVPack
     @Test
     public void testFormatName() {
         VPackFactory f = new VPackFactory();
-        assertEquals("VelocyPack", f.getFormatName());
+        assertThat(f.getFormatName()).isEqualTo("VelocyPack");
     }
 
     @Test
     public void testVersion() {
         VPackFactory f = new VPackFactory();
         Version v = f.version();
-        assertNotNull(v);
-        assertFalse(v.isUnknownVersion());
+        assertThat(v).isNotNull();
+        assertThat(v.isUnknownVersion()).isFalse();
     }
 
     @Test
     public void testCanParseAsync() {
         VPackFactory f = new VPackFactory();
-        assertFalse(f.canParseAsync());
+        assertThat(f.canParseAsync()).isFalse();
     }
 
     @Test
     public void testCanUseSchema() {
         VPackFactory f = new VPackFactory();
-        assertFalse(f.canUseSchema(null));
+        assertThat(f.canUseSchema(null)).isFalse();
     }
 
     @Test
     public void testGetFormatReadFeatureType() {
         VPackFactory f = new VPackFactory();
-        assertEquals(VPackReadFeature.class, f.getFormatReadFeatureType());
+        assertThat(f.getFormatReadFeatureType()).isEqualTo(VPackReadFeature.class);
     }
 
     @Test
     public void testGetFormatWriteFeatureType() {
         VPackFactory f = new VPackFactory();
-        assertEquals(VPackWriteFeature.class, f.getFormatWriteFeatureType());
+        assertThat(f.getFormatWriteFeatureType()).isEqualTo(VPackWriteFeature.class);
     }
 
     @Test
@@ -54,9 +54,9 @@ public class VPackFactoryPropertiesTest extends BaseTestForVPack
                 .enable(VPackReadFeature.FAIL_ON_TAGGED_VALUES)
                 .enable(VPackWriteFeature.WRITE_COMPACT_ARRAYS)
                 .build();
-        assertTrue(f.isEnabled(VPackReadFeature.FAIL_ON_TAGGED_VALUES));
-        assertTrue(f.isEnabled(VPackWriteFeature.WRITE_COMPACT_ARRAYS));
-        assertFalse(f.isEnabled(VPackWriteFeature.WRITE_COMPACT_OBJECTS));
+        assertThat(f.isEnabled(VPackReadFeature.FAIL_ON_TAGGED_VALUES)).isTrue();
+        assertThat(f.isEnabled(VPackWriteFeature.WRITE_COMPACT_ARRAYS)).isTrue();
+        assertThat(f.isEnabled(VPackWriteFeature.WRITE_OBJECT_KEYS_SORTED)).isFalse();
     }
 
     @Test
@@ -65,14 +65,14 @@ public class VPackFactoryPropertiesTest extends BaseTestForVPack
                 .enable(VPackWriteFeature.WRITE_COMPACT_ARRAYS)
                 .build();
         VPackFactory f2 = f1.copy();
-        assertNotSame(f1, f2);
-        assertTrue(f2.isEnabled(VPackWriteFeature.WRITE_COMPACT_ARRAYS));
+        assertThat(f2).isNotSameAs(f1);
+        assertThat(f2.isEnabled(VPackWriteFeature.WRITE_COMPACT_ARRAYS)).isTrue();
     }
 
     @Test
     public void testFactorySnapshot() {
         VPackFactory f = new VPackFactory();
-        assertSame(f, f.snapshot());
+        assertThat(f.snapshot()).isSameAs(f);
     }
 
     @Test
@@ -81,22 +81,22 @@ public class VPackFactoryPropertiesTest extends BaseTestForVPack
                 .enable(VPackReadFeature.FAIL_ON_CUSTOM_TYPES)
                 .enable(VPackWriteFeature.LENIENT_UTF_ENCODING)
                 .build();
-        assertTrue(m.isEnabled(VPackReadFeature.FAIL_ON_CUSTOM_TYPES));
-        assertTrue(m.isEnabled(VPackWriteFeature.LENIENT_UTF_ENCODING));
+        assertThat(m.isEnabled(VPackReadFeature.FAIL_ON_CUSTOM_TYPES)).isTrue();
+        assertThat(m.isEnabled(VPackWriteFeature.LENIENT_UTF_ENCODING)).isTrue();
     }
 
     @Test
     public void testSharedMapper() {
         VPackMapper shared = VPackMapper.shared();
-        assertNotNull(shared);
-        assertSame(shared, VPackMapper.shared());
+        assertThat(shared).isNotNull();
+        assertThat(VPackMapper.shared()).isSameAs(shared);
     }
 
     @Test
     public void testMapperVersion() {
         VPackMapper m = new VPackMapper();
         Version v = m.version();
-        assertNotNull(v);
-        assertFalse(v.isUnknownVersion());
+        assertThat(v).isNotNull();
+        assertThat(v.isUnknownVersion()).isFalse();
     }
 }

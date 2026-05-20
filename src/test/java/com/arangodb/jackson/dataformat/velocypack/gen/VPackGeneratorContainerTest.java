@@ -14,15 +14,13 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Tests for VPackGenerator container (array/object) serialization and width-promotion.
  */
-public class VPackGeneratorContainerTest extends BaseTestForVPack
-{
-    private byte[] genWith(VPackMapper m, WriteAction action) throws Exception {
+public class VPackGeneratorContainerTest extends BaseTestForVPack {
+    private byte[] genWith(VPackMapper m, WriteAction action) {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try (JsonGenerator g = m.createGenerator(out)) {
             action.write(g);
@@ -30,13 +28,13 @@ public class VPackGeneratorContainerTest extends BaseTestForVPack
         return out.toByteArray();
     }
 
-    private byte[] gen(WriteAction action) throws Exception {
+    private byte[] gen(WriteAction action) {
         return genWith(new VPackMapper(), action);
     }
 
     @FunctionalInterface
     interface WriteAction {
-        void write(JsonGenerator g) throws Exception;
+        void write(JsonGenerator g);
     }
 
     // =========================================================
@@ -44,18 +42,21 @@ public class VPackGeneratorContainerTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testEmptyArray_typeByte() throws Exception {
+    public void testEmptyArray_typeByte() {
         byte[] bytes = gen(g -> {
             g.writeStartArray();
             g.writeEndArray();
         });
-        assertEquals((byte) 0x01, bytes[0]); // VPACK_ARRAY_EMPTY
+        assertThat(bytes[0]).isEqualTo((byte) 0x01); // VPACK_ARRAY_EMPTY
     }
 
     @Test
-    public void testNoIndexArray_allSameLength() throws Exception {
+    public void testNoIndexArray_allSameLength() {
+        VPackMapper mapper = VPackMapper.builder()
+                .disable(VPackWriteFeature.WRITE_COMPACT_ARRAYS)
+                .build();
         // All items same length: small ints (1 byte each)
-        byte[] bytes = gen(g -> {
+        byte[] bytes = genWith(mapper, g -> {
             g.writeStartArray();
             g.writeNumber(1);
             g.writeNumber(2);
@@ -63,11 +64,11 @@ public class VPackGeneratorContainerTest extends BaseTestForVPack
             g.writeEndArray();
         });
         // No-index array type: 0x02 (1-byte width)
-        assertEquals((byte) 0x02, bytes[0]);
+        assertThat(bytes[0]).isEqualTo((byte) 0x02);
     }
 
     @Test
-    public void testIndexArray_mixedLengths() throws Exception {
+    public void testIndexArray_mixedLengths() {
         // Mixed lengths: small int (1 byte) and long string (>1 byte)
         byte[] bytes = gen(g -> {
             g.writeStartArray();
@@ -77,12 +78,11 @@ public class VPackGeneratorContainerTest extends BaseTestForVPack
         });
         // Should use indexed array: 0x06-0x09
         int tb = bytes[0] & 0xFF;
-        assertTrue(tb >= 0x06 && tb <= 0x09,
-                "Expected indexed array type, got 0x" + Integer.toHexString(tb));
+        assertThat(tb).as("Expected indexed array type, got 0x" + Integer.toHexString(tb)).isBetween(0x06, 0x09);
     }
 
     @Test
-    public void testCompactArray_noIndex() throws Exception {
+    public void testCompactArray_noIndex() {
         VPackMapper m = VPackMapper.builder()
                 .enable(VPackWriteFeature.WRITE_COMPACT_ARRAYS)
                 .build();
@@ -92,20 +92,20 @@ public class VPackGeneratorContainerTest extends BaseTestForVPack
             g.writeNumber(2);
             g.writeEndArray();
         });
-        assertEquals((byte) 0x13, bytes[0]); // VPACK_ARRAY_COMPACT
+        assertThat(bytes[0]).isEqualTo((byte) 0x13); // VPACK_ARRAY_COMPACT
     }
 
     @Test
-    public void testCompactArray_roundTrip() throws Exception {
+    public void testCompactArray_roundTrip() {
         VPackMapper m = VPackMapper.builder()
                 .enable(VPackWriteFeature.WRITE_COMPACT_ARRAYS)
                 .build();
         List<Integer> original = Arrays.asList(10, 20, 30);
         byte[] bytes = m.writeValueAsBytes(original);
-        assertEquals((byte) 0x13, bytes[0]);
+        assertThat(bytes[0]).isEqualTo((byte) 0x13);
         List<?> result = m.readValue(bytes, List.class);
-        assertEquals(3, result.size());
-        assertEquals(10, ((Number) result.get(0)).intValue());
+        assertThat(result ).hasSize(3);
+        assertThat(((Number) result.get(0)).intValue()).isEqualTo(10);
     }
 
     // =========================================================
@@ -113,17 +113,20 @@ public class VPackGeneratorContainerTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testEmptyObject_typeByte() throws Exception {
+    public void testEmptyObject_typeByte() {
         byte[] bytes = gen(g -> {
             g.writeStartObject();
             g.writeEndObject();
         });
-        assertEquals((byte) 0x0a, bytes[0]); // VPACK_OBJECT_EMPTY
+        assertThat(bytes[0]).isEqualTo((byte) 0x0a); // VPACK_OBJECT_EMPTY
     }
 
     @Test
-    public void testSortedObject_typeByte() throws Exception {
-        byte[] bytes = gen(g -> {
+    public void testSortedObject_typeByte() {
+        VPackMapper m = VPackMapper.builder()
+                .enable(VPackWriteFeature.WRITE_OBJECT_KEYS_SORTED)
+                .build();
+        byte[] bytes = genWith(m, g -> {
             g.writeStartObject();
             g.writeName("z");
             g.writeNumber(1);
@@ -133,15 +136,12 @@ public class VPackGeneratorContainerTest extends BaseTestForVPack
         });
         // Sorted object: 0x0b-0x0e
         int tb = bytes[0] & 0xFF;
-        assertTrue(tb >= 0x0b && tb <= 0x0e,
-                "Expected sorted object type, got 0x" + Integer.toHexString(tb));
+        assertThat(tb).as("Expected sorted object type, got 0x" + Integer.toHexString(tb)).isBetween(0x0b, 0x0e);
     }
 
     @Test
-    public void testUnsortedObject_typeByte() throws Exception {
-        VPackMapper m = VPackMapper.builder()
-                .disable(VPackWriteFeature.WRITE_OBJECT_KEYS_SORTED)
-                .build();
+    public void testUnsortedObject_typeByte() {
+        VPackMapper m = new VPackMapper();
         byte[] bytes = genWith(m, g -> {
             g.writeStartObject();
             g.writeName("z");
@@ -152,12 +152,11 @@ public class VPackGeneratorContainerTest extends BaseTestForVPack
         });
         // Unsorted object: 0x0f-0x12
         int tb = bytes[0] & 0xFF;
-        assertTrue(tb >= 0x0f && tb <= 0x12,
-                "Expected unsorted object type, got 0x" + Integer.toHexString(tb));
+        assertThat(tb).as("Expected unsorted object type, got 0x" + Integer.toHexString(tb)).isBetween(0x0f, 0x12);
     }
 
     @Test
-    public void testCompactObject_typeByte() throws Exception {
+    public void testCompactObject_typeByte() {
         VPackMapper m = VPackMapper.builder()
                 .enable(VPackWriteFeature.WRITE_COMPACT_OBJECTS)
                 .build();
@@ -167,11 +166,11 @@ public class VPackGeneratorContainerTest extends BaseTestForVPack
             g.writeNumber(42);
             g.writeEndObject();
         });
-        assertEquals((byte) 0x14, bytes[0]); // VPACK_OBJECT_COMPACT
+        assertThat(bytes[0]).isEqualTo((byte) 0x14); // VPACK_OBJECT_COMPACT
     }
 
     @Test
-    public void testCompactObject_sortedKeys_roundTrip() throws Exception {
+    public void testCompactObject_sortedKeys_roundTrip() {
         VPackMapper m = VPackMapper.builder()
                 .enable(VPackWriteFeature.WRITE_COMPACT_OBJECTS)
                 .enable(VPackWriteFeature.WRITE_OBJECT_KEYS_SORTED)
@@ -184,14 +183,14 @@ public class VPackGeneratorContainerTest extends BaseTestForVPack
             g.writeNumber(2);
             g.writeEndObject();
         });
-        assertEquals((byte) 0x14, bytes[0]);
+        assertThat(bytes[0]).isEqualTo((byte) 0x14);
         // Parse back
         try (JsonParser p = m.createParser(bytes)) {
-            assertEquals(JsonToken.START_OBJECT, p.nextToken());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.START_OBJECT);
             p.nextToken(); // first property name
             String first = p.getString();
             // Sorted: a_key should come before z_key
-            assertEquals("a_key", first);
+            assertThat(first).isEqualTo("a_key");
         }
     }
 
@@ -200,7 +199,7 @@ public class VPackGeneratorContainerTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testNestedArray_insideObject() throws Exception {
+    public void testNestedArray_insideObject()  {
         byte[] bytes = gen(g -> {
             g.writeStartObject();
             g.writeName("arr");
@@ -212,21 +211,21 @@ public class VPackGeneratorContainerTest extends BaseTestForVPack
         });
         VPackMapper m = new VPackMapper();
         try (JsonParser p = m.createParser(bytes)) {
-            assertEquals(JsonToken.START_OBJECT, p.nextToken());
-            assertEquals(JsonToken.PROPERTY_NAME, p.nextToken());
-            assertEquals("arr", p.getString());
-            assertEquals(JsonToken.START_ARRAY, p.nextToken());
-            assertEquals(JsonToken.VALUE_NUMBER_INT, p.nextToken());
-            assertEquals(1, p.getIntValue());
-            assertEquals(JsonToken.VALUE_NUMBER_INT, p.nextToken());
-            assertEquals(2, p.getIntValue());
-            assertEquals(JsonToken.END_ARRAY, p.nextToken());
-            assertEquals(JsonToken.END_OBJECT, p.nextToken());
+            assertThat(p.nextToken()).isEqualTo(JsonToken.START_OBJECT);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.PROPERTY_NAME);
+            assertThat(p.getString()).isEqualTo("arr");
+            assertThat(p.nextToken()).isEqualTo(JsonToken.START_ARRAY);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_NUMBER_INT);
+            assertThat(p.getIntValue()).isEqualTo(1);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_NUMBER_INT);
+            assertThat(p.getIntValue()).isEqualTo(2);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.END_ARRAY);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.END_OBJECT);
         }
     }
 
     @Test
-    public void testNestedObject_insideArray() throws Exception {
+    public void testNestedObject_insideArray() {
         byte[] bytes = gen(g -> {
             g.writeStartArray();
             g.writeStartObject();
@@ -237,14 +236,14 @@ public class VPackGeneratorContainerTest extends BaseTestForVPack
         });
         VPackMapper m = new VPackMapper();
         try (JsonParser p = m.createParser(bytes)) {
-            assertEquals(JsonToken.START_ARRAY, p.nextToken());
-            assertEquals(JsonToken.START_OBJECT, p.nextToken());
-            assertEquals(JsonToken.PROPERTY_NAME, p.nextToken());
-            assertEquals("x", p.getString());
-            assertEquals(JsonToken.VALUE_NUMBER_INT, p.nextToken());
-            assertEquals(5, p.getIntValue());
-            assertEquals(JsonToken.END_OBJECT, p.nextToken());
-            assertEquals(JsonToken.END_ARRAY, p.nextToken());
+            assertThat(JsonToken.START_ARRAY).isEqualTo(p.nextToken());
+            assertThat(JsonToken.START_OBJECT).isEqualTo(p.nextToken());
+            assertThat(JsonToken.PROPERTY_NAME).isEqualTo(p.nextToken());
+            assertThat("x").isEqualTo(p.getString());
+            assertThat(JsonToken.VALUE_NUMBER_INT).isEqualTo(p.nextToken());
+            assertThat(5).isEqualTo(p.getIntValue());
+            assertThat(JsonToken.END_OBJECT).isEqualTo(p.nextToken());
+            assertThat(JsonToken.END_ARRAY).isEqualTo(p.nextToken());
         }
     }
 
@@ -253,7 +252,7 @@ public class VPackGeneratorContainerTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testWriteStartArray_withForValue() throws Exception {
+    public void testWriteStartArray_withForValue() {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try (JsonGenerator g = vpackGenerator(out)) {
             g.writeStartArray("myValue");
@@ -261,11 +260,11 @@ public class VPackGeneratorContainerTest extends BaseTestForVPack
             g.writeEndArray();
         }
         byte[] bytes = out.toByteArray();
-        assertTrue(bytes.length > 0);
+        assertThat(bytes.length).isPositive();
     }
 
     @Test
-    public void testWriteStartArray_withForValueAndSize() throws Exception {
+    public void testWriteStartArray_withForValueAndSize() {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try (JsonGenerator g = vpackGenerator(out)) {
             g.writeStartArray("myValue", 3);
@@ -275,11 +274,11 @@ public class VPackGeneratorContainerTest extends BaseTestForVPack
             g.writeEndArray();
         }
         byte[] bytes = out.toByteArray();
-        assertTrue(bytes.length > 0);
+        assertThat(bytes.length).isPositive();
     }
 
     @Test
-    public void testWriteStartObject_withForValue() throws Exception {
+    public void testWriteStartObject_withForValue() {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try (JsonGenerator g = vpackGenerator(out)) {
             g.writeStartObject("myValue");
@@ -288,11 +287,11 @@ public class VPackGeneratorContainerTest extends BaseTestForVPack
             g.writeEndObject();
         }
         byte[] bytes = out.toByteArray();
-        assertTrue(bytes.length > 0);
+        assertThat(bytes.length ).isPositive();
     }
 
     @Test
-    public void testWriteStartObject_withForValueAndSize() throws Exception {
+    public void testWriteStartObject_withForValueAndSize() {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try (JsonGenerator g = vpackGenerator(out)) {
             g.writeStartObject("myValue", 1);
@@ -301,7 +300,7 @@ public class VPackGeneratorContainerTest extends BaseTestForVPack
             g.writeEndObject();
         }
         byte[] bytes = out.toByteArray();
-        assertTrue(bytes.length > 0);
+        assertThat(bytes.length ).isPositive();
     }
 
     // =========================================================
@@ -309,27 +308,27 @@ public class VPackGeneratorContainerTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testWriteRaw_byte() throws Exception {
+    public void testWriteRaw_byte() {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         VPackMapper m = new VPackMapper();
         try (VPackGenerator g = (VPackGenerator) m.createGenerator(out)) {
             g.writeRaw((byte) 0x18); // VPACK_NULL as raw byte
         }
         byte[] bytes = out.toByteArray();
-        assertEquals(1, bytes.length);
-        assertEquals((byte) 0x18, bytes[0]);
+        assertThat(bytes).hasSize(1);
+        assertThat(bytes[0]).isEqualTo((byte) 0x18);
     }
 
     @Test
-    public void testWriteBytes() throws Exception {
+    public void testWriteBytes() {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         VPackMapper m = new VPackMapper();
         try (VPackGenerator g = (VPackGenerator) m.createGenerator(out)) {
-            byte[] data = { (byte) 0x18, (byte) 0x1a };
+            byte[] data = {(byte) 0x18, (byte) 0x1a};
             g.writeBytes(data, 0, data.length);
         }
         byte[] bytes = out.toByteArray();
-        assertEquals(2, bytes.length);
+        assertThat(bytes).hasSize(2);
     }
 
     // =========================================================
@@ -337,14 +336,14 @@ public class VPackGeneratorContainerTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testFlush() throws Exception {
+    public void testFlush() {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try (JsonGenerator g = vpackGenerator(out)) {
             g.writeNull();
             g.flush();
         }
         byte[] bytes = out.toByteArray();
-        assertEquals(1, bytes.length);
+        assertThat(bytes).hasSize(1);
     }
 
     // =========================================================
@@ -352,7 +351,7 @@ public class VPackGeneratorContainerTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testIndexArray_width2_roundTrip() throws Exception {
+    public void testIndexArray_width2_roundTrip() {
         // Build array with many items of mixed length to require 2-byte offsets
         // Each item is a string of various lengths
         List<String> items = new ArrayList<>();
@@ -363,15 +362,15 @@ public class VPackGeneratorContainerTest extends BaseTestForVPack
         VPackMapper m = new VPackMapper();
         byte[] bytes = m.writeValueAsBytes(items);
         List<?> result = m.readValue(bytes, List.class);
-        assertEquals(50, result.size());
-        assertEquals("item_0", result.get(0));
-        assertEquals("item_49", result.get(49));
+        assertThat(result ).hasSize(50);
+        assertThat(result.get(0)).isEqualTo("item_0");
+        assertThat(result.get(49)).isEqualTo("item_49");
     }
 
     @Test
-    public void testSortedObject_keysSorted_inBuf() throws Exception {
+    public void testSortedObject_keysSorted_inBuf() {
         // Verify key ordering in output
-        VPackMapper m = new VPackMapper();
+        VPackMapper m = VPackMapper.builder().enable(VPackWriteFeature.WRITE_OBJECT_KEYS_SORTED).build();
         byte[] bytes = genWith(m, g -> {
             g.writeStartObject();
             g.writeName("z");
@@ -385,13 +384,19 @@ public class VPackGeneratorContainerTest extends BaseTestForVPack
         // Parse back and check key order (sorted)
         try (JsonParser p = m.createParser(bytes)) {
             p.nextToken(); // START_OBJECT
-            p.nextToken(); String k1 = p.getString(); p.nextToken();
-            p.nextToken(); String k2 = p.getString(); p.nextToken();
-            p.nextToken(); String k3 = p.getString(); p.nextToken();
+            p.nextToken();
+            String k1 = p.getString();
+            p.nextToken();
+            p.nextToken();
+            String k2 = p.getString();
+            p.nextToken();
+            p.nextToken();
+            String k3 = p.getString();
+            p.nextToken();
             p.nextToken(); // END_OBJECT
-            assertEquals("a", k1);
-            assertEquals("m", k2);
-            assertEquals("z", k3);
+            assertThat(k1).isEqualTo("a");
+            assertThat(k2).isEqualTo("m");
+            assertThat(k3).isEqualTo("z");
         }
     }
 
@@ -400,22 +405,22 @@ public class VPackGeneratorContainerTest extends BaseTestForVPack
     // =========================================================
 
     @Test
-    public void testStreamWriteContext_inArray() throws Exception {
+    public void testStreamWriteContext_inArray() {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try (JsonGenerator g = vpackGenerator(out)) {
             g.writeStartArray();
-            assertTrue(g.streamWriteContext().inArray());
+            assertThat(g.streamWriteContext().inArray()).isTrue();
             g.writeNumber(1);
             g.writeEndArray();
         }
     }
 
     @Test
-    public void testStreamWriteContext_inObject() throws Exception {
+    public void testStreamWriteContext_inObject() {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try (JsonGenerator g = vpackGenerator(out)) {
             g.writeStartObject();
-            assertTrue(g.streamWriteContext().inObject());
+            assertThat(g.streamWriteContext().inObject()).isTrue();
             g.writeName("key");
             g.writeNumber(1);
             g.writeEndObject();
