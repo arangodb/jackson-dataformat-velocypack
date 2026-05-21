@@ -173,22 +173,6 @@ public class VPackParser extends VPackParserBase
         return result;
     }
 
-    protected byte[] _readBytes(int len) throws JacksonException {
-        byte[] result = new byte[len];
-        int pos = 0;
-        while (pos < len) {
-            int avail = _inputEnd - _inputPtr;
-            if (avail <= 0) {
-                _loadMoreGuaranteed();
-                avail = _inputEnd - _inputPtr;
-            }
-            int copy = Math.min(len - pos, avail);
-            System.arraycopy(_inputBuffer, _inputPtr, result, pos, copy);
-            _inputPtr += copy;
-            pos += copy;
-        }
-        return result;
-    }
 
     /*
     /**********************************************************************
@@ -227,10 +211,7 @@ public class VPackParser extends VPackParserBase
     @Override
     public JsonToken nextToken() throws JacksonException
     {
-        _numTypesValid = NR_UNKNOWN;
-        _binaryValue = null;
-        _embeddedObject = null;
-        _lastTagNumber = -1L;
+        _resetTransientValueState();
         _tokenOffsetForTotal = _inputPtr;
 
         // Are we inside a container?
@@ -257,6 +238,14 @@ public class VPackParser extends VPackParserBase
         }
 
         return _readValue();
+    }
+
+    protected void _resetTransientValueState() {
+        _numTypesValid = NR_UNKNOWN;
+        _binaryValue = null;
+        _embeddedObject = null;
+        _lastTagNumber = -1L;
+        _textBuffer.resetWithEmpty();
     }
 
     protected JsonToken _eofToken() throws JacksonException {
@@ -829,22 +818,43 @@ public class VPackParser extends VPackParserBase
 
     @Override
     public String getString() throws JacksonException {
-        return _textBuffer.contentsAsString();
+        if (_currToken == null) {
+            return null;
+        }
+        return switch (_currToken) {
+            case VALUE_STRING, PROPERTY_NAME -> _textBuffer.contentsAsString();
+            case VALUE_NUMBER_INT, VALUE_NUMBER_FLOAT -> _numberAsString();
+            case VALUE_TRUE -> "true";
+            case VALUE_FALSE -> "false";
+            case VALUE_NULL -> "null";
+            default -> _currToken.asString();
+        };
     }
 
     @Override
     public char[] getStringCharacters() throws JacksonException {
-        return _textBuffer.getTextBuffer();
+        if (_currToken == JsonToken.VALUE_STRING || _currToken == JsonToken.PROPERTY_NAME) {
+            return _textBuffer.getTextBuffer();
+        }
+        String s = getString();
+        return (s == null) ? null : s.toCharArray();
     }
 
     @Override
     public int getStringLength() throws JacksonException {
-        return _textBuffer.size();
+        if (_currToken == JsonToken.VALUE_STRING || _currToken == JsonToken.PROPERTY_NAME) {
+            return _textBuffer.size();
+        }
+        String s = getString();
+        return (s == null) ? 0 : s.length();
     }
 
     @Override
     public int getStringOffset() throws JacksonException {
-        return _textBuffer.getTextOffset();
+        if (_currToken == JsonToken.VALUE_STRING || _currToken == JsonToken.PROPERTY_NAME) {
+            return _textBuffer.getTextOffset();
+        }
+        return 0;
     }
 
     @Override
@@ -860,7 +870,9 @@ public class VPackParser extends VPackParserBase
         if (_currToken == null || _currToken == JsonToken.VALUE_NULL) {
             return defaultValue;
         }
-        return super.getValueAsString(defaultValue);
+        // For numbers/booleans, fall back to the textual representation
+        String s = getString();
+        return (s == null) ? defaultValue : s;
     }
 
     @Override
@@ -873,6 +885,15 @@ public class VPackParser extends VPackParserBase
             throw _wrapIOFailure(e);
         }
         return str.length();
+    }
+
+    protected String _numberAsString() throws JacksonException {
+        if ((_numTypesValid & NR_INT) != 0)        return Integer.toString(_numberInt);
+        if ((_numTypesValid & NR_LONG) != 0)       return Long.toString(_numberLong);
+        if ((_numTypesValid & NR_BIGINT) != 0)     return _numberBigInt.toString();
+        if ((_numTypesValid & NR_BIGDECIMAL) != 0) return _numberBigDecimal.toString();
+        if ((_numTypesValid & NR_DOUBLE) != 0)     return Double.toString(_numberDouble);
+        return "";
     }
 
     /*
@@ -941,6 +962,12 @@ public class VPackParser extends VPackParserBase
     /* Helpers
     /**********************************************************************
      */
+
+    protected byte[] _readBytes(int len) throws JacksonException {
+        byte[] result = new byte[len];
+        _readBytesInto(result, len);
+        return result;
+    }
 
     protected void _readBytesInto(byte[] dest, int len) throws JacksonException {
         int pos = 0;
@@ -1084,6 +1111,8 @@ public class VPackParser extends VPackParserBase
          */
         JsonToken nextToken(VPackParser parser) throws JacksonException {
             if (isDone()) return null;
+
+            parser._resetTransientValueState();
 
             if (isObject) {
                 return nextObjectToken(parser);
