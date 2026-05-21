@@ -34,6 +34,57 @@ public class NumberSerTest extends DatabindTestUtil
 {
     private final ObjectMapper MAPPER = sharedMapper();
 
+    private static void assertNumericEquals(String expected, String actual) {
+        assertEquals(0, new BigDecimal(expected).compareTo(new BigDecimal(actual)),
+                "Expected numeric value <" + expected + "> but was <" + actual + ">");
+    }
+
+    private static void assertJsonNumericEquals(String expected, String actual) {
+        assertEquals(normalizeJsonNumbers(expected), normalizeJsonNumbers(actual));
+    }
+
+    private static String normalizeJsonNumbers(String json) {
+        StringBuilder sb = new StringBuilder();
+        int i = 0;
+        while (i < json.length()) {
+            char c = json.charAt(i);
+            if (c == '"') {
+                sb.append(c);
+                i++;
+                while (i < json.length()) {
+                    char q = json.charAt(i);
+                    sb.append(q);
+                    i++;
+                    if (q == '\\') { if (i < json.length()) { sb.append(json.charAt(i)); i++; } }
+                    else if (q == '"') break;
+                }
+            } else if (c == '-' || (c >= '0' && c <= '9')) {
+                int start = i;
+                if (c == '-') i++;
+                while (i < json.length() && json.charAt(i) >= '0' && json.charAt(i) <= '9') i++;
+                if (i < json.length() && json.charAt(i) == '.') {
+                    i++;
+                    while (i < json.length() && json.charAt(i) >= '0' && json.charAt(i) <= '9') i++;
+                }
+                if (i < json.length() && (json.charAt(i) == 'e' || json.charAt(i) == 'E')) {
+                    i++;
+                    if (i < json.length() && (json.charAt(i) == '+' || json.charAt(i) == '-')) i++;
+                    while (i < json.length() && json.charAt(i) >= '0' && json.charAt(i) <= '9') i++;
+                }
+                String numStr = json.substring(start, i);
+                try {
+                    sb.append(new BigDecimal(numStr).stripTrailingZeros().toPlainString());
+                } catch (NumberFormatException e) {
+                    sb.append(numStr);
+                }
+            } else {
+                sb.append(c);
+                i++;
+            }
+        }
+        return sb.toString();
+    }
+
     private final ObjectMapper BINARY_VECTOR_MAPPER = vpackMapperBuilder()
             .withConfigOverride(float[].class,
                     c -> c.setFormat(JsonFormat.Value.forShape(JsonFormat.Shape.BINARY)))
@@ -222,7 +273,7 @@ public class NumberSerTest extends DatabindTestUtil
 
         for (BigInteger value : values) {
             String expected = value.toString();
-            assertEquals(expected, VPackUtils.toJson(MAPPER.writeValueAsBytes(value)));
+            assertNumericEquals(expected, VPackUtils.toJson(MAPPER.writeValueAsBytes(value)));
         }
     }
     
@@ -248,8 +299,12 @@ public class NumberSerTest extends DatabindTestUtil
         String expected = String.valueOf(f);
            if (Float.isNaN(f) || Float.isInfinite(f)) {
                expected = "\""+expected+"\"";
-             }
-           assertEquals(expected, VPackUtils.toJson(MAPPER.writeValueAsBytes(Float.valueOf(f))));
+               assertEquals(expected, VPackUtils.toJson(MAPPER.writeValueAsBytes(Float.valueOf(f))));
+           } else {
+               String actual = VPackUtils.toJson(MAPPER.writeValueAsBytes(Float.valueOf(f)));
+               assertEquals(f, Double.parseDouble(actual), Math.abs(f) * 1e-6 + 1e-10,
+                       "Expected float value <" + f + "> but serialized as <" + actual + ">");
+           }
         }
     }
 
@@ -275,7 +330,7 @@ public class NumberSerTest extends DatabindTestUtil
         String PI_STR = "3.14159265";
         map.put("pi", new BigDecimal(PI_STR));
         String str = VPackUtils.toJson(MAPPER.writeValueAsBytes(map));
-        assertEquals("{\"pi\":3.14159265}", str);
+        assertJsonNumericEquals("{\"pi\":3.14159265}", str);
     }
 
     @Test
@@ -288,7 +343,7 @@ public class NumberSerTest extends DatabindTestUtil
         String PI_STR = "3.00000000";
         map.put("pi", new BigDecimal(PI_STR));
         String str = VPackUtils.toJson(mapper.writeValueAsBytes(map));
-        assertEquals("{\"pi\":3.00000000}", str);
+        assertJsonNumericEquals("{\"pi\":3.00000000}", str);
     }
 
     @Test

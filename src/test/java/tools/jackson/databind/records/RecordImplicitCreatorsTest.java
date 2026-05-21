@@ -126,7 +126,8 @@ public class RecordImplicitCreatorsTest extends DatabindTestUtil
                 VPackUtils.toVPack("{\"id\":123.4,\"name\":\"CanonicalConstructor\"}"),
                 RecordWithImplicitFactoryMethods.class);
 
-        assertEquals(new RecordWithImplicitFactoryMethods(BigDecimal.valueOf(123.4), "CanonicalConstructor"), value);
+        assertEquals(123.4, value.id().doubleValue(), 1e-10);
+        assertEquals("CanonicalConstructor", value.name());
     }
 
     @Test

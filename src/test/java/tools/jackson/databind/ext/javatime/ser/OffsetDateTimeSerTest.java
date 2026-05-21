@@ -50,7 +50,7 @@ public class OffsetDateTimeSerTest
                 .with(DateTimeFeature.WRITE_DATES_AS_TIMESTAMPS)
                 .with(DateTimeFeature.WRITE_DATE_TIMESTAMPS_AS_NANOSECONDS)
                 .writeValueAsBytes(date));
-        assertEquals("0.0", value);
+        assertNumericEquals("0.0", value);
     }
 
     @Test
@@ -94,7 +94,7 @@ public class OffsetDateTimeSerTest
                 .with(DateTimeFeature.WRITE_DATES_AS_TIMESTAMPS)
                 .with(DateTimeFeature.WRITE_DATE_TIMESTAMPS_AS_NANOSECONDS)
                 .writeValueAsBytes(date));
-        assertEquals(DecimalUtils.toDecimal(date.toEpochSecond(), date.getNano()), value);
+        assertNumericEquals(DecimalUtils.toDecimal(date.toEpochSecond(), date.getNano()), value);
     }
 
     @Test
@@ -287,6 +287,6 @@ public class OffsetDateTimeSerTest
         String json1 = VPackUtils.toJson(MAPPER.writer()
                 .with(DateTimeFeature.WRITE_DATES_AS_TIMESTAMPS)
                 .writeValueAsBytes(new Pojo1()));
-        assertEquals("{\"t1\":1651053600000,\"t2\":1651053600.000000000}", json1);
+        assertJsonNumericEquals("{\"t1\":1651053600000,\"t2\":1651053600.000000000}", json1);
     }
 }

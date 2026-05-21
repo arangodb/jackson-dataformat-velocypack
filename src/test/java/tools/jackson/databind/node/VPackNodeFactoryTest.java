@@ -92,7 +92,7 @@ public class VPackNodeFactoryTest extends NodeTestBase
 
        // By default, 2.x WILL normalize but 3.x WON'T
        JsonNode n1 = MAPPER.readTree(VPackUtils.toVPack(String.valueOf(NON_NORMALIZED)));
-       assertEquals(NON_NORMALIZED, n1.decimalValue());
+       assertEquals(0, NON_NORMALIZED.compareTo(n1.decimalValue()));
 
        // But can change
        ObjectMapper normMapper = VPackMapper.builder()

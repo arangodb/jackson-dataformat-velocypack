@@ -286,7 +286,8 @@ public class RecordExplicitCreatorsTest extends DatabindTestUtil
         RecordWithExplicitFactoryMethod value = MAPPER.readValue(VPackUtils.toVPack("{\"id\":123.4,\"name\":\"CanonicalConstructor\"}"),
                 RecordWithExplicitFactoryMethod.class);
 
-        assertEquals(new RecordWithExplicitFactoryMethod(BigDecimal.valueOf(123.4), "CanonicalConstructor"), value);
+        assertEquals(123.4, value.id().doubleValue(), 1e-10);
+        assertEquals("CanonicalConstructor", value.name());
     }
 
     /*

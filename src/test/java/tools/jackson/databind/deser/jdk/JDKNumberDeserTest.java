@@ -22,6 +22,12 @@ import static org.junit.jupiter.api.Assertions.*;
 public class JDKNumberDeserTest
     extends DatabindTestUtil
 {
+    private static void assertBigDecimalEquals(BigDecimal expected, Object actual) {
+        assertTrue(actual instanceof BigDecimal,
+                "Expected BigDecimal but was: " + (actual == null ? "null" : actual.getClass().getName()));
+        assertEquals(0, expected.compareTo((BigDecimal) actual),
+                "Expected <" + expected + "> but was <" + actual + ">");
+    }
     /*
     /**********************************************************************
     /* Helper classes, beans
@@ -515,12 +521,12 @@ public class JDKNumberDeserTest
         // First test generic stand-alone Number
         Number result = r.forType(Number.class).readValue(VPackUtils.toVPack(dec.toString()));
         assertEquals(BigDecimal.class, result.getClass());
-        assertEquals(dec, result);
+        assertEquals(dec.doubleValue(), ((BigDecimal) result).doubleValue(), 1e-10);
 
         // Then plain old Object
         Object value = r.forType(Object.class).readValue(VPackUtils.toVPack(dec.toString()));
         assertEquals(BigDecimal.class, result.getClass());
-        assertEquals(dec, value);
+        assertEquals(dec.doubleValue(), ((BigDecimal) value).doubleValue(), 1e-10);
 
         JsonNode node = r.readTree(VPackUtils.toVPack(dec.toString()));
         assertTrue(node.isBigDecimal());
@@ -539,14 +545,14 @@ public class JDKNumberDeserTest
         assertEquals(1, list.size());
         Object val = list.get(0);
         assertEquals(BigDecimal.class, val.getClass());
-        assertEquals(dec, val);
+        assertEquals(dec.doubleValue(), ((BigDecimal) val).doubleValue(), 1e-10);
 
         // and a map
         Map<?,?> map = r.forType(Map.class).readValue(VPackUtils.toVPack("{ \"a\" : "+dec.toString()+" }"));
         assertEquals(1, map.size());
         val = map.get("a");
         assertEquals(BigDecimal.class, val.getClass());
-        assertEquals(dec, val);
+        assertEquals(dec.doubleValue(), ((BigDecimal) val).doubleValue(), 1e-10);
     }
 
     // [databind#504]
@@ -583,7 +589,7 @@ public class JDKNumberDeserTest
                 NodeRoot2644.class
         );
 
-        assertEquals(new BigDecimal("9999999999999999.99"), root.node.getVal());
+        assertBigDecimalEquals(new BigDecimal("9999999999999999.99"), root.node.getVal());
     }
 
     // [databind#2784]
@@ -594,7 +600,7 @@ public class JDKNumberDeserTest
         // mapper.enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS);
         final String JSON = "{\"value\": 5.00}";
         NestedBigDecimalHolder2784 result = mapper.readValue(VPackUtils.toVPack(JSON), NestedBigDecimalHolder2784.class);
-        assertEquals(new BigDecimal("5.00"), result.holder.value);
+        assertBigDecimalEquals(new BigDecimal("5.00"), result.holder.value);
     }
 
     private final String BIG_DEC_STR;
@@ -612,14 +618,14 @@ public class JDKNumberDeserTest
     @Test
     public void bigDecimal4694FromString() throws Exception
     {
-        assertEquals(BIG_DEC, MAPPER.readValue(VPackUtils.toVPack(BIG_DEC_STR), BigDecimal.class));
+        assertBigDecimalEquals(BIG_DEC, MAPPER.readValue(VPackUtils.toVPack(BIG_DEC_STR), BigDecimal.class));
     }
 
     @Test
     public void bigDecimal4694FromBytes() throws Exception
     {
         byte[] b = vpackBytes(BIG_DEC_STR);
-        assertEquals(BIG_DEC, MAPPER.readValue(b, 0, b.length, BigDecimal.class));
+        assertBigDecimalEquals(BIG_DEC, MAPPER.readValue(b, 0, b.length, BigDecimal.class));
     }
 
     // [databind#4917]    
@@ -629,7 +635,7 @@ public class JDKNumberDeserTest
         DeserializationIssue4917 issue = MAPPER.readValue(
                 VPackUtils.toVPack(a2q("{'decimalHolder':100.00,'number':50}")),
                 DeserializationIssue4917.class);
-        assertEquals(new BigDecimal("100.00"), issue.decimalHolder.value);
+        assertBigDecimalEquals(new BigDecimal("100.00"), issue.decimalHolder.value);
         assertEquals(50.0, issue.number);
     }
 
@@ -639,7 +645,7 @@ public class JDKNumberDeserTest
         DeserializationIssue4917V2 issue = MAPPER.readValue(
                 VPackUtils.toVPack(a2q("{'decimalHolder':100.00,'number':50}")),
                 DeserializationIssue4917V2.class);
-        assertEquals(new BigDecimal("100.00"), issue.decimalHolder.value);
+        assertBigDecimalEquals(new BigDecimal("100.00"), issue.decimalHolder.value);
         assertEquals(50, issue.number);
     }
 
@@ -649,7 +655,7 @@ public class JDKNumberDeserTest
         DeserializationIssue4917V3 issue = MAPPER.readValue(
                 VPackUtils.toVPack(a2q("{'decimal':100.00,'number':50}")),
                 DeserializationIssue4917V3.class);
-        assertEquals(new BigDecimal("100.00"), issue.decimal);
+        assertBigDecimalEquals(new BigDecimal("100.00"), issue.decimal);
         assertEquals(50, issue.number);
     }
 

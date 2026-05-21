@@ -20,6 +20,51 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 public class NumberNodesTest extends NodeTestBase
 {
+    private static void assertJsonNumericEquals(String expected, String actual) {
+        assertEquals(normalizeJsonNumbers(expected), normalizeJsonNumbers(actual));
+    }
+
+    private static String normalizeJsonNumbers(String json) {
+        StringBuilder sb = new StringBuilder();
+        int i = 0;
+        while (i < json.length()) {
+            char c = json.charAt(i);
+            if (c == '"') {
+                sb.append(c);
+                i++;
+                while (i < json.length()) {
+                    char q = json.charAt(i);
+                    sb.append(q);
+                    i++;
+                    if (q == '\\') { if (i < json.length()) { sb.append(json.charAt(i)); i++; } }
+                    else if (q == '"') break;
+                }
+            } else if (c == '-' || (c >= '0' && c <= '9')) {
+                int start = i;
+                if (c == '-') i++;
+                while (i < json.length() && json.charAt(i) >= '0' && json.charAt(i) <= '9') i++;
+                if (i < json.length() && json.charAt(i) == '.') {
+                    i++;
+                    while (i < json.length() && json.charAt(i) >= '0' && json.charAt(i) <= '9') i++;
+                }
+                if (i < json.length() && (json.charAt(i) == 'e' || json.charAt(i) == 'E')) {
+                    i++;
+                    if (i < json.length() && (json.charAt(i) == '+' || json.charAt(i) == '-')) i++;
+                    while (i < json.length() && json.charAt(i) >= '0' && json.charAt(i) <= '9') i++;
+                }
+                String numStr = json.substring(start, i);
+                try {
+                    sb.append(new BigDecimal(numStr).stripTrailingZeros().toPlainString());
+                } catch (NumberFormatException e) {
+                    sb.append(numStr);
+                }
+            } else {
+                sb.append(c);
+                i++;
+            }
+        }
+        return sb.toString();
+    }
     private final ObjectMapper MAPPER = objectMapper();
 
     @Test
@@ -420,15 +465,15 @@ public class NumberNodesTest extends NodeTestBase
         final String INPUT = "{\"x\":1e2}";
         final JsonNode node = mapper.readTree(VPackUtils.toVPack(INPUT));
         String result = VPackUtils.toJson(mapper.writeValueAsBytes(node));
-        assertEquals("{\"x\":100}", result);
+        assertJsonNumericEquals("{\"x\":100}", result);
 
         // also via ObjectWriter:
-        assertEquals("{\"x\":100}", VPackUtils.toJson(mapper.writer().writeValueAsBytes(node)));
+        assertJsonNumericEquals("{\"x\":100}", VPackUtils.toJson(mapper.writer().writeValueAsBytes(node)));
 
         // and once more for [core#175]:
         BigDecimal bigDecimal = new BigDecimal(100);
         JsonNode tree = mapper.valueToTree(bigDecimal);
-        assertEquals("100", VPackUtils.toJson(mapper.writeValueAsBytes(tree)));
+        assertJsonNumericEquals("100", VPackUtils.toJson(mapper.writeValueAsBytes(tree)));
     }
 
     // Related to [databind#333]

@@ -4,11 +4,14 @@ import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.cfg.MapperBuilder;
 import com.arangodb.jackson.dataformat.velocypack.VPackMapper;
 
+import java.math.BigDecimal;
 import java.time.ZoneId;
 import java.util.Collections;
 import java.util.Locale;
 import java.util.Map;
 import java.util.TimeZone;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class DateTimeTestBase
     extends tools.jackson.databind.testutil.DatabindTestUtil
@@ -52,5 +55,60 @@ public class DateTimeTestBase
 
     protected static String mapAsString(String key, String value) {
         return String.format("{\"%s\":\"%s\"}", key, value);
+    }
+
+    protected static void assertNumericEquals(String expected, String actual) {
+        assertEquals(0, new BigDecimal(expected).compareTo(new BigDecimal(actual)),
+                "Expected numeric value <" + expected + "> but was <" + actual + ">");
+    }
+
+    protected static void assertJsonNumericEquals(String expected, String actual) {
+        // Compare JSON strings that contain a single numeric value for a field,
+        // e.g. {"t1":1651053600000,"t2":1651053600.000000000}
+        // Parse both as BigDecimal for numeric tokens, compare structure otherwise
+        assertEquals(normalizeJsonNumbers(expected), normalizeJsonNumbers(actual));
+    }
+
+    private static String normalizeJsonNumbers(String json) {
+        // Replace each JSON number token with its BigDecimal canonical form
+        StringBuilder sb = new StringBuilder();
+        int i = 0;
+        while (i < json.length()) {
+            char c = json.charAt(i);
+            if (c == '"') {
+                sb.append(c);
+                i++;
+                while (i < json.length()) {
+                    char q = json.charAt(i);
+                    sb.append(q);
+                    i++;
+                    if (q == '\\') { if (i < json.length()) { sb.append(json.charAt(i)); i++; } }
+                    else if (q == '"') break;
+                }
+            } else if (c == '-' || (c >= '0' && c <= '9')) {
+                int start = i;
+                if (c == '-') i++;
+                while (i < json.length() && (json.charAt(i) >= '0' && json.charAt(i) <= '9')) i++;
+                if (i < json.length() && json.charAt(i) == '.') {
+                    i++;
+                    while (i < json.length() && (json.charAt(i) >= '0' && json.charAt(i) <= '9')) i++;
+                }
+                if (i < json.length() && (json.charAt(i) == 'e' || json.charAt(i) == 'E')) {
+                    i++;
+                    if (i < json.length() && (json.charAt(i) == '+' || json.charAt(i) == '-')) i++;
+                    while (i < json.length() && (json.charAt(i) >= '0' && json.charAt(i) <= '9')) i++;
+                }
+                String numStr = json.substring(start, i);
+                try {
+                    sb.append(new BigDecimal(numStr).stripTrailingZeros().toPlainString());
+                } catch (NumberFormatException e) {
+                    sb.append(numStr);
+                }
+            } else {
+                sb.append(c);
+                i++;
+            }
+        }
+        return sb.toString();
     }
 }

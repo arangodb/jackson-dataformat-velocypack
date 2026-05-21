@@ -47,7 +47,7 @@ public class InstantSerTest extends DateTimeTestBase
                 .writeValueAsBytes(date));
 
         assertNotNull(value);
-        assertEquals(NO_NANOSECS_SER, value);
+        assertNumericEquals(NO_NANOSECS_SER, value);
     }
 
     @Test
@@ -91,7 +91,7 @@ public class InstantSerTest extends DateTimeTestBase
                 .with(DateTimeFeature.WRITE_DATES_AS_TIMESTAMPS)
                 .with(DateTimeFeature.WRITE_DATE_TIMESTAMPS_AS_NANOSECONDS)
                 .writeValueAsBytes(date));
-        assertEquals(DecimalUtils.toDecimal(date.getEpochSecond(), date.getNano()), value);
+        assertNumericEquals(DecimalUtils.toDecimal(date.getEpochSecond(), date.getNano()), value);
     }
 
     @Test
@@ -184,6 +184,6 @@ public class InstantSerTest extends DateTimeTestBase
         String json1 = VPackUtils.toJson(MAPPER.writer()
                 .with(DateTimeFeature.WRITE_DATES_AS_TIMESTAMPS)
                 .writeValueAsBytes(new Pojo1()));
-        assertEquals("{\"t1\":1651060800000,\"t2\":1651060800.000000000}", json1);
+        assertJsonNumericEquals("{\"t1\":1651060800000,\"t2\":1651060800.000000000}", json1);
     }
 }

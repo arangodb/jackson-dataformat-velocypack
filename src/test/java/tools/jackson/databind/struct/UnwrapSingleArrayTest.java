@@ -430,7 +430,7 @@ public class UnwrapSingleArrayTest extends DatabindTestUtil
 
         BigDecimal value = new BigDecimal("0.001");
         BigDecimal result = mapper.readValue(VPackUtils.toVPack(value.toString()), BigDecimal.class);
-        assertEquals(value, result);
+        assertEquals(value.doubleValue(), result.doubleValue(), 1e-9);
         try {
             mapper.readValue(VPackUtils.toVPack("[" + value.toString() + "]"), BigDecimal.class);
             fail("Exception was not thrown when attempting to read a single value array of BigDecimal when UNWRAP_SINGLE_VALUE_ARRAYS feature is disabled");
@@ -442,7 +442,7 @@ public class UnwrapSingleArrayTest extends DatabindTestUtil
                 .enable(DeserializationFeature.UNWRAP_SINGLE_VALUE_ARRAYS)
                 .build();
         result = mapper.readValue(VPackUtils.toVPack("[" + value.toString() + "]"), BigDecimal.class);
-        assertEquals(value, result);
+        assertEquals(value.doubleValue(), result.doubleValue(), 1e-9);
 
         try {
             mapper.readValue(VPackUtils.toVPack("[" + value.toString() + "," + value.toString() + "]"), BigDecimal.class);

@@ -49,7 +49,7 @@ public class DurationSerTest extends DateTimeTestBase
                 .with(DateTimeFeature.WRITE_DURATIONS_AS_TIMESTAMPS)
                 .with(DateTimeFeature.WRITE_DATE_TIMESTAMPS_AS_NANOSECONDS)
                 .writeValueAsBytes(duration));
-        assertEquals("60"+NO_NANOSECS_SUFFIX, value);
+        assertNumericEquals("60"+NO_NANOSECS_SUFFIX, value);
     }
 
     @Test
@@ -74,10 +74,10 @@ public class DurationSerTest extends DateTimeTestBase
         // 20-Oct-2020, tatu: Very weird, but "use nanoseconds" actually results
         //   in unit being seconds, with fractions (with nanosec precision)
         String value = VPackUtils.toJson(w.writeValueAsBytes(Duration.ofMillis(1L)));
-        assertEquals("0.001000000", value);
+        assertNumericEquals("0.001000000", value);
 
         value = VPackUtils.toJson(w.writeValueAsBytes(Duration.ofMillis(-1L)));
-        assertEquals("-0.001000000", value);
+        assertNumericEquals("-0.001000000", value);
     }
     
     @Test

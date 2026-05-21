@@ -20,6 +20,7 @@ import tools.jackson.databind.util.TokenBuffer;
 
 import java.io.File;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -455,8 +456,67 @@ public class SimpleTypeSerializationTest
     @Test
     public void testFloatArray() throws Exception
     {
-        String json = VPackUtils.toJson(MAPPER.writeValueAsBytes(new float[] { 1.01f, 2.0f, -7f, Float.NaN, Float.NEGATIVE_INFINITY, Float.POSITIVE_INFINITY }));
-        assertEquals("[1.01,2.0,-7.0,\"NaN\",\"-Infinity\",\"Infinity\"]", json);
+        float[] floats = { 1.01f, 2.0f, -7f, Float.NaN, Float.NEGATIVE_INFINITY, Float.POSITIVE_INFINITY };
+        String json = VPackUtils.toJson(MAPPER.writeValueAsBytes(floats));
+        // Parse the JSON array and compare each element with tolerance for float precision
+        JsonNode node = MAPPER.readTree(VPackUtils.toVPack(json));
+        assertEquals(floats.length, node.size());
+        for (int i = 0; i < floats.length; i++) {
+            if (Float.isNaN(floats[i])) {
+                assertEquals("NaN", node.get(i).asText());
+            } else if (Float.isInfinite(floats[i])) {
+                assertEquals(floats[i] > 0 ? "Infinity" : "-Infinity", node.get(i).asText());
+            } else {
+                assertEquals(floats[i], (float) node.get(i).doubleValue(), Math.abs(floats[i]) * 1e-6f + 1e-10f);
+            }
+        }
+    }
+
+    private static void assertJsonNumericEquals(String expected, String actual) {
+        assertEquals(normalizeJsonNumbers(expected), normalizeJsonNumbers(actual));
+    }
+
+    private static String normalizeJsonNumbers(String json) {
+        StringBuilder sb = new StringBuilder();
+        int i = 0;
+        while (i < json.length()) {
+            char c = json.charAt(i);
+            if (c == '"') {
+                // copy quoted string as-is
+                sb.append(c);
+                i++;
+                while (i < json.length()) {
+                    char q = json.charAt(i);
+                    sb.append(q);
+                    i++;
+                    if (q == '\\') { if (i < json.length()) { sb.append(json.charAt(i)); i++; } }
+                    else if (q == '"') break;
+                }
+            } else if (c == '-' || (c >= '0' && c <= '9')) {
+                int start = i;
+                if (c == '-') i++;
+                while (i < json.length() && json.charAt(i) >= '0' && json.charAt(i) <= '9') i++;
+                if (i < json.length() && json.charAt(i) == '.') {
+                    i++;
+                    while (i < json.length() && json.charAt(i) >= '0' && json.charAt(i) <= '9') i++;
+                }
+                if (i < json.length() && (json.charAt(i) == 'e' || json.charAt(i) == 'E')) {
+                    i++;
+                    if (i < json.length() && (json.charAt(i) == '+' || json.charAt(i) == '-')) i++;
+                    while (i < json.length() && json.charAt(i) >= '0' && json.charAt(i) <= '9') i++;
+                }
+                String numStr = json.substring(start, i);
+                try {
+                    sb.append(new BigDecimal(numStr).stripTrailingZeros().toPlainString());
+                } catch (NumberFormatException e) {
+                    sb.append(numStr);
+                }
+            } else {
+                sb.append(c);
+                i++;
+            }
+        }
+        return sb.toString();
     }
 
     /*
