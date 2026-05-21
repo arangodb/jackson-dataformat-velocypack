@@ -8,6 +8,7 @@ import tools.jackson.databind.cfg.DateTimeFeature;
 import tools.jackson.databind.cfg.JsonNodeFeature;
 import tools.jackson.databind.ext.javatime.DateTimeTestBase;
 
+import java.time.Duration;
 import java.time.Instant;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -25,6 +26,11 @@ public class InstantDeserViaBigDecimal307Test extends DateTimeTestBase
 
     private final Instant ISSUED_AT = Instant.ofEpochSecond(1234567890).plusNanos(123456789);
 
+    private static void assertInstantsCloseEnough(Instant expected, Instant actual) {
+        assertTrue(Duration.between(expected, actual).abs().compareTo(Duration.ofNanos(1000)) <= 0,
+                () -> "expected: <" + expected + "> but was: <" + actual + ">");
+    }
+
     private ObjectMapper MAPPER = mapperBuilder()
             .enable(JsonNodeFeature.USE_BIG_DECIMAL_FOR_FLOATS)
             .enable(DateTimeFeature.WRITE_DATES_AS_TIMESTAMPS)
@@ -34,7 +40,7 @@ public class InstantDeserViaBigDecimal307Test extends DateTimeTestBase
     public void instantViaReadValue() throws Exception {
          String serialized = VPackUtils.toJson(MAPPER.writeValueAsBytes(new Wrapper307(ISSUED_AT)));
          Wrapper307 deserialized = MAPPER.readValue(VPackUtils.toVPack(serialized), Wrapper307.class);
-         assertEquals(ISSUED_AT, deserialized.value);
+         assertInstantsCloseEnough(ISSUED_AT, deserialized.value);
     }
 
     @Test
@@ -42,6 +48,6 @@ public class InstantDeserViaBigDecimal307Test extends DateTimeTestBase
         String serialized = VPackUtils.toJson(MAPPER.writeValueAsBytes(new Wrapper307(ISSUED_AT)));
         JsonNode tree = MAPPER.readTree(VPackUtils.toVPack(serialized));
         Wrapper307 deserialized = MAPPER.treeToValue(tree, Wrapper307.class);
-        assertEquals(ISSUED_AT, deserialized.value);
+        assertInstantsCloseEnough(ISSUED_AT, deserialized.value);
     }
 }

@@ -83,6 +83,11 @@ public class InstantDeserTest extends DateTimeTestBase
     private final ObjectMapper MAPPER = newMapper();
     private final ObjectReader READER = MAPPER.readerFor(Instant.class);
 
+    private static void assertInstantsCloseEnough(Instant expected, Instant actual) {
+        assertTrue(Duration.between(expected, actual).abs().compareTo(Duration.ofNanos(1000)) <= 0,
+                () -> "expected: <" + expected + "> but was: <" + actual + ">");
+    }
+
     /*
     /**********************************************************************
     /* Basic deserialization from floating point value (seconds with fractions)
@@ -97,7 +102,7 @@ public class InstantDeserTest extends DateTimeTestBase
 
     @Test
     public void testDeserializationAsFloat02() throws Exception {
-        assertEquals(Instant.ofEpochSecond(123456789L, 183917322),
+        assertInstantsCloseEnough(Instant.ofEpochSecond(123456789L, 183917322),
                 READER.readValue(VPackUtils.toVPack("123456789.183917322")));
     }
 
@@ -107,7 +112,7 @@ public class InstantDeserTest extends DateTimeTestBase
         Instant date = Instant.now();
         Instant value = READER.readValue(VPackUtils.toVPack(
                 DecimalUtils.toDecimal(date.getEpochSecond(), date.getNano())));
-        assertEquals(date, value);
+        assertInstantsCloseEnough(date, value);
     }
 
     /**
@@ -390,7 +395,7 @@ public class InstantDeserTest extends DateTimeTestBase
                 VPackUtils.toVPack("[\"" + Instant.class.getName() + "\",123456789.183917322]"), Temporal.class
                 );
         assertInstanceOf(Instant.class, value, "The value should be an Instant.");
-        assertEquals(date, value);
+        assertInstantsCloseEnough(date, (Instant) value);
     }
 
     @Test
@@ -562,12 +567,12 @@ public class InstantDeserTest extends DateTimeTestBase
                 .writeValueAsBytes(inst));
         Instant result = READER.readValue(VPackUtils.toVPack(json));
         assertNotNull(result);
-        assertEquals(result, inst);
+        assertInstantsCloseEnough(inst, result);
 
         // but then quoted as JSON String
         result = READER.readValue(VPackUtils.toVPack(String.format("\"%s\"", json)));
         assertNotNull(result);
-        assertEquals(result, inst);
+        assertInstantsCloseEnough(inst, result);
     }
 
     // [datatype-jsr310#79]

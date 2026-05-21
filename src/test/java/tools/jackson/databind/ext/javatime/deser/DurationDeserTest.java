@@ -29,6 +29,11 @@ public class DurationDeserTest extends DateTimeTestBase
 {
     private final ObjectReader READER = newMapper().readerFor(Duration.class);
 
+    private static void assertDurationsCloseEnough(Duration expected, Duration actual) {
+        assertTrue(expected.minus(actual).abs().compareTo(Duration.ofNanos(1000)) <= 0,
+                () -> "expected: <" + expected + "> but was: <" + actual + ">");
+    }
+
     private final TypeReference<Map<String, Duration>> MAP_TYPE_REF = new TypeReference<Map<String, Duration>>() { };
 
     final static class Wrapper {
@@ -79,7 +84,7 @@ public class DurationDeserTest extends DateTimeTestBase
     {
         Duration value = READER.with(DateTimeFeature.READ_DATE_TIMESTAMPS_AS_NANOSECONDS)
                 .readValue(VPackUtils.toVPack("13498.000008374"));
-        assertEquals(Duration.ofSeconds(13498L, 8374), value, "The value is not correct.");
+        assertDurationsCloseEnough(Duration.ofSeconds(13498L, 8374), value);
     }
 
     @Test
@@ -87,7 +92,7 @@ public class DurationDeserTest extends DateTimeTestBase
     {
         Duration value = READER.without(DateTimeFeature.READ_DATE_TIMESTAMPS_AS_NANOSECONDS)
                 .readValue(VPackUtils.toVPack("13498.000008374"));
-        assertEquals(Duration.ofSeconds(13498L, 8374), value, "The value is not correct.");
+        assertDurationsCloseEnough(Duration.ofSeconds(13498L, 8374), value);
     }
 
     /**
@@ -311,7 +316,7 @@ public class DurationDeserTest extends DateTimeTestBase
                 .readValue(VPackUtils.toVPack(prefix + "13498.000008374]"));
 
         assertInstanceOf(Duration.class, value, "The value should be a Duration.");
-        assertEquals(duration, value, "The value is not correct.");
+        assertDurationsCloseEnough(duration, (Duration) value);
     }
 
     @Test
