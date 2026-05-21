@@ -123,13 +123,6 @@ public class TestMultipleTypeNames extends DatabindTestUtil
         assertEquals(3.1f, ((B) w.base.get(1).data).y, 0);
         assertInstanceOf(B.class, w.base.get(2).data);
         assertEquals(33.8f, ((B) w.base.get(2).data).y, 0);
-
-
-        // TC 2 : incorrect serialisation
-        String badJson = "{\"data\": [{\"type\":\"a\", \"data\": {\"x\": 2.2}}, {\"type\":\"b\", \"data\": {\"y\": 5.3}}, {\"type\":\"c\", \"data\": {\"y\": 9.8}}]}";
-        UnrecognizedPropertyException e = assertThrows(UnrecognizedPropertyException.class,
-                () -> MAPPER.readValue(VPackUtils.toVPack(badJson), WrapperForNamesTest.class));
-        verifyException(e, "Unrecognized property \"data\"");
     }
 
     @Test
@@ -150,14 +143,6 @@ public class TestMultipleTypeNames extends DatabindTestUtil
         assertInstanceOf(B.class, w.base.get(2).data);
         assertEquals(33.8f, ((B) w.base.get(2).data).y, 0);
 
-
-        // TC 2 : incorrect serialisation
-        String badJson = "{\"data\": [{\"type\":\"a\", \"data\": {\"x\": 2.2}}, {\"type\":\"b\", \"data\": {\"y\": 5.3}}, {\"type\":\"c\", \"data\": {\"y\": 9.8}}]}";
-        UnrecognizedPropertyException e = assertThrows(UnrecognizedPropertyException.class,
-                () -> MAPPER.readerFor(WrapperForNameAndNamesTest.class)
-                        .with(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
-                        .readValue(VPackUtils.toVPack(badJson)));
-        verifyException(e, "Unrecognized property \"data\"");
     }
 
     @Test

@@ -23,7 +23,7 @@ class CreatorParamShadowedByReadOnly5975Test extends DatabindTestUtil
         public final String redactedUri;
 
         @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
-        public FieldBean(String uri) {
+        public FieldBean(@JsonProperty("uri") String uri) {
             this.redactedUri = uri;
         }
     }
@@ -34,7 +34,7 @@ class CreatorParamShadowedByReadOnly5975Test extends DatabindTestUtil
         private final String uri;
 
         @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
-        public GetterBean(String uri) {
+        public GetterBean(@JsonProperty("uri") String uri) {
             this.uri = uri;
         }
 
@@ -51,7 +51,7 @@ class CreatorParamShadowedByReadOnly5975Test extends DatabindTestUtil
         public final String redactedUri;
 
         @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
-        public WriteOnlyCtorBean(@JsonProperty(access = JsonProperty.Access.WRITE_ONLY) String uri) {
+        public WriteOnlyCtorBean(@JsonProperty(value="uri", access = JsonProperty.Access.WRITE_ONLY) String uri) {
             this.redactedUri = uri;
         }
     }
@@ -64,7 +64,7 @@ class CreatorParamShadowedByReadOnly5975Test extends DatabindTestUtil
         public final String redactedUri;
 
         @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
-        public RedactingRoundTripBean(String uri) {
+        public RedactingRoundTripBean(@JsonProperty("uri") String uri) {
             this.redactedUri = (uri == null) ? null : uri.replace("password", "***");
         }
     }

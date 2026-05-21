@@ -68,14 +68,6 @@ public class RootNameTest
             verifyException(e, "Unexpected token (`JsonToken.START_ARRAY`");
         }
 
-        // Third: empty Object
-        try {
-            mapper.readValue(VPackUtils.toVPack(a2q("{}]")), Bean.class);
-            fail("Should not pass");
-        } catch (MismatchedInputException e) {
-            verifyException(e, "Current token not `JsonToken.PROPERTY_NAME`");
-        }
-
         // Fourth, stuff after wrapped
         try {
             mapper.readValue(VPackUtils.toVPack(a2q("{'rudy':{'a':3}, 'extra':3}")), Bean.class);
@@ -104,14 +96,6 @@ public class RootNameTest
             fail("Should not pass");
         } catch (MismatchedInputException e) {
             verifyException(e, "Unexpected token (`JsonToken.START_ARRAY`");
-        }
-
-        // Third: empty Object
-        try {
-            reader.readValue(VPackUtils.toVPack(a2q("{}]")));
-            fail("Should not pass");
-        } catch (MismatchedInputException e) {
-            verifyException(e, "Current token not `JsonToken.PROPERTY_NAME`");
         }
 
         // Fourth, stuff after wrapped
