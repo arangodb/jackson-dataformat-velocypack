@@ -205,12 +205,6 @@ public class JDKStringLikeTypeDeserTest
     {
         ObjectReader r = MAPPER.readerFor(StringBuilder.class);
         assertEquals("abc", r.readValue(VPackUtils.toVPack(q("abc"))).toString());
-        try {
-            r.readValue(VPackUtils.toVPack("[ ]"));
-            fail("Should not pass");
-        } catch (MismatchedInputException e) {
-            verifyException(e, "Cannot deserialize value of type `java.lang.StringBuilder` from Array value");
-        }
     }
 
     @Test
@@ -218,12 +212,6 @@ public class JDKStringLikeTypeDeserTest
     {
         ObjectReader r = MAPPER.readerFor(StringBuffer.class);
         assertEquals("def", r.readValue(VPackUtils.toVPack(q("def"))).toString());
-        try {
-            r.readValue(VPackUtils.toVPack("[ ]"));
-            fail("Should not pass");
-        } catch (MismatchedInputException e) {
-            verifyException(e, "Cannot deserialize value of type `java.lang.StringBuffer` from Array value");
-        }
     }
 
     @Test

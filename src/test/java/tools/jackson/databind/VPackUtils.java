@@ -6,6 +6,7 @@ import com.arangodb.jackson.dataformat.velocypack.VPackMapper;
 import tools.jackson.core.StreamReadConstraints;
 import tools.jackson.core.StreamWriteConstraints;
 import tools.jackson.core.json.JsonFactory;
+import tools.jackson.core.json.JsonReadFeature;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -13,6 +14,7 @@ import tools.jackson.databind.json.JsonMapper;
  */
 public final class VPackUtils {
     private final static JsonMapper JSON_MAPPER = JsonMapper.builder(JsonFactory.builder()
+            .enable(JsonReadFeature.ALLOW_NON_NUMERIC_NUMBERS)
             .streamReadConstraints(StreamReadConstraints.builder()
                     .maxNestingDepth(Integer.MAX_VALUE)
                     .maxStringLength(Integer.MAX_VALUE)

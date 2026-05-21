@@ -24,7 +24,7 @@ public class DeserializationContextTest extends DatabindTestUtil
     public void testTreeAsValueFromNulls() throws Exception
     {
         final JsonNodeFactory nodeF = MAPPER.getNodeFactory();
-        try (JsonParser p = MAPPER.createParser(VPackUtils.toVPack("abc"))) {
+        try (JsonParser p = MAPPER.createParser(VPackUtils.toVPack("\"abc\""))) {
             DeserializationContext ctxt = MAPPER.readerFor(String.class)._deserializationContext(p);
 
             assertNull(ctxt.readTreeAsValue(nodeF.nullNode(), Boolean.class));
@@ -42,7 +42,7 @@ public class DeserializationContextTest extends DatabindTestUtil
     public void testTreeAsValueFromMissing() throws Exception
     {
         final JsonNodeFactory nodeF = MAPPER.getNodeFactory();
-        try (JsonParser p = MAPPER.createParser(VPackUtils.toVPack("abc"))) {
+        try (JsonParser p = MAPPER.createParser(VPackUtils.toVPack("\"abc\""))) {
             DeserializationContext ctxt = MAPPER.readerFor(String.class)._deserializationContext(p);
 
             // Absent becomes `null` for now as well

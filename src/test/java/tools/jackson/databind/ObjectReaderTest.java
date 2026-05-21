@@ -58,7 +58,7 @@ public class ObjectReaderTest extends DatabindTestUtil
     public void testSimpleAltSources() throws Exception
     {
         final String JSON = "[1]";
-        final byte[] BYTES = JSON.getBytes("UTF-8");
+        final byte[] BYTES = VPackUtils.toVPack(JSON);
         final Object EXP = Arrays.asList(1);
         assertEquals(EXP, MAPPER
                 .readerFor(Object.class)
@@ -116,69 +116,6 @@ public class ObjectReaderTest extends DatabindTestUtil
 
     /*
     /**********************************************************************
-    /* Test methods, some alternative JSON settings
-    /**********************************************************************
-     */
-
-    @Test
-    public void testJsonReadFeaturesComments() throws Exception
-    {
-        final String JSON = "[ /* foo */ 7 ]";
-        // default won't accept comments, let's change that:
-        ObjectReader reader = MAPPER.readerFor(int[].class);
-        // NOTE: VPackReadFeature.ALLOW_JAVA_COMMENTS not applicable to VelocyPack
-
-        int[] value = reader.readValue(VPackUtils.toVPack(JSON));
-        assertNotNull(value);
-        assertEquals(1, value.length);
-        assertEquals(7, value[0]);
-
-        // but also can go back
-        try {
-        // REMOVED: JSON-only feature not applicable to VelocyPack
-        // reader.without(VPackReadFeature.ALLOW_JAVA_COMMENTS).readValue(VPackUtils.toVPack(JSON));
-            fail("Should not have passed");
-        } catch (StreamReadException e) {
-            verifyException(e, "Unexpected character");
-            verifyException(e, "maybe a (non-standard) comment");
-        }
-    }
-
-    @Test
-    public void testJsonReadFeaturesCtrlChars() throws Exception
-    {
-        String FIELD = "a\tb";
-        String VALUE = "\t";
-        String JSON = "{ "+q(FIELD)+" : "+q(VALUE)+"}";
-        Map<?, ?> result;
-
-        // First: by default, unescaped control characters should not work
-        try {
-            result = MAPPER.readValue(VPackUtils.toVPack(JSON), Map.class);
-            fail("Should not pass with defaylt settings");
-        } catch (StreamReadException e) {
-            verifyException(e, "Illegal unquoted character");
-        }
-
-        // But both ObjectReader:
-        result = MAPPER.readerFor(Map.class)
-        // REMOVED: JSON-only feature not applicable to VelocyPack
-        // .with(VPackReadFeature.ALLOW_UNESCAPED_CONTROL_CHARS)
-                .readValue(VPackUtils.toVPack(JSON));
-        assertEquals(1, result.size());
-
-        // and new mapper should work
-        ObjectMapper mapper2 = VPackMapper.builder()
-        // REMOVED: JSON-only feature not applicable to VelocyPack
-        // .enable(VPackReadFeature.ALLOW_UNESCAPED_CONTROL_CHARS)
-                .build();
-        result = mapper2.readerFor(Map.class)
-                .readValue(VPackUtils.toVPack(JSON));
-        assertEquals(1, result.size());
-    }
-
-    /*
-    /**********************************************************************
     /* Test methods, config setting verification
     /**********************************************************************
      */
@@ -227,15 +164,6 @@ public class ObjectReaderTest extends DatabindTestUtil
                 StreamReadFeature.CLEAR_CURRENT_TOKEN_ON_CLOSE);
         assertFalse(r.isEnabled(StreamReadFeature.AUTO_CLOSE_SOURCE));
         assertFalse(r.isEnabled(StreamReadFeature.CLEAR_CURRENT_TOKEN_ON_CLOSE));
-    }
-
-    @Test
-    public void testJsonReadFeatures() throws Exception
-    {
-        ObjectReader r = MAPPER.reader();
-        // NOTE: VPackReadFeature.ALLOW_BACKSLASH_ESCAPING_ANY_CHARACTER/ALLOW_JAVA_COMMENTS not applicable to VelocyPack
-        ObjectReader r2 = r; // No-op since features are not available
-        assertNotSame(r, r2); // Will fail - this test is not applicable to VelocyPack
     }
 
     @Test
@@ -330,7 +258,7 @@ public class ObjectReaderTest extends DatabindTestUtil
         f.delete();
 
         try (JsonParser p = R.createParser(
-                new ByteArrayInputStream("{}".getBytes(StandardCharsets.UTF_8)))) {
+                new ByteArrayInputStream(VPackUtils.toVPack("{}")))) {
             assertToken(JsonToken.START_OBJECT, p.nextToken());
             assertToken(JsonToken.END_OBJECT, p.nextToken());
         }
@@ -344,17 +272,9 @@ public class ObjectReaderTest extends DatabindTestUtil
         try (JsonParser p = R.createParser(new byte[0], 0, 0)) {
             assertNotNull(p);
         }
-        try (JsonParser p = R.createParser("[]")) {
+        try (JsonParser p = R.createParser(VPackUtils.toVPack("[]"))) {
             assertToken(JsonToken.START_ARRAY, p.nextToken());
             assertToken(JsonToken.END_ARRAY, p.nextToken());
-        }
-        try (JsonParser p = R.createParser("[]".toCharArray())) {
-            assertToken(JsonToken.START_ARRAY, p.nextToken());
-            assertToken(JsonToken.END_ARRAY, p.nextToken());
-        }
-
-        try (JsonParser p = R.createParser("[]".toCharArray(), 0, 2)) {
-            assertNotNull(p);
         }
     }
 
@@ -402,7 +322,7 @@ public class ObjectReaderTest extends DatabindTestUtil
     {
         final ObjectReader R = MAPPER.reader();
         final String JSON = "[]";
-        final byte[] JSON_B = JSON.getBytes(StandardCharsets.UTF_8);
+        final byte[] JSON_B = VPackUtils.toVPack(JSON);
         final JsonNode EXP = R.createArrayNode();
 
         assertEquals(EXP, R.readTree(VPackUtils.toVPack(JSON)));
@@ -958,43 +878,12 @@ public class ObjectReaderTest extends DatabindTestUtil
         }
     }
 
-    @Test
-    public void testReadValuesFromFile() throws Exception {
-        File file = _createFileWithNameAndJson(
-            "testReadValuesFromFile",
-            a2q("{ 'name': 'One'} { 'name': 'Two'}"));
-
-        try (MappingIterator<FilePerson> iterator = MAPPER
-                .readerFor(FilePerson.class)
-                .readValues(file)) {
-            _verifyWithMappingIterator(iterator, "One", "Two");
-        }
-
-        // And also with "java.nio.file.Path"
-        try (MappingIterator<FilePerson> iterator = MAPPER
-                .readerFor(FilePerson.class)
-                .readValues(file.toPath())) {
-            _verifyWithMappingIterator(iterator, "One", "Two");
-        }
-
-        assertTrue(file.delete());
-    }
-
-    private void _verifyWithMappingIterator(MappingIterator<FilePerson> iterator, String... names) throws Exception {
-        for (String n : names) {
-            assertEquals(n, iterator.next().name);
-        }
-        assertFalse(iterator.hasNext());
-        iterator.close();
-    }
-
     private File _createFileWithNameAndJson(String fileName, String json) throws Exception {
         File file = File.createTempFile(fileName, ".json");
         file.deleteOnExit();
-        try (Writer writer = new OutputStreamWriter(new FileOutputStream(file),
-                StandardCharsets.UTF_8)) {
-            writer.write(json);
-            writer.flush();
+        try (OutputStream out = new FileOutputStream(file)) {
+            out.write(VPackUtils.toVPack(json));
+            out.flush();
         }
         return file;
     }

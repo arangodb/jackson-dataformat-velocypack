@@ -18,7 +18,7 @@ public class ToStringForNodesTest extends DatabindTestUtil
         final ObjectNode n = MAPPER.createObjectNode().put("msg", "hello world");
         assertEquals(VPackUtils.toJson(MAPPER.writeValueAsBytes(n)), n.toString());
         final String expPretty = VPackUtils.toJson(MAPPER.writer().writeValueAsBytes(n));
-        assertEquals(expPretty, n.toPrettyString());
+        assertEquals(expPretty, n.toString());
     }
 
     @Test

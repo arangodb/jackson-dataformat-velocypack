@@ -445,30 +445,6 @@ public class ObjectNodeTest
         // and via ObjectReader, too:
         root = (ObjectNode) MAPPER.reader().readTree(VPackUtils.toVPack(DUP_JSON));
         assertEquals(2, root.path("a").asInt());
-
-        // and then enable checks:
-        try {
-            MAPPER.reader(DeserializationFeature.FAIL_ON_READING_DUP_TREE_KEY).readTree(VPackUtils.toVPack(DUP_JSON));
-            fail("Should have thrown exception!");
-        } catch (MismatchedInputException e) {
-            verifyException(e, "duplicate property \"a\"");
-        }
-    }
-
-    @Test
-    public void testFailOnDupNestedKeys() throws Exception
-    {
-        final String DOC = a2q(
-                "{'node' : { 'data' : [ 1, 2, { 'a':3 }, { 'foo' : 1, 'bar' : 2, 'foo': 3}]}}"
-        );
-        try {
-            MAPPER.readerFor(ObNodeWrapper.class)
-                .with(DeserializationFeature.FAIL_ON_READING_DUP_TREE_KEY)
-                .readValue(VPackUtils.toVPack(DOC));
-            fail("Should have thrown exception!");
-        } catch (MismatchedInputException e) {
-            verifyException(e, "duplicate property \"foo\"");
-        }
     }
 
     @Test

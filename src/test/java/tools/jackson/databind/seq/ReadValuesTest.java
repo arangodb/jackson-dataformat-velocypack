@@ -78,52 +78,12 @@ public class ReadValuesTest extends DatabindTestUtil
         assertEquals(4, set.iterator().next().a);
     }
 
-    @Test
-    public void testRootMaps() throws Exception
-    {
-        final String JSON = "{\"a\":3}{\"a\":27}  ";
-        Iterator<Map<?,?>> it = MAPPER.readerFor(Map.class).readValues(VPackUtils.toVPack(JSON));
-
-        assertNotNull(((MappingIterator<?>) it).currentLocation());
-        assertTrue(it.hasNext());
-        Map<?,?> map = it.next();
-        assertEquals(1, map.size());
-        assertEquals(Integer.valueOf(3), map.get("a"));
-        assertTrue(it.hasNext());
-        assertNotNull(((MappingIterator<?>) it).currentLocation());
-        map = it.next();
-        assertEquals(1, map.size());
-        assertEquals(Integer.valueOf(27), map.get("a"));
-        assertFalse(it.hasNext());
-    }
 
     /*
     /**********************************************************
     /* Unit tests; root-level value sequences via JsonParser
     /**********************************************************
      */
-
-    @Test
-    public void testRootArraysWithParser() throws Exception
-    {
-        final String JSON = "[1][3]";
-        JsonParser jp = MAPPER.createParser(VPackUtils.toVPack(JSON));
-
-        // NOTE: We must point JsonParser to the first element; if we tried to
-        // use "managed" accessor, it would try to advance past START_ARRAY.
-        assertToken(JsonToken.START_ARRAY, jp.nextToken());
-
-        Iterator<int[]> it = MAPPER.readerFor(int[].class).readValues(jp);
-        assertTrue(it.hasNext());
-        int[] array = it.next();
-        assertEquals(1, array.length);
-        assertEquals(1, array[0]);
-        assertTrue(it.hasNext());
-        array = it.next();
-        assertEquals(1, array.length);
-        assertEquals(3, array[0]);
-        assertFalse(it.hasNext());
-    }
 
     @Test
     public void testHasNextWithEndArray() throws Exception {

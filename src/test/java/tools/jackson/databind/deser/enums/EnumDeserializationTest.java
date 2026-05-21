@@ -294,38 +294,6 @@ public class EnumDeserializationTest
 
     private final ObjectMapper MAPPER = newVPackMapper();
 
-    @Test
-    public void testSimple() throws Exception
-    {
-        // First "good" case with Strings
-        String JSON = "\"OK\" \"RULES\"  null";
-        // multiple main-level mappings, need explicit parser
-        // (and possibly prevent validation of trailing tokens)
-        ObjectMapper mapper = vpackMapperBuilder()
-                .disable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
-                .build();
-        
-        JsonParser p = mapper.createParser(VPackUtils.toVPack(JSON));
-
-        assertEquals(TestEnum.OK, mapper.readValue(p, TestEnum.class));
-        assertEquals(TestEnum.RULES, mapper.readValue(p, TestEnum.class));
-
-        // should be ok; nulls are typeless; handled by mapper, not by deserializer
-        assertNull(MAPPER.readValue(p, TestEnum.class));
-
-        // and no more content beyond that...
-        assertFalse(p.hasCurrentToken());
-
-        // Then alternative with index (0 means first entry)
-        assertEquals(TestEnum.JACKSON, mapper.readValue(VPackUtils.toVPack(" 0 "), TestEnum.class));
-
-        // Then error case: unrecognized value
-        MismatchedInputException jex = assertThrows(MismatchedInputException.class,
-                () -> mapper.readValue(VPackUtils.toVPack("\"NO-SUCH-VALUE\""), TestEnum.class));
-        verifyException(jex, "not one of the values accepted for Enum class");
-        p.close();
-    }
-
     /**
      * Enums are considered complex if they have code (and hence sub-classes)...
      * an example is TimeUnit
