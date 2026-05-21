@@ -64,7 +64,7 @@ public class VPackGenerator extends GeneratorBase
     protected byte[] _outputBuffer;
     protected int _outputTail = 0;
     protected final int _outputEnd;
-    protected boolean _bufferRecyclable;
+    protected final boolean _bufferRecyclable;
 
     /*
     /**********************************************************************
@@ -138,9 +138,6 @@ public class VPackGenerator extends GeneratorBase
 
     @Override
     public int streamWriteOutputBuffered() { return _outputTail; }
-
-    @Override
-    public PrettyPrinter getPrettyPrinter() { return null; }
 
     @Override
     public Object currentValue() { return _streamWriteContext.currentValue(); }
@@ -310,7 +307,7 @@ public class VPackGenerator extends GeneratorBase
         }
         // Write key to the current object's key buffer
         ContainerState cs = _containerStack.peek();
-        cs.startKey();
+        Objects.requireNonNull(cs).startKey();
         _doWriteString(name);
         cs.finishKey();
         return this;
@@ -327,7 +324,7 @@ public class VPackGenerator extends GeneratorBase
             _reportError("Cannot write a property name, expecting a value");
         }
         ContainerState cs = _containerStack.peek();
-        cs.startKey();
+        Objects.requireNonNull(cs).startKey();
         _doWriteUnsignedInt(id);
         cs.finishKey();
         return this;
@@ -566,6 +563,7 @@ public class VPackGenerator extends GeneratorBase
     /**********************************************************************
      */
 
+    @SuppressWarnings("resource")
     @Override
     public JsonGenerator writeArray(int[] array, int offset, int length) throws JacksonException
     {
@@ -578,6 +576,7 @@ public class VPackGenerator extends GeneratorBase
         return this;
     }
 
+    @SuppressWarnings("resource")
     @Override
     public JsonGenerator writeArray(long[] array, int offset, int length) throws JacksonException
     {
@@ -590,6 +589,7 @@ public class VPackGenerator extends GeneratorBase
         return this;
     }
 
+    @SuppressWarnings("resource")
     @Override
     public JsonGenerator writeArray(double[] array, int offset, int length) throws JacksonException
     {
@@ -744,7 +744,7 @@ public class VPackGenerator extends GeneratorBase
         int n = items.size();
         int[] offsets = new int[n];
         for (int w = 1; w <= 8; w = nextWidth(w)) {
-            int hdrSize = 1 + (w == 8 ? w : 2 * w); // for 0x09, nritems is at end
+            // for 0x09, nritems is at end
             // For 0x06-0x08: header = type + byteLen(w) + nritems(w) = 1+2w
             // For 0x09: header = type + byteLen(8) = 1+8
             // Let's recalculate:
@@ -791,20 +791,8 @@ public class VPackGenerator extends GeneratorBase
         int n = items.size();
         ByteArrayOutputStream buf = new ByteArrayOutputStream();
         for (byte[] item : items) buf.write(item, 0, item.length);
-        byte[] content = buf.toByteArray();
-        byte[] nrVB = VPackUtil.encodeVByte(n);
-        for (int bw = 1; bw <= 8; bw++) {
-            long totalLen = 1L + bw + content.length + nrVB.length;
-            byte[] lenVB = VPackUtil.encodeVByte(totalLen);
-            if (lenVB.length == bw) {
-                ByteArrayOutputStream out = new ByteArrayOutputStream();
-                out.write(VPACK_ARRAY_COMPACT);
-                out.write(lenVB, 0, lenVB.length);
-                out.write(content, 0, content.length);
-                out.write(reverseBytes(nrVB), 0, nrVB.length);
-                return out.toByteArray();
-            }
-        }
+        byte[] out = getBytes(n, buf, VPackConstants.VPACK_ARRAY_COMPACT);
+        if (out != null) return out;
         throw new IllegalStateException("Compact array too large");
     }
 
@@ -861,8 +849,7 @@ public class VPackGenerator extends GeneratorBase
                     VPackUtil.writeLeUnsigned(result, pos, n, w);
                     pos += w;
                 }
-                for (int i = 0; i < n; i++) {
-                    int idx = order[i];
+                for (int idx : order) {
                     byte[] k = keys.get(idx);
                     byte[] v = values.get(idx);
                     System.arraycopy(k, 0, result, pos, k.length);
@@ -896,6 +883,12 @@ public class VPackGenerator extends GeneratorBase
             buf.write(keys.get(idx), 0, keys.get(idx).length);
             buf.write(values.get(idx), 0, values.get(idx).length);
         }
+        byte[] out = getBytes(n, buf, VPACK_OBJECT_COMPACT);
+        if (out != null) return out;
+        throw new IllegalStateException("Compact object too large");
+    }
+
+    private byte[] getBytes(int n, ByteArrayOutputStream buf, int vpackObjectCompact) {
         byte[] content = buf.toByteArray();
         byte[] nrVB = VPackUtil.encodeVByte(n);
         for (int bw = 1; bw <= 8; bw++) {
@@ -903,14 +896,14 @@ public class VPackGenerator extends GeneratorBase
             byte[] lenVB = VPackUtil.encodeVByte(totalLen);
             if (lenVB.length == bw) {
                 ByteArrayOutputStream out = new ByteArrayOutputStream();
-                out.write(VPACK_OBJECT_COMPACT);
+                out.write(vpackObjectCompact);
                 out.write(lenVB, 0, lenVB.length);
                 out.write(content, 0, content.length);
                 out.write(reverseBytes(nrVB), 0, nrVB.length);
                 return out.toByteArray();
             }
         }
-        throw new IllegalStateException("Compact object too large");
+        return null;
     }
 
     protected int _compareKeys(byte[] ka, byte[] kb) {
@@ -1136,7 +1129,12 @@ public class VPackGenerator extends GeneratorBase
     }
 
     protected static int widthIdx(int w) {
-        switch (w) { case 1: return 0; case 2: return 1; case 4: return 2; default: return 3; }
+        return switch (w) {
+            case 1 -> 0;
+            case 2 -> 1;
+            case 4 -> 2;
+            default -> 3;
+        };
     }
 
     protected static int nextWidth(int w) {
@@ -1171,13 +1169,13 @@ public class VPackGenerator extends GeneratorBase
         final List<byte[]> values = new ArrayList<>();
 
         // Key capture buffer (for objects, while writing key)
-        ByteArrayOutputStream keyCapture = new ByteArrayOutputStream();
+        final ByteArrayOutputStream keyCapture = new ByteArrayOutputStream();
 
         // Value capture buffer (for objects, while writing value)
-        ByteArrayOutputStream valueCapture = new ByteArrayOutputStream();
+        final ByteArrayOutputStream valueCapture = new ByteArrayOutputStream();
 
         // Item capture buffer (for arrays, while writing each item)
-        ByteArrayOutputStream itemCapture = new ByteArrayOutputStream();
+        final ByteArrayOutputStream itemCapture = new ByteArrayOutputStream();
 
         // Points to the currently active buffer for _rawByte writes
         ByteArrayOutputStream currentCapture;

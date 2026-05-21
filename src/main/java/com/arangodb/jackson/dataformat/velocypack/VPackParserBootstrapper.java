@@ -19,10 +19,9 @@ public class VPackParserBootstrapper
     protected final InputStream _in;
 
     protected final byte[] _inputBuffer;
-    protected int _inputPtr;
+    protected final int _inputPtr;
     protected int _inputEnd;
     protected final boolean _bufferRecyclable;
-    protected int _inputProcessed;
 
     public VPackParserBootstrapper(IOContext ctxt, InputStream in)
     {
@@ -30,7 +29,6 @@ public class VPackParserBootstrapper
         _in = in;
         _inputBuffer = ctxt.allocReadIOBuffer();
         _inputEnd = _inputPtr = 0;
-        _inputProcessed = 0;
         _bufferRecyclable = true;
     }
 
@@ -41,7 +39,6 @@ public class VPackParserBootstrapper
         _inputBuffer = inputBuffer;
         _inputPtr = inputStart;
         _inputEnd = (inputStart + inputLen);
-        _inputProcessed = -inputStart;
         _bufferRecyclable = false;
     }
 
@@ -51,7 +48,7 @@ public class VPackParserBootstrapper
             ByteQuadsCanonicalizer rootByteSymbols)
         throws JacksonException
     {
-        ByteQuadsCanonicalizer can = rootByteSymbols.makeChildOrPlaceholder(factoryFeatures);
+        rootByteSymbols.makeChildOrPlaceholder(factoryFeatures);
         // Pre-load some bytes if reading from stream
         if (_in != null && _inputPtr >= _inputEnd) {
             try {
@@ -64,7 +61,6 @@ public class VPackParserBootstrapper
             }
         }
         return new VPackParser(readCtxt, _ioContext, generalParserFeatures, vpackFeatures,
-                can,
                 _in, _inputBuffer, _inputPtr, _inputEnd, _bufferRecyclable);
     }
 }

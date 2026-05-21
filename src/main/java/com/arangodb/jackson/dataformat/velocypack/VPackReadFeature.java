@@ -57,7 +57,7 @@ public enum VPackReadFeature implements FormatFeature
         return flags;
     }
 
-    private VPackReadFeature(boolean defaultState) {
+    VPackReadFeature(@SuppressWarnings("SameParameterValue") boolean defaultState) {
         _defaultState = defaultState;
         _mask = (1 << ordinal());
     }

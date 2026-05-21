@@ -26,6 +26,7 @@ public class VPackFactory
     extends BinaryTSFactory
     implements Serializable
 {
+    @Serial
     private static final long serialVersionUID = 1L;
 
     /*
@@ -123,6 +124,7 @@ public class VPackFactory
     /**********************************************************************
      */
 
+    @Serial
     protected Object readResolve() {
         return new VPackFactory(this);
     }

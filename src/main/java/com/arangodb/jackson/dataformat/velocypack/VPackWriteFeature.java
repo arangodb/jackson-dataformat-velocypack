@@ -78,7 +78,7 @@ public enum VPackWriteFeature
         return flags;
     }
 
-    private VPackWriteFeature(boolean defaultState) {
+    VPackWriteFeature(boolean defaultState) {
         _defaultState = defaultState;
         _mask = (1 << ordinal());
     }

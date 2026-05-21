@@ -4,11 +4,14 @@ import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.cfg.MapperBuilder;
 import tools.jackson.databind.cfg.MapperBuilderState;
 
+import java.io.Serial;
+
 /**
  * Specialized {@link ObjectMapper} to use with VelocyPack format backend.
  */
 public class VPackMapper extends ObjectMapper
 {
+    @Serial
     private static final long serialVersionUID = 1L;
 
     /**
@@ -21,7 +24,7 @@ public class VPackMapper extends ObjectMapper
             super(f);
         }
 
-        public Builder(StateImpl state) {
+        protected Builder(StateImpl state) {
             super(state);
         }
 
@@ -92,6 +95,7 @@ public class VPackMapper extends ObjectMapper
         protected static class StateImpl extends MapperBuilderState
             implements java.io.Serializable // important!
         {
+            @Serial
             private static final long serialVersionUID = 3L;
 
             public StateImpl(Builder src) {
@@ -100,6 +104,7 @@ public class VPackMapper extends ObjectMapper
 
             // We also need actual instance of state as base class can not implement logic
             // for reinstating mapper (via mapper builder) from state.
+            @Serial
             @Override
             protected Object readResolve() {
                 return new Builder(this).build();

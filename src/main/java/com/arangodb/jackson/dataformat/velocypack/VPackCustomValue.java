@@ -43,8 +43,7 @@ public final class VPackCustomValue
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (!(o instanceof VPackCustomValue)) return false;
-        VPackCustomValue other = (VPackCustomValue) o;
+        if (!(o instanceof VPackCustomValue other)) return false;
         return _typeByte == other._typeByte && Arrays.equals(_payload, other._payload);
     }
 

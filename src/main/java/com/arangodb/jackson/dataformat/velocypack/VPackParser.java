@@ -1,9 +1,7 @@
 package com.arangodb.jackson.dataformat.velocypack;
 
 import tools.jackson.core.*;
-import tools.jackson.core.exc.StreamReadException;
 import tools.jackson.core.io.IOContext;
-import tools.jackson.core.sym.ByteQuadsCanonicalizer;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -41,7 +39,7 @@ public class VPackParser extends VPackParserBase
 
     protected InputStream _inputStream;
     protected byte[] _inputBuffer;
-    protected boolean _bufferRecyclable;
+    protected final boolean _bufferRecyclable;
 
     /*
     /**********************************************************************
@@ -72,11 +70,10 @@ public class VPackParser extends VPackParserBase
 
     public VPackParser(ObjectReadContext readCtxt, IOContext ctxt,
             int parserFeatures, int vpackFeatures,
-            ByteQuadsCanonicalizer sym,
-            InputStream in, byte[] inputBuffer, int start, int end,
+                       InputStream in, byte[] inputBuffer, int start, int end,
             boolean bufferRecyclable)
     {
-        super(readCtxt, ctxt, parserFeatures, vpackFeatures, sym);
+        super(readCtxt, ctxt, parserFeatures, vpackFeatures);
         _inputStream = in;
         _inputBuffer = inputBuffer;
         _inputPtr = start;
@@ -160,13 +157,6 @@ public class VPackParser extends VPackParserBase
             _loadMoreGuaranteed();
         }
         return _inputBuffer[_inputPtr++] & 0xFF;
-    }
-
-    protected int _peekByte() throws JacksonException {
-        if (_inputPtr >= _inputEnd) {
-            if (!_ensureAvailable(1)) return -1;
-        }
-        return _inputBuffer[_inputPtr] & 0xFF;
     }
 
     protected long _readLeUnsigned(int numBytes) throws JacksonException {
@@ -296,7 +286,7 @@ public class VPackParser extends VPackParserBase
             if (VPackReadFeature.FAIL_ON_TAGGED_VALUES.enabledIn(_formatFeatures)) {
                 throw _constructReadException("Encountered tagged value (0xef) but FAIL_ON_TAGGED_VALUES is enabled");
             }
-            _lastTagNumber = (long) _readLeUnsigned(8);
+            _lastTagNumber = _readLeUnsigned(8);
             return _readValue();
         }
 
@@ -405,7 +395,7 @@ public class VPackParser extends VPackParserBase
      */
 
     protected JsonToken _startEmptyArray() throws JacksonException {
-        createChildArrayContext(-1, -1);
+        createChildArrayContext();
         // Empty: immediately push an exhausted frame and return START_ARRAY
         // The next call to nextToken() will return END_ARRAY
         _parseStack.push(new ParseFrame(false, new byte[0], 0, 0, 0));
@@ -425,15 +415,15 @@ public class VPackParser extends VPackParserBase
         _validateDocLen(byteLen);
         byte[] buf = new byte[(int) remaining];
         // Read remaining bytes
-        _readBytesInto(buf, 0, (int) remaining);
+        _readBytesInto(buf, (int) remaining);
         // Build a ParseFrame
-        ParseFrame frame = _buildArrayFrame(typeByte, w, byteLen, buf);
-        createChildArrayContext(-1, -1);
+        ParseFrame frame = _buildArrayFrame(typeByte, w, buf);
+        createChildArrayContext();
         _parseStack.push(frame);
         return _updateToken(JsonToken.START_ARRAY);
     }
 
-    protected ParseFrame _buildArrayFrame(int typeByte, int w, long byteLen, byte[] remaining) {
+    protected ParseFrame _buildArrayFrame(int typeByte, int w, byte[] remaining) {
         // Types 0x02-0x05: no index table, all items have same length
         // Types 0x06-0x09: have index table
         boolean hasIndex = typeByte >= VPACK_ARRAY_IDX_FIRST;
@@ -468,7 +458,7 @@ public class VPackParser extends VPackParserBase
             } else {
                 idxTableOffset = (int) (remaining.length - nItems * w);
             }
-            return new ParseFrame(false, remaining, 0, idxTableOffset, (int) nItems, w, hasIndex, false);
+            return new ParseFrame(false, remaining, 0, idxTableOffset, (int) nItems, w, true);
         }
     }
 
@@ -484,13 +474,13 @@ public class VPackParser extends VPackParserBase
         }
         _validateDocLen(byteLen);
         byte[] buf = new byte[(int) remaining];
-        _readBytesInto(buf, 0, (int) remaining);
+        _readBytesInto(buf, (int) remaining);
         // The last bytes of buf are the reverse-VByte NRITEMS
         int[] nr = new int[1];
         long nItems = VPackUtil.decodeVByteReverse(buf, buf.length, nr);
         int contentLen = buf.length - nr[0];
-        ParseFrame frame = new ParseFrame(false, buf, 0, contentLen, (int) nItems, 1, false, true);
-        createChildArrayContext(-1, -1);
+        ParseFrame frame = new ParseFrame(false, buf, 0, contentLen, (int) nItems, 1, false);
+        createChildArrayContext();
         _parseStack.push(frame);
         return _updateToken(JsonToken.START_ARRAY);
     }
@@ -502,7 +492,7 @@ public class VPackParser extends VPackParserBase
      */
 
     protected JsonToken _startEmptyObject() throws JacksonException {
-        createChildObjectContext(-1, -1);
+        createChildObjectContext();
         _parseStack.push(new ParseFrame(true, new byte[0], 0, 0, 0));
         return _updateToken(JsonToken.START_OBJECT);
     }
@@ -516,14 +506,14 @@ public class VPackParser extends VPackParserBase
         }
         _validateDocLen(byteLen);
         byte[] buf = new byte[(int) remaining];
-        _readBytesInto(buf, 0, (int) remaining);
-        ParseFrame frame = _buildObjectFrame(typeByte, w, byteLen, buf);
-        createChildObjectContext(-1, -1);
+        _readBytesInto(buf, (int) remaining);
+        ParseFrame frame = _buildObjectFrame(w, buf);
+        createChildObjectContext();
         _parseStack.push(frame);
         return _updateToken(JsonToken.START_OBJECT);
     }
 
-    protected ParseFrame _buildObjectFrame(int typeByte, int w, long byteLen, byte[] remaining) {
+    protected ParseFrame _buildObjectFrame(int w, byte[] remaining) {
         long nPairs;
         int pairsStart; // offset in remaining where pairs begin
         if (w == 8) {
@@ -541,7 +531,7 @@ public class VPackParser extends VPackParserBase
         } else {
             idxTableOffset = (int) (remaining.length - nPairs * w);
         }
-        return new ParseFrame(true, remaining, pairsStart, idxTableOffset, (int) nPairs, w, true, false);
+        return new ParseFrame(true, remaining, pairsStart, idxTableOffset, (int) nPairs, w, true);
     }
 
     protected JsonToken _startCompactObject() throws JacksonException {
@@ -553,12 +543,12 @@ public class VPackParser extends VPackParserBase
         }
         _validateDocLen(byteLen);
         byte[] buf = new byte[(int) remaining];
-        _readBytesInto(buf, 0, (int) remaining);
+        _readBytesInto(buf, (int) remaining);
         int[] nr = new int[1];
         long nPairs = VPackUtil.decodeVByteReverse(buf, buf.length, nr);
         int contentLen = buf.length - nr[0];
-        ParseFrame frame = new ParseFrame(true, buf, 0, contentLen, (int) nPairs, 1, false, true);
-        createChildObjectContext(-1, -1);
+        ParseFrame frame = new ParseFrame(true, buf, 0, contentLen, (int) nPairs, 1, false);
+        createChildObjectContext();
         _parseStack.push(frame);
         return _updateToken(JsonToken.START_OBJECT);
     }
@@ -578,9 +568,8 @@ public class VPackParser extends VPackParserBase
     }
 
     protected JsonToken _readDate() throws JacksonException {
-        long msEpoch = _readLeSigned(8);
         // Expose as a number (ms since epoch) by default
-        _numberLong = msEpoch;
+        _numberLong = _readLeSigned(8);
         _numTypesValid = NR_LONG;
         _numberType = NumberType.LONG;
         return _updateToken(JsonToken.VALUE_NUMBER_INT);
@@ -937,13 +926,13 @@ public class VPackParser extends VPackParserBase
     /**********************************************************************
      */
 
-    private void createChildArrayContext(final int lineNr, final int colNr) throws JacksonException {
-        _streamReadContext = _streamReadContext.createChildArrayContext(lineNr, colNr);
+    private void createChildArrayContext() throws JacksonException {
+        _streamReadContext = _streamReadContext.createChildArrayContext(-1, -1);
         _streamReadConstraints.validateNestingDepth(_streamReadContext.getNestingDepth());
     }
 
-    private void createChildObjectContext(final int lineNr, final int colNr) throws JacksonException {
-        _streamReadContext = _streamReadContext.createChildObjectContext(lineNr, colNr);
+    private void createChildObjectContext() throws JacksonException {
+        _streamReadContext = _streamReadContext.createChildObjectContext(-1, -1);
         _streamReadConstraints.validateNestingDepth(_streamReadContext.getNestingDepth());
     }
 
@@ -953,15 +942,15 @@ public class VPackParser extends VPackParserBase
     /**********************************************************************
      */
 
-    protected void _readBytesInto(byte[] dest, int off, int len) throws JacksonException {
-        int pos = off;
-        while (pos < off + len) {
+    protected void _readBytesInto(byte[] dest, int len) throws JacksonException {
+        int pos = 0;
+        while (pos < len) {
             int avail = _inputEnd - _inputPtr;
             if (avail <= 0) {
                 _loadMoreGuaranteed();
                 avail = _inputEnd - _inputPtr;
             }
-            int copy = Math.min(len - (pos - off), avail);
+            int copy = Math.min(len - pos, avail);
             System.arraycopy(_inputBuffer, _inputPtr, dest, pos, copy);
             _inputPtr += copy;
             pos += copy;
@@ -1054,14 +1043,10 @@ public class VPackParser extends VPackParserBase
         final int nItems;       // number of items/pairs
         final int w;            // width for offsets
         final boolean hasIndex; // has explicit index table
-        final boolean isCompact;
 
         int currentIndex = 0;   // which item we're at (0-based)
         int currentPos;         // current byte position in buf
         boolean expectingValue = false; // for objects: true when expecting value
-
-        /** For no-index arrays: first item's start position */
-        final int itemsStart;
 
         // Constructor for empty containers
         ParseFrame(boolean isObject, byte[] buf, int start, int end, int n) {
@@ -1071,22 +1056,18 @@ public class VPackParser extends VPackParserBase
             this.nItems = n;
             this.w = 1;
             this.hasIndex = false;
-            this.isCompact = false;
             this.currentPos = start;
-            this.itemsStart = start;
         }
 
         // Full constructor
         ParseFrame(boolean isObject, byte[] buf, int start, int contentEnd,
-                int nItems, int w, boolean hasIndex, boolean isCompact) {
+                int nItems, int w, boolean hasIndex) {
             this.isObject = isObject;
             this.buf = buf;
             this.contentEnd = contentEnd;
             this.nItems = nItems;
             this.w = w;
             this.hasIndex = hasIndex;
-            this.isCompact = isCompact;
-            this.itemsStart = start;
             this.currentPos = start;
         }
 
@@ -1163,8 +1144,7 @@ public class VPackParser extends VPackParserBase
         int getItemPos(int idx) {
             if (hasIndex) {
                 // Read offset from index table (at contentEnd in buf)
-                int idxTableBase = contentEnd;
-                long offset = VPackUtil.readLeUnsigned(buf, idxTableBase + idx * w, w);
+                long offset = VPackUtil.readLeUnsigned(buf, contentEnd + idx * w, w);
                 // Offsets are from base A (start of full VPack value).
                 // Our buf starts at A + 1 (type) + w (byteLen field).
                 // So buf_offset = absolute_offset - (1 + w)
@@ -1178,8 +1158,7 @@ public class VPackParser extends VPackParserBase
 
         int getPairPos(int idx) {
             if (hasIndex) {
-                int idxTableBase = contentEnd;
-                long offset = VPackUtil.readLeUnsigned(buf, idxTableBase + idx * w, w);
+                long offset = VPackUtil.readLeUnsigned(buf, contentEnd + idx * w, w);
                 // buf starts at A + 1 (type) + w (byteLen field) = A + 1 + w
                 // So buf_offset = absolute_offset - (1 + w)
                 int bufBase = 1 + w; // bytes of header before buf starts
@@ -1314,22 +1293,26 @@ public class VPackParser extends VPackParserBase
                             "Custom type 0x%02x but FAIL_ON_CUSTOM_TYPES enabled", tb));
                 }
                 int totalSize = parser._valueByteSize(buf, pos);
-                int payloadOffset = totalSize - (totalSize - 1); // simplified
-                // Read payload
-                int headerSize;
-                if (tb == VPACK_CUSTOM_1B) headerSize = 1;
-                else if (tb == VPACK_CUSTOM_2B) headerSize = 1;
-                else if (tb == VPACK_CUSTOM_4B) headerSize = 1;
-                else if (tb == VPACK_CUSTOM_8B) headerSize = 1;
-                else if (tb >= VPACK_CUSTOM_LEN1_FIRST && tb <= VPACK_CUSTOM_LEN1_LAST) headerSize = 2;
-                else if (tb >= VPACK_CUSTOM_LEN2_FIRST && tb <= VPACK_CUSTOM_LEN2_LAST) headerSize = 3;
-                else if (tb >= VPACK_CUSTOM_LEN4_FIRST && tb <= VPACK_CUSTOM_LEN4_LAST) headerSize = 5;
-                else headerSize = 9;
-                byte[] payload = Arrays.copyOfRange(buf, pos + headerSize, pos + totalSize);
+                byte[] payload = extractPayload(tb, pos, totalSize);
                 _embeddedObject = new VPackCustomValue(tb, payload);
                 return parser._updateToken(JsonToken.VALUE_EMBEDDED_OBJECT);
             }
             throw parser._constructReadException(String.format("Unrecognized VPack type byte 0x%02x in buf", tb));
+        }
+
+        private byte[] extractPayload(int tb, int pos, int totalSize) {
+            // simplified
+            // Read payload
+            int headerSize;
+            if (tb == VPACK_CUSTOM_1B) headerSize = 1;
+            else if (tb == VPACK_CUSTOM_2B) headerSize = 1;
+            else if (tb == VPACK_CUSTOM_4B) headerSize = 1;
+            else if (tb == VPACK_CUSTOM_8B) headerSize = 1;
+            else if (tb >= VPACK_CUSTOM_LEN1_FIRST && tb <= VPACK_CUSTOM_LEN1_LAST) headerSize = 2;
+            else if (tb >= VPACK_CUSTOM_LEN2_FIRST && tb <= VPACK_CUSTOM_LEN2_LAST) headerSize = 3;
+            else if (tb >= VPACK_CUSTOM_LEN4_FIRST && tb <= VPACK_CUSTOM_LEN4_LAST) headerSize = 5;
+            else headerSize = 9;
+            return Arrays.copyOfRange(buf, pos + headerSize, pos + totalSize);
         }
 
         JsonToken parseBcdInBuf(VPackParser parser, int tb, int pos, boolean neg) throws JacksonException {
@@ -1351,13 +1334,13 @@ public class VPackParser extends VPackParserBase
      */
 
     protected JsonToken _startEmptyArrayInBuf() throws JacksonException {
-        createChildArrayContext(-1, -1);
+        createChildArrayContext();
         _parseStack.push(new ParseFrame(false, new byte[0], 0, 0, 0));
         return _updateToken(JsonToken.START_ARRAY);
     }
 
     protected JsonToken _startEmptyObjectInBuf() throws JacksonException {
-        createChildObjectContext(-1, -1);
+        createChildObjectContext();
         _parseStack.push(new ParseFrame(true, new byte[0], 0, 0, 0));
         return _updateToken(JsonToken.START_OBJECT);
     }
@@ -1368,10 +1351,9 @@ public class VPackParser extends VPackParserBase
         long totalLen = VPackUtil.readLeUnsigned(srcBuf, pos + 1, w);
         // remaining = total - 1 (type) - w (byteLen)
         int headerSize = 1 + w;
-        int remaining = (int) (totalLen - headerSize);
         byte[] sub = Arrays.copyOfRange(srcBuf, pos + headerSize, pos + (int) totalLen);
-        ParseFrame frame = _buildArrayFrame(tb, w, totalLen, sub);
-        createChildArrayContext(-1, -1);
+        ParseFrame frame = _buildArrayFrame(tb, w, sub);
+        createChildArrayContext();
         _parseStack.push(frame);
         return _updateToken(JsonToken.START_ARRAY);
     }
@@ -1381,13 +1363,12 @@ public class VPackParser extends VPackParserBase
         int[] ol = new int[1];
         long totalLen = VPackUtil.decodeVByte(srcBuf, pos + 1, ol);
         int headerSize = 1 + ol[0];
-        int remaining = (int) (totalLen - headerSize);
         byte[] sub = Arrays.copyOfRange(srcBuf, pos + headerSize, pos + (int) totalLen);
         int[] nr = new int[1];
         long nItems = VPackUtil.decodeVByteReverse(sub, sub.length, nr);
         int contentLen = sub.length - nr[0];
-        ParseFrame frame = new ParseFrame(false, sub, 0, contentLen, (int) nItems, 1, false, true);
-        createChildArrayContext(-1, -1);
+        ParseFrame frame = new ParseFrame(false, sub, 0, contentLen, (int) nItems, 1, false);
+        createChildArrayContext();
         _parseStack.push(frame);
         return _updateToken(JsonToken.START_ARRAY);
     }
@@ -1398,8 +1379,8 @@ public class VPackParser extends VPackParserBase
         long totalLen = VPackUtil.readLeUnsigned(srcBuf, pos + 1, w);
         int headerSize = 1 + w;
         byte[] sub = Arrays.copyOfRange(srcBuf, pos + headerSize, pos + (int) totalLen);
-        ParseFrame frame = _buildObjectFrame(tb, w, totalLen, sub);
-        createChildObjectContext(-1, -1);
+        ParseFrame frame = _buildObjectFrame(w, sub);
+        createChildObjectContext();
         _parseStack.push(frame);
         return _updateToken(JsonToken.START_OBJECT);
     }
@@ -1412,13 +1393,10 @@ public class VPackParser extends VPackParserBase
         int[] nr = new int[1];
         long nPairs = VPackUtil.decodeVByteReverse(sub, sub.length, nr);
         int contentLen = sub.length - nr[0];
-        ParseFrame frame = new ParseFrame(true, sub, 0, contentLen, (int) nPairs, 1, false, true);
-        createChildObjectContext(-1, -1);
+        ParseFrame frame = new ParseFrame(true, sub, 0, contentLen, (int) nPairs, 1, false);
+        createChildObjectContext();
         _parseStack.push(frame);
         return _updateToken(JsonToken.START_OBJECT);
     }
 
-    protected StreamReadException _constructReadException(String msg) {
-        return new StreamReadException(this, msg);
-    }
 }

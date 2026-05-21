@@ -193,15 +193,4 @@ public final class VPackConstants
     public static final int VPACK_CUSTOM_LEN8_FIRST  = 0xfd;
     public static final int VPACK_CUSTOM_LEN8_LAST   = 0xff;
 
-    /*
-    /**********************************************************
-    /* Misc
-    /**********************************************************
-     */
-
-    /**
-     * Minimum output buffer size. We need enough space to write any single
-     * atomic value without flushing: at minimum a 9-byte double + 1 header.
-     */
-    public static final int MIN_OUTPUT_BUFFER_SIZE   = 256;
 }

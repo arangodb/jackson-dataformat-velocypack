@@ -6,7 +6,6 @@ import tools.jackson.core.exc.StreamReadException;
 import tools.jackson.core.io.ContentReference;
 import tools.jackson.core.io.IOContext;
 import tools.jackson.core.json.DupDetector;
-import tools.jackson.core.sym.ByteQuadsCanonicalizer;
 import tools.jackson.core.util.JacksonFeatureSet;
 import tools.jackson.core.util.SimpleStreamReadContext;
 import tools.jackson.core.util.TextBuffer;
@@ -22,8 +21,6 @@ import java.math.BigInteger;
  */
 public abstract class VPackParserBase extends ParserMinimalBase
 {
-    // Avoid OOME/DoS for bigger binary; read eagerly only up to 250k
-    protected static final int LONGEST_NON_CHUNKED_BINARY = 250_000;
 
     protected static final JacksonFeatureSet<StreamReadCapability> VPACK_READ_CAPABILITIES
         = DEFAULT_READ_CAPABILITIES.with(StreamReadCapability.EXACT_FLOATS);
@@ -34,7 +31,7 @@ public abstract class VPackParserBase extends ParserMinimalBase
     /**********************************************************************
      */
 
-    protected int _formatFeatures;
+    protected final int _formatFeatures;
 
     /*
     /**********************************************************************
@@ -86,11 +83,6 @@ public abstract class VPackParserBase extends ParserMinimalBase
     /**********************************************************************
      */
 
-    protected final ByteQuadsCanonicalizer _symbols;
-    protected int[] _quadBuffer = NO_INTS;
-    protected int _quad1, _quad2;
-    protected final boolean _symbolsCanonical;
-
     /*
     /**********************************************************************
     /* Life-cycle
@@ -98,13 +90,10 @@ public abstract class VPackParserBase extends ParserMinimalBase
      */
 
     public VPackParserBase(ObjectReadContext readCtxt, IOContext ioCtxt,
-            int parserFeatures, int formatFeatures,
-            ByteQuadsCanonicalizer sym)
+            int parserFeatures, int formatFeatures)
     {
         super(readCtxt, ioCtxt, parserFeatures);
         _formatFeatures = formatFeatures;
-        _symbols = sym;
-        _symbolsCanonical = sym.isCanonicalizing();
         DupDetector dups = StreamReadFeature.STRICT_DUPLICATE_DETECTION.enabledIn(parserFeatures)
                 ? DupDetector.rootDetector(this) : null;
         _streamReadContext = SimpleStreamReadContext.createRootContext(dups);
@@ -165,7 +154,6 @@ public abstract class VPackParserBase extends ParserMinimalBase
     @Override public SimpleStreamReadContext streamReadContext() { return _streamReadContext; }
     @Override public void assignCurrentValue(Object v) { _streamReadContext.assignCurrentValue(v); }
     @Override public Object currentValue() { return _streamReadContext.currentValue(); }
-    @Override public boolean isClosed() { return _closed; }
 
     /*
     /**********************************************************************
@@ -189,9 +177,6 @@ public abstract class VPackParserBase extends ParserMinimalBase
 
     @Override
     public String currentName() throws JacksonException {
-        if (_currToken == JsonToken.PROPERTY_NAME) {
-            return _streamReadContext.currentName();
-        }
         return _streamReadContext.currentName();
     }
 

@@ -212,6 +212,16 @@ public class VPackUtil
         if (bcd.length == 0) {
             return negative ? BigDecimal.ZERO.negate() : BigDecimal.ZERO;
         }
+        String digits = getDigits(bcd);
+        // BigDecimal: unscaledValue * 10^(scale) = unscaledValue * 10^(-(-exponent))
+        // exponent = power of 10 to multiply mantissa
+        // scale = -exponent
+        BigInteger unscaled = new BigInteger(digits);
+        BigDecimal result = new BigDecimal(unscaled, -exponent);
+        return negative ? result.negate() : result;
+    }
+
+    private static String getDigits(byte[] bcd) {
         StringBuilder sb = new StringBuilder(bcd.length * 2);
         for (byte b : bcd) {
             sb.append((b >> 4) & 0xF);
@@ -226,12 +236,7 @@ public class VPackUtil
         if (leadZeros > 0) {
             digits = digits.substring(leadZeros);
         }
-        // BigDecimal: unscaledValue * 10^(scale) = unscaledValue * 10^(-(-exponent))
-        // exponent = power of 10 to multiply mantissa
-        // scale = -exponent
-        BigInteger unscaled = new BigInteger(digits);
-        BigDecimal result = new BigDecimal(unscaled, -exponent);
-        return negative ? result.negate() : result;
+        return digits;
     }
 
     /**
