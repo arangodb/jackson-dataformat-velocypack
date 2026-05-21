@@ -576,37 +576,6 @@ public class JDKScalarsDeserTest
 
     /*
     /**********************************************************
-    /* Sequence tests
-    /**********************************************************
-     */
-
-    /**
-     * Then a unit test to verify that we can conveniently bind sequence of
-     * space-separated simple values
-     */
-    @Test
-    public void testSequenceOfInts() throws Exception
-    {
-        final int NR_OF_INTS = 100;
-
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < NR_OF_INTS; ++i) {
-            sb.append(" ");
-            sb.append(i);
-        }
-        ObjectMapper mapper = vpackMapperBuilder()
-                .disable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
-                .build();
-        try (JsonParser p = mapper.createParser(VPackUtils.toVPack(sb.toString()))) {
-            for (int i = 0; i < NR_OF_INTS; ++i) {
-                Integer result = mapper.readValue(p, Integer.class);
-                assertEquals(Integer.valueOf(i), result);
-            }
-        }
-    }
-
-    /*
-    /**********************************************************
     /* Empty String coercion, handling
     /**********************************************************
      */

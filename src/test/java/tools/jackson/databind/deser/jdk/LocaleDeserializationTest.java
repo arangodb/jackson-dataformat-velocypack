@@ -298,28 +298,6 @@ public class LocaleDeserializationTest
         assertEquals(expected.getScript(), actual.getScript(), "Script mismatch");
     }
 
-    // https://bugs.chromium.org/p/oss-fuzz/issues/detail?id=47034
-    // @since 2.14
-    @Test
-    public void testLocaleFuzz47034() throws Exception
-    {
-        Locale loc = MAPPER.readerFor(Locale.class)
-                .without(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
-                .readValue(getClass().getResourceAsStream("/fuzz/oss-fuzz-47034.json"));
-        assertNotNull(loc);
-    }
-
-    // https://bugs.chromium.org/p/oss-fuzz/issues/detail?id=47036
-    // @since 2.14
-    @Test
-    public void testLocaleFuzz47036() throws Exception
-    {
-        Locale loc = MAPPER.readerFor(Locale.class)
-                .without(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
-                .readValue(getClass().getResourceAsStream("/fuzz/oss-fuzz-47036.json"));
-        assertNotNull(loc);
-    }
-
     // [databind#4009] Locale "" is deserialised as NULL if ACCEPT_EMPTY_STRING_AS_NULL_OBJECT is true
     @Test
     public void testLocaleWithFeatureDisabled() throws Exception

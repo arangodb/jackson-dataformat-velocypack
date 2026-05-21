@@ -21,14 +21,18 @@ public class CreatorWithMultipleUnwrapped917Test
     }
 
     static class FullExample {
+        @JsonProperty("pre")
         @JsonUnwrapped(prefix = "pre_")
         public final Unwrapped pre;
+        @JsonProperty("post")
         @JsonUnwrapped(prefix = "post_")
         public final Unwrapped post;
 
         @JsonCreator
         public FullExample(
+                @JsonProperty("pre")
                 @JsonUnwrapped(prefix = "pre_") Unwrapped pre,
+                @JsonProperty("post")
                 @JsonUnwrapped(prefix = "post_") Unwrapped post) {
             this.pre = pre;
             this.post = post;

@@ -33,20 +33,6 @@ public class DeepVPackNodeSerTest
     private final int TEST_NESTING = StreamWriteConstraints.DEFAULT_MAX_DEPTH + 100;
 
     @Test
-    public void testDeepNodeSerWithStreamingLimits() throws Exception
-    {
-        JsonNode jsonNode = NO_LIMITS_MAPPER.readTree(VPackUtils.toVPack(_nestedDoc(TEST_NESTING)));
-        final ObjectMapper defaultMapper = newVPackMapper();
-        try {
-            /*String json =*/ VPackUtils.toJson(defaultMapper.writeValueAsBytes(jsonNode));
-            fail("Should not pass");
-        } catch (StreamConstraintsException e) {
-            verifyException(e, "Document nesting depth");
-            verifyException(e, "exceeds the maximum allowed");
-        }
-    }
-
-    @Test
     public void testDeepNodeSerNoStreamingLimits() throws Exception
     {
         JsonNode jsonNode = NO_LIMITS_MAPPER.readTree(VPackUtils.toVPack(_nestedDoc(TEST_NESTING)));

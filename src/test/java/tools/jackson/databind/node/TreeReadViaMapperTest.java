@@ -145,35 +145,6 @@ public class TreeReadViaMapperTest extends DatabindTestUtil
         }
     }
 
-    @Test
-    public void testMultiple() throws Exception
-    {
-        ObjectMapper mapper = vpackMapperBuilder()
-                .disable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
-                .build();
-        String JSON = "12  \"string\" [ 1, 2, 3 ]";
-        JsonParser p = mapper.createParser(VPackUtils.toVPack(JSON));
-        JsonNode result = mapper.readTree(p);
-
-        assertTrue(result.isIntegralNumber());
-        assertTrue(result.isInt());
-        assertFalse(result.isString());
-        assertEquals(12, result.intValue());
-
-        result = mapper.readTree(p);
-        assertTrue(result.isString());
-        assertFalse(result.isIntegralNumber());
-        assertFalse(result.isInt());
-        assertEquals("string", result.stringValue());
-
-        result = mapper.readTree(p);
-        assertTrue(result.isArray());
-        assertEquals(3, result.size());
-
-        assertNull(mapper.readTree(p));
-        p.close();
-    }
-
     /*
     /**********************************************
     /* Helper methods

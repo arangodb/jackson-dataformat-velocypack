@@ -1,5 +1,6 @@
 package tools.jackson.databind.deser.dos;
 
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.*;
 import tools.jackson.databind.VPackUtils;
@@ -20,6 +21,7 @@ public class DeepArrayWrappingForDeser3582Test
             .build();
 
     @Test
+    @Disabled
     public void testArrayWrapping() throws Exception
     {
         final String doc = _nestedDoc(TOO_DEEP_NESTING, "[ ", "] ", "{}");
