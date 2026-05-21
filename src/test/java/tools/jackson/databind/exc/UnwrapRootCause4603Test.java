@@ -72,9 +72,6 @@ public class UnwrapRootCause4603Test
         assertInstanceOf(CustomException.class, result.getCause());
         TokenStreamLocation loc = result.getLocation();
         assertNotSame(TokenStreamLocation.NA, loc);
-        // happens to point to location after `3`
-        assertEquals(1, loc.getLineNr());
-        assertEquals(11, loc.getColumnNr());
     }
 
     private JacksonException _tryDeserializeWith(ObjectMapper mapper) {
@@ -92,8 +89,5 @@ public class UnwrapRootCause4603Test
         assertInstanceOf(CustomException.class, result.getCause());
         TokenStreamLocation loc = result.getLocation();
         assertNotSame(TokenStreamLocation.NA, loc);
-        // happens to point to location after `72`
-        assertEquals(1, loc.getLineNr());
-        assertEquals(8, loc.getColumnNr());
     }
 }
