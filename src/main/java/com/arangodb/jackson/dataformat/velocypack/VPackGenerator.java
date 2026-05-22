@@ -130,7 +130,7 @@ public class VPackGenerator extends GeneratorBase
 
     @Override
     public JacksonFeatureSet<StreamWriteCapability> streamWriteCapabilities() {
-        return DEFAULT_BINARY_WRITE_CAPABILITIES;
+        return DEFAULT_WRITE_CAPABILITIES;
     }
 
     @Override
