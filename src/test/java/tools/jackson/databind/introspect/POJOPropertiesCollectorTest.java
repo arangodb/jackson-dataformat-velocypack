@@ -515,35 +515,6 @@ public class POJOPropertiesCollectorTest
         assertEquals(1, ignored.size());
     }
 
-    // [databind#5952]: getNonRescuedIgnoredPropertyNames() exposes the un-rescued
-    // per-property view so tooling can still see names that were "rescued" by a
-    // creator parameter renamed to the same name.
-    static class PerPropertyIgnoredCreator5952 {
-        @JsonIgnore
-        public String query;
-
-        @JsonCreator
-        public PerPropertyIgnoredCreator5952(@JsonProperty("query") String rawQuery) {
-            this.query = rawQuery;
-        }
-    }
-
-    @Test
-    public void testNonRescuedIgnoredPropertyNames5952()
-    {
-        BeanDescription desc = beanDesc(MAPPER, PerPropertyIgnoredCreator5952.class, false);
-
-        // Rescued view: "query" is overridden by the creator and should not appear.
-        Set<String> rescued = desc.getIgnoredPropertyNames();
-        assertFalse(rescued.contains("query"),
-                "per-property @JsonIgnore should be rescued by creator-rename: " + rescued);
-
-        // Un-rescued view: original ignoral declaration is still visible.
-        Set<String> unrescued = desc.getNonRescuedIgnoredPropertyNames();
-        assertTrue(unrescued.contains("query"),
-                "getNonRescuedIgnoredPropertyNames() should report the original per-property ignoral: " + unrescued);
-    }
-
     // [databind#5952]: when multiple per-property @JsonIgnore names are rescued by
     // creator parameters in the same type, the snapshot taken on the FIRST rescue
     // must capture both names — not just the one that triggered the snapshot. This

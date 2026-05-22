@@ -419,7 +419,7 @@ public class DatabindTestUtil
 
     public static void assertValidLocation(TokenStreamLocation location) {
         assertNotNull(location, "Should have non-null location");
-        assertTrue(location.getLineNr() > 0, "Should have positive line number");
+        assertTrue(location.getByteOffset() > 0, "Should have positive byte offset");
     }
 
     protected void assertType(Object ob, Class<?> expType)

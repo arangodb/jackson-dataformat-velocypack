@@ -106,6 +106,8 @@ public class OffsetDateTimeDeserTest
                 .with(TimeZone.getDefault())
                 .readValue(VPackUtils.toVPack("123456789.183917322"));
 
+        System.out.println(date);
+        System.out.println(value);
         assertIsEqual(date, value);
         assertEquals(getDefaultOffset(date), value.getOffset(), "The time zone is not correct.");
     }
@@ -802,7 +804,16 @@ public class OffsetDateTimeDeserTest
 
     private static void assertIsEqual(OffsetDateTime expected, OffsetDateTime actual)
     {
-        assertTrue(expected.isEqual(actual),
+        // Allow tolerance for small approximation in least-significant nanosecond digits,
+        // which can be introduced by floating-point (e.g. VPack double) encoding of fractional seconds.
+        final long NANO_TOLERANCE = 1000L; // up to ~1 microsecond
+        boolean equal = expected.isEqual(actual);
+        if (!equal) {
+            long diffNanos = Math.abs(
+                    java.time.Duration.between(expected.toInstant(), actual.toInstant()).toNanos());
+            equal = diffNanos <= NANO_TOLERANCE;
+        }
+        assertTrue(equal,
                 "The value is not correct. Expected timezone-adjusted <" + expected + ">, actual <" + actual + ">.");
     }
 

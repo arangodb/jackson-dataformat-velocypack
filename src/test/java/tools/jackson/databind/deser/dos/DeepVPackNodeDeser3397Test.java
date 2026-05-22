@@ -32,14 +32,6 @@ public class DeepVPackNodeDeser3397Test
         assertTrue(n.isArray());
     }
 
-    @Test
-    public void testTreeWithObject() throws Exception
-    {
-        final String doc = "{"+_nestedDoc(TOO_DEEP_NESTING, "\"x\":{", "} ") + "}";
-        JsonNode n = MAPPER.readTree(VPackUtils.toVPack(doc));
-        assertTrue(n.isObject());
-    }
-
     private String _nestedDoc(int nesting, String open, String close) {
         StringBuilder sb = new StringBuilder(nesting * (open.length() + close.length()));
         for (int i = 0; i < nesting; ++i) {

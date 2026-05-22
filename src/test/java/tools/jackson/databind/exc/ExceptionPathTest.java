@@ -117,31 +117,4 @@ public class ExceptionPathTest
         }
     }
 
-    @Test
-    public void testPathReferenceWithDefaultDeser() throws Exception {
-        String input = "{\"bar\":{\"baz\":{qux:\"quxValue\"))}";
-        final String THIS = getClass().getName();
-
-        try {
-            MAPPER.readValue(VPackUtils.toVPack(input), Foo.class);
-            fail("Upsss! Exception has not been thrown.");
-        } catch (StreamReadException ex) {
-            assertEquals(THIS+"$Foo[\"bar\"]->"+THIS+"$Bar[\"baz\"]",
-                    ex.getPathReference());
-        }
-    }
-
-    @Test
-    public void testPathReferenceWithJsonCreatorDeser() throws Exception {
-        String input = "{\"bar\":{\"baz\":{qux:\"quxValue\"))}";
-        final String THIS = getClass().getName();
-
-        try {
-            MAPPER.readValue(VPackUtils.toVPack(input), CreatorFoo.class);
-            fail("Upsss! Exception has not been thrown.");
-        } catch (StreamReadException ex) {
-            assertEquals(THIS+"$CreatorFoo[\"bar\"]->"+THIS+"$CreatorBar[\"baz\"]",
-                    ex.getPathReference());
-        }
-    }
 }

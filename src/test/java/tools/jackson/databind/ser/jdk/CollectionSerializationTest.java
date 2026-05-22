@@ -12,6 +12,7 @@ import tools.jackson.databind.testutil.DatabindTestUtil;
 import tools.jackson.databind.testutil.NoCheckSubTypeValidator;
 import com.arangodb.jackson.dataformat.velocypack.VPackMapper;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.util.*;
@@ -266,9 +267,9 @@ public class CollectionSerializationTest
                 break;
             case 1:
                 {
-                    StringWriter sw = new StringWriter(value.size());
-                    MAPPER.writeValue(sw, value);
-                    p = createParserUsingReader(sw.toString());
+                    ByteArrayOutputStream out = new ByteArrayOutputStream();
+                    MAPPER.writeValue(out, value);
+                    p = createParserUsingReader(VPackUtils.toJson(out.toByteArray()));
                 }
                 break;
             case 2:

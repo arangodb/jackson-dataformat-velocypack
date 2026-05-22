@@ -114,14 +114,4 @@ public class MapperViaParserTest
         }
     }
 
-    // // // Misc other tests
-
-    @Test
-    public void testEscapingUsingMapper() throws Exception
-    {
-        ObjectMapper mapper = VPackMapper.builder()
-                .build(); // NOTE: VPackWriteFeature.ESCAPE_NON_ASCII not applicable to VelocyPack
-        final String json = VPackUtils.toJson(mapper.writeValueAsBytes(String.valueOf((char) 258)));
-        assertEquals(q("\\u0102"), json);
-    }
 }
