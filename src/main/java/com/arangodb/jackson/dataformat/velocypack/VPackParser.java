@@ -237,6 +237,8 @@ public class VPackParser extends VPackParserBase
             return _eofToken();
         }
 
+        // Advance root context index for the next root-level value
+        _streamReadContext.valueRead();
         return _readValue();
     }
 
@@ -1137,6 +1139,10 @@ public class VPackParser extends VPackParserBase
                 currentPos = itemPos + parser._valueByteSize(buf, itemPos);
             }
 
+            // Advance the array's stream-read-context index so that
+            // error reporting / JsonStreamContext can report the index.
+            _streamReadContext.valueRead();
+
             return parseValueInBuf(parser, tb, itemPos);
         }
 
@@ -1166,6 +1172,8 @@ public class VPackParser extends VPackParserBase
                 currentPos = valuePos + valueSize;
                 currentIndex++;
                 expectingValue = false;
+                // Account for the value just consumed within this object context
+                _streamReadContext.valueRead();
                 return parseValueInBuf(parser, tb, valuePos);
             }
         }

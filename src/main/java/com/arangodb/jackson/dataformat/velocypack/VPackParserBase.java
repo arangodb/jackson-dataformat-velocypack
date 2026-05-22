@@ -177,7 +177,12 @@ public abstract class VPackParserBase extends ParserMinimalBase
 
     @Override
     public String currentName() throws JacksonException {
-        return _streamReadContext.currentName();
+        String name = _streamReadContext.currentName();
+        if (name != null) {
+            return name;
+        }
+        SimpleStreamReadContext parent = _streamReadContext.getParent();
+        return (parent == null) ? null : parent.currentName();
     }
 
     /*
