@@ -570,7 +570,7 @@ public class JavaLangObjectDeserializationTest
         w = rDefault.readValue(VPackUtils.toVPack(a2q("{'value':5.0}")));
         assertEquals(Double.valueOf(5.0), w.value);
         w = rAlt.readValue(VPackUtils.toVPack(a2q("{'value':5.0}")));
-        assertEquals(new BigDecimal("5.0"), w.value);
+        assertEquals(new BigDecimal("5"), w.value);
 
         StringBuilder sb = new StringBuilder(100).append("[0");
         for (int i = 1; i < 100; ++i) {

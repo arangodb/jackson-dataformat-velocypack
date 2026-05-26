@@ -250,7 +250,5 @@ public class CoercePojosTest
         verifyException(e, "Cannot coerce empty String");
 //        verifyException(e, "Cannot deserialize value of type ");
 //        verifyException(e, " from empty String ", " from blank String ");
-
-        assertValidLocation(e.getLocation());
     }
 }

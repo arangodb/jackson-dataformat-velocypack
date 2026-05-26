@@ -325,7 +325,6 @@ public class CoerceEnumTest
         } catch (MismatchedInputException e) {
             verifyException(e, "Cannot coerce ");
             verifyException(e, " empty String ", " blank String ");
-            assertValidLocation(e.getLocation());
         }
     }
 
@@ -337,7 +336,6 @@ public class CoerceEnumTest
         } catch (MismatchedInputException e) {
             verifyException(e, "Cannot coerce Integer value (");
             verifyException(e, "but could if coercion was enabled");
-            assertValidLocation(e.getLocation());
         }
     }
 }

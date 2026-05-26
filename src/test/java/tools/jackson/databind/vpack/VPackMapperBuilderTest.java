@@ -13,13 +13,6 @@ import static org.junit.jupiter.api.Assertions.*;
 // Test(s) to verify behaviors in VPackMapper.Builder
 public class VPackMapperBuilderTest extends DatabindTestUtil
 {
-    @Test
-    public void testBuilderWithJackson2Defaults()
-    {
-        // NOTE: VPackMapper.builderWithJackson2Defaults() not available for VelocyPack
-        // This test is not applicable to VelocyPack format
-        fail("Not applicable to VelocyPack: builderWithJackson2Defaults() not available");
-    }
 
     // Test 1: Builder with stream read features
     @Test
@@ -72,13 +65,6 @@ public class VPackMapperBuilderTest extends DatabindTestUtil
         // assertFalse(mapper.isEnabled(VPackReadFeature.ALLOW_TRAILING_COMMA));
         // REMOVED: JSON-only feature not applicable to VelocyPack
         // assertTrue(mapper.isEnabled(VPackReadFeature.ALLOW_SINGLE_QUOTES));
-    }
-
-    @Test
-    public void testBuilderWithJsonWriteFeatures() {
-        // NOTE: JSON-specific write features (ESCAPE_NON_ASCII, QUOTE_PROPERTY_NAMES, ESCAPE_FORWARD_SLASHES,
-        // WRITE_HEX_UPPER_CASE) do not exist in VPackWriteFeature. Test is not applicable to VelocyPack.
-        fail("Not applicable to VelocyPack: JSON-specific write features not available");
     }
 
     // Test 2: Builder with mapper features

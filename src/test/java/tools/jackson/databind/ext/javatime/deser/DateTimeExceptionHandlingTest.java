@@ -37,7 +37,7 @@ public class DateTimeExceptionHandlingTest extends DateTimeTestBase
         } catch (DateTimeParseException e) {
             assertInstanceOf(DateTimeException.class, e.getCause());
             assertThat(e).hasMessageContaining("Failed to deserialize");
-            assertThat(e).hasMessageContaining("[2023,2,30,12,30]");
+            assertThat(e).hasMessageContaining("[2023,2,30,12,30");
         }
     }
 

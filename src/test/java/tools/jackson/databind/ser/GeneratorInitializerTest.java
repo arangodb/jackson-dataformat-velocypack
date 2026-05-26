@@ -177,7 +177,7 @@ public class GeneratorInitializerTest extends DatabindTestUtil
         final AtomicInteger count = new AtomicInteger();
         ObjectMapper mapper = _mapperWith(count);
         byte[] bytes = mapper.writeValueAsBytes(42);
-        assertEquals("42", new String(bytes, "UTF-8"));
+        assertEquals("42", VPackUtils.toJson(bytes));
         assertEquals(1, count.get());
     }
 
@@ -349,7 +349,7 @@ public class GeneratorInitializerTest extends DatabindTestUtil
         final AtomicInteger count = new AtomicInteger();
         ObjectWriter w = _writerWith(count);
         byte[] bytes = w.writeValueAsBytes(42);
-        assertEquals("42", new String(bytes, "UTF-8"));
+        assertEquals("42", VPackUtils.toJson(bytes));
         assertEquals(1, count.get());
     }
 

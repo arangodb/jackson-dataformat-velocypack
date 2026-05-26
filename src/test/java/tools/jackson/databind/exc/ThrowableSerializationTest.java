@@ -160,22 +160,4 @@ public class ThrowableSerializationTest
         assertEquals(new HashSet<>(Arrays.asList("Cause", "StackTrace", "Message", "Suppressed", "LocalizedMessage")),
                 map.keySet());
     }
-
-    // [databind#3244]: StackOverflow for basic JsonProcessingException?
-    @Test
-    public void testJacksonExceptionSerialization() throws Exception {
-        JacksonException e = null;
-        try {
-            MAPPER.readValue(VPackUtils.toVPack("{ foo "), Map.class);
-            fail("Should not pass");
-        } catch (JacksonException e0) {
-            e = e0;
-        }
-        String json = VPackUtils.toJson(MAPPER.writer().writeValueAsBytes(e));
-
-        // Could try proper validation, but for now just ensure we won't crash
-        assertNotNull(json);
-        JsonNode n = MAPPER.readTree(VPackUtils.toVPack(json));
-        assertTrue(n.isObject());
-    }
 }

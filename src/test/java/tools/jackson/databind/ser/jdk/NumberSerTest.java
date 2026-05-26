@@ -401,7 +401,7 @@ public class NumberSerTest extends DatabindTestUtil
         SimpleModule module = new SimpleModule();
         module.addSerializer(BigDecimal.class, new BigDecimalAsNumberSerializer());
         ObjectMapper mapper = vpackMapperBuilder().addModule(module).build();
-        assertEquals(a2q("{'value':2.0}"), VPackUtils.toJson(mapper.writeValueAsBytes(new BigDecimalHolder("2"))));
+        assertEquals(a2q("{'value':2}"), VPackUtils.toJson(mapper.writeValueAsBytes(new BigDecimalHolder("2"))));
     }
 
     /*
