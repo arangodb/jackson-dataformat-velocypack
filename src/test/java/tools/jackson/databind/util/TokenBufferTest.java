@@ -741,7 +741,25 @@ public class TokenBufferTest extends DatabindTestUtil
         buf.writeNumber(BigInteger.valueOf(123));
         buf.writeName("dec");
         buf.writeNumber(BigDecimal.valueOf(5).movePointLeft(2));
+        buf.writeEndObject();
         assertEquals(a2q("{'foo':null,'bar':123,'dec':0.05}"), VPackUtils.toJson(MAPPER.writeValueAsBytes(buf)));
+        buf.close();
+    }
+
+    @Test
+    public void testTokenBufferRoundTrip() throws IOException
+    {
+        TokenBuffer buf = TokenBuffer.forGeneration();
+        buf.writeStartObject();
+        buf.writeName("foo"); buf.writeNull();
+        buf.writeName("bar"); buf.writeNumber(123);
+        buf.writeName("dec"); buf.writeNumber(new BigDecimal("0.05"));
+        buf.writeEndObject();
+        byte[] vp = MAPPER.writeValueAsBytes(buf);
+        JsonNode round = MAPPER.readTree(vp);
+        assertEquals("0.05", round.get("dec").asText());
+        assertEquals(123, round.get("bar").intValue());
+        assertTrue(round.get("foo").isNull());
         buf.close();
     }
 
