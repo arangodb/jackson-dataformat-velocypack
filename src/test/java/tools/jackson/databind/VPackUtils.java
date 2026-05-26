@@ -3,11 +3,15 @@ package tools.jackson.databind;
 
 import com.arangodb.jackson.dataformat.velocypack.VPackFactory;
 import com.arangodb.jackson.dataformat.velocypack.VPackMapper;
+import tools.jackson.core.JsonGenerator;
+import tools.jackson.core.JsonParser;
 import tools.jackson.core.StreamReadConstraints;
 import tools.jackson.core.StreamWriteConstraints;
 import tools.jackson.core.json.JsonFactory;
 import tools.jackson.core.json.JsonReadFeature;
 import tools.jackson.databind.json.JsonMapper;
+
+import java.io.ByteArrayOutputStream;
 
 /**
  * @author Michele Rastelli
@@ -46,10 +50,43 @@ public final class VPackUtils {
         else return JSON_MAPPER.writeValueAsString(VPACK_MAPPER.readTree(bytes));
     }
 
+    private final static JsonFactory JSON_FACTORY = JsonFactory.builder()
+            .enable(JsonReadFeature.ALLOW_NON_NUMERIC_NUMBERS)
+            .streamReadConstraints(StreamReadConstraints.builder()
+                    .maxNestingDepth(Integer.MAX_VALUE)
+                    .maxStringLength(Integer.MAX_VALUE)
+                    .maxNumberLength(Integer.MAX_VALUE)
+                    .build())
+            .streamWriteConstraints(StreamWriteConstraints.builder()
+                    .maxNestingDepth(Integer.MAX_VALUE)
+                    .build())
+            .build();
+    private final static VPackFactory VPACK_FACTORY = VPackFactory.builder()
+            .streamReadConstraints(StreamReadConstraints.builder()
+                    .maxNestingDepth(Integer.MAX_VALUE)
+                    .maxStringLength(Integer.MAX_VALUE)
+                    .maxNumberLength(Integer.MAX_VALUE)
+                    .build())
+            .streamWriteConstraints(StreamWriteConstraints.builder()
+                    .maxNestingDepth(Integer.MAX_VALUE)
+                    .build())
+            .build();
+
     public static byte[] toVPack(String json) {
         if (json == null) return null;
         else if (json.isEmpty()) return new byte[0];
-        else return VPACK_MAPPER.writeValueAsBytes(JSON_MAPPER.readTree(json));
+        else {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            try (JsonParser p = JSON_FACTORY.createParser(json);
+                 JsonGenerator g = VPACK_FACTORY.createGenerator(out)) {
+                while (p.nextToken() != null) {
+                    g.copyCurrentEvent(p);
+                }
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+            return out.toByteArray();
+        }
     }
 
     /**
