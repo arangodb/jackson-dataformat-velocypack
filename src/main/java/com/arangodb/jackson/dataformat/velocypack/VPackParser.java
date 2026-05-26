@@ -887,6 +887,7 @@ public class VPackParser extends VPackParserBase
 
     @Override
     public int getString(Writer writer) throws JacksonException {
+        if (_currToken == JsonToken.VALUE_NULL) return 0;
         String str = getString();
         if (str == null) return 0;
         try {
