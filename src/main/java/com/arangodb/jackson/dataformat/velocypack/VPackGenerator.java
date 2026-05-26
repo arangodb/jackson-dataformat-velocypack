@@ -572,42 +572,51 @@ public class VPackGenerator extends GeneratorBase
     /**********************************************************************
      */
 
-    @SuppressWarnings("resource")
     @Override
     public JsonGenerator writeArray(int[] array, int offset, int length) throws JacksonException
     {
         _verifyValueWrite("write int array");
-        writeStartArray(array, length);
+        _streamWriteContext = _streamWriteContext.createChildArrayContext(null);
+        _containerStack.push(new ContainerState(false));
         for (int i = offset, end = offset + length; i < end; i++) {
-            writeNumber(array[i]);
+            _doWriteInt(array[i]);
+            _valueFinished();
         }
-        writeEndArray();
+        _streamWriteContext = _streamWriteContext.getParent();
+        ContainerState cs1 = _containerStack.pop();
+        _emitValue(_buildArray(cs1));
         return this;
     }
 
-    @SuppressWarnings("resource")
     @Override
     public JsonGenerator writeArray(long[] array, int offset, int length) throws JacksonException
     {
         _verifyValueWrite("write long array");
-        writeStartArray(array, length);
+        _streamWriteContext = _streamWriteContext.createChildArrayContext(null);
+        _containerStack.push(new ContainerState(false));
         for (int i = offset, end = offset + length; i < end; i++) {
-            writeNumber(array[i]);
+            _doWriteLong(array[i]);
+            _valueFinished();
         }
-        writeEndArray();
+        _streamWriteContext = _streamWriteContext.getParent();
+        ContainerState cs2 = _containerStack.pop();
+        _emitValue(_buildArray(cs2));
         return this;
     }
 
-    @SuppressWarnings("resource")
     @Override
     public JsonGenerator writeArray(double[] array, int offset, int length) throws JacksonException
     {
         _verifyValueWrite("write double array");
-        writeStartArray(array, length);
+        _streamWriteContext = _streamWriteContext.createChildArrayContext(null);
+        _containerStack.push(new ContainerState(false));
         for (int i = offset, end = offset + length; i < end; i++) {
-            writeNumber(array[i]);
+            _doWriteDouble(array[i]);
+            _valueFinished();
         }
-        writeEndArray();
+        _streamWriteContext = _streamWriteContext.getParent();
+        ContainerState cs3 = _containerStack.pop();
+        _emitValue(_buildArray(cs3));
         return this;
     }
 
