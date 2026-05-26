@@ -378,11 +378,11 @@ public class VPackScalarParseTest extends BaseTestForVPack {
         // Type c8 = 0xc8 (positive BCD, mantissa length width = 1 byte)
         // mantissa length = 3
         // exponent (4 bytes LE) = 0x00000000 = 0
-        // mantissa = [0x01, 0x23, 0x45]
+        // mantissa = [0x01, 0x23, 0x45] -> decoded BigDecimal scale=0 -> VALUE_NUMBER_INT
         byte[] input = {(byte) 0xc8, 0x03, 0x00, 0x00, 0x00, 0x00, 0x01, 0x23, 0x45};
         try (JsonParser p = vpackParser(input)) {
-            assertToken(JsonToken.VALUE_NUMBER_FLOAT, p.nextToken());
-            assertThat(p.getDecimalValue()).isEqualTo("12345");
+            assertToken(JsonToken.VALUE_NUMBER_INT, p.nextToken());
+            assertThat(p.getBigIntegerValue()).isEqualByComparingTo(new java.math.BigInteger("12345"));
         }
     }
 
@@ -406,11 +406,11 @@ public class VPackScalarParseTest extends BaseTestForVPack {
         // Negative BCD: 0xd0 + width - 1 = 0xd0 (1-byte mantissa length)
         // Value = -42
         // Encode -42: digits = "42", already even, exponent = 0
-        // bcd = [0x42], exp = 0
+        // bcd = [0x42], exp = 0 -> decoded BigDecimal scale=0 -> VALUE_NUMBER_INT
         byte[] input = {(byte) 0xd0, 0x01, 0x00, 0x00, 0x00, 0x00, 0x42};
         try (JsonParser p = vpackParser(input)) {
-            assertToken(JsonToken.VALUE_NUMBER_FLOAT, p.nextToken());
-            assertThat(p.getDecimalValue()).isEqualTo("-42");
+            assertToken(JsonToken.VALUE_NUMBER_INT, p.nextToken());
+            assertThat(p.getBigIntegerValue()).isEqualByComparingTo(new java.math.BigInteger("-42"));
         }
     }
 

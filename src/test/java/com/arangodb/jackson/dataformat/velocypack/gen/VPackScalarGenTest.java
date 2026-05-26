@@ -272,19 +272,20 @@ public class VPackScalarGenTest extends BaseTestForVPack
     @Test
     public void testGenBigDecimal_12345() {
         byte[] bytes = gen(g -> g.writeNumber(new BigDecimal("12345")));
-        // Trailing-zero approach: "12345" (odd) → "123450", exponent = -1
-        // Spec example: c8 03 ff ff ff ff 12 34 50
+        // scale=0 (integer), no trailing-zero removal; digits="12345" (odd) -> prepend "012345"
+        // exponent=0, mantLen=3
+        // type=0xc8, mantLen=3, exp=0 (00 00 00 00), bcd=01 23 45
         assertThat(bytes[0]).isEqualTo((byte) 0xc8); // positive BCD, 1-byte mantissa len
         assertThat(bytes[1]).isEqualTo((byte) 0x03); // mantissa len = 3
-        // exponent = -1: FF FF FF FF in 4-byte LE
-        assertThat(bytes[2]).isEqualTo((byte) 0xFF);
-        assertThat(bytes[3]).isEqualTo((byte) 0xFF);
-        assertThat(bytes[4]).isEqualTo((byte) 0xFF);
-        assertThat(bytes[5]).isEqualTo((byte) 0xFF);
-        // mantissa: 12 34 50 ("123450" packed)
-        assertThat(bytes[6]).isEqualTo((byte) 0x12);
-        assertThat(bytes[7]).isEqualTo((byte) 0x34);
-        assertThat(bytes[8]).isEqualTo((byte) 0x50);
+        // exponent = 0: 00 00 00 00 in 4-byte LE
+        assertThat(bytes[2]).isEqualTo((byte) 0x00);
+        assertThat(bytes[3]).isEqualTo((byte) 0x00);
+        assertThat(bytes[4]).isEqualTo((byte) 0x00);
+        assertThat(bytes[5]).isEqualTo((byte) 0x00);
+        // mantissa: 01 23 45 ("012345" packed)
+        assertThat(bytes[6]).isEqualTo((byte) 0x01);
+        assertThat(bytes[7]).isEqualTo((byte) 0x23);
+        assertThat(bytes[8]).isEqualTo((byte) 0x45);
     }
 
     @Test

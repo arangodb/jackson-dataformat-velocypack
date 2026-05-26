@@ -901,8 +901,8 @@ public class TokenBufferTest extends DatabindTestUtil
         buf.writeNumber(3.14f);
         buf.writeEndArray();
         String json = VPackUtils.toJson(MAPPER.writeValueAsBytes(buf));
-        // Float serializes as float value
-        assertEquals("[3.14]", json);
+        // Float is cast to double, so value is the double representation of 3.14f
+        assertEquals("[" + (double) 3.14f + "]", json);
         buf.close();
     }
 
@@ -915,7 +915,9 @@ public class TokenBufferTest extends DatabindTestUtil
         buf.writeNumber("1.23e10");
         buf.writeEndArray();
         String json = VPackUtils.toJson(MAPPER.writeValueAsBytes(buf));
-        assertEquals("[1.23e10]", json);
+        // BCD encoding of new BigDecimal("1.23e10").stripTrailingZeros() -> scale=-8 -> BigDecimal float
+        // JSON mapper writes BigDecimal as 1.23E+10
+        assertEquals("[1.23E+10]", json);
         buf.close();
     }
 

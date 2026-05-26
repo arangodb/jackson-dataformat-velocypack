@@ -52,4 +52,25 @@ public final class VPackUtils {
         else return VPACK_MAPPER.writeValueAsBytes(JSON_MAPPER.readTree(json));
     }
 
+    /**
+     * Like {@link #toVPack(String)} but reads floating-point numbers as BigDecimal
+     * to preserve full precision (avoids double round-trip loss).
+     */
+    public static byte[] toVPackDecimal(String json) {
+        if (json == null) return null;
+        else if (json.isEmpty()) return new byte[0];
+        else {
+            JsonMapper preciseMapper = JsonMapper.builder(JsonFactory.builder()
+                    .enable(JsonReadFeature.ALLOW_NON_NUMERIC_NUMBERS)
+                    .streamReadConstraints(StreamReadConstraints.builder()
+                            .maxNestingDepth(Integer.MAX_VALUE)
+                            .maxStringLength(Integer.MAX_VALUE)
+                            .maxNumberLength(Integer.MAX_VALUE)
+                            .build())
+                    .build()
+            ).enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS).build();
+            return VPACK_MAPPER.writeValueAsBytes(preciseMapper.readTree(json));
+        }
+    }
+
 }

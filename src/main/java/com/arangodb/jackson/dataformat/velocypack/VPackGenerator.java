@@ -551,7 +551,7 @@ public class VPackGenerator extends GeneratorBase
         try {
             if (encodedValue.indexOf('.') >= 0 || encodedValue.indexOf('e') >= 0
                     || encodedValue.indexOf('E') >= 0) {
-                _doWriteBigDecimal(new BigDecimal(encodedValue));
+                _doWriteBigDecimal(new BigDecimal(encodedValue).stripTrailingZeros());
             } else {
                 try {
                     _doWriteLong(Long.parseLong(encodedValue));

@@ -561,7 +561,7 @@ public class ExternalTypeIdTest extends DatabindTestUtil
 
         Wrapper965 w2 = MAPPER.readerFor(Wrapper965.class)
                 .with(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
-                .readValue(VPackUtils.toVPack(json));
+                .readValue(VPackUtils.toVPackDecimal(json));
 
         assertEquals(w.typeEnum, w2.typeEnum);
         assertTrue(w.value.equals(w2.value),

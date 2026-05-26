@@ -657,10 +657,13 @@ public class JavaLangObjectDeserializationTest
                 .enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
                 .build();
 
-        Object result = mapper.readValue(VPackUtils.toVPack("3.14159"), Object.class);
+        // Write BigDecimal directly to VPack to preserve precision (avoid JSON double round-trip)
+        BigDecimal input = new BigDecimal("3.14159");
+        byte[] vpack = mapper.writeValueAsBytes(input);
+        Object result = mapper.readValue(vpack, Object.class);
         assertNotNull(result);
         assertInstanceOf(BigDecimal.class, result);
-        assertEquals(new BigDecimal("3.14159"), result);
+        assertEquals(input, result);
     }
 
     @Test

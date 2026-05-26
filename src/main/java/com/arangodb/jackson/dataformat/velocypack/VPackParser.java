@@ -631,7 +631,15 @@ public class VPackParser extends VPackParserBase
         long mantLen = _readLeUnsigned(mantLenWidth);
         int exponent = (int) _readLeSigned(4);
         byte[] bcd = _readBytes((int) mantLen);
-        _numberBigDecimal = VPackUtil.decodeBcd(bcd, exponent, negative);
+        java.math.BigDecimal bd = VPackUtil.decodeBcd(bcd, exponent, negative);
+        if (bd.scale() == 0) {
+            // Integral value (scale=0, no fractional part): return as BigInteger
+            _numberBigInt = bd.toBigIntegerExact();
+            _numTypesValid = NR_BIGINT;
+            _numberType = NumberType.BIG_INTEGER;
+            return _updateToken(JsonToken.VALUE_NUMBER_INT);
+        }
+        _numberBigDecimal = bd;
         _numTypesValid = NR_BIGDECIMAL;
         _numberType = NumberType.BIG_DECIMAL;
         return _updateToken(JsonToken.VALUE_NUMBER_FLOAT);
@@ -1357,7 +1365,14 @@ public class VPackParser extends VPackParserBase
             long mantLen = VPackUtil.readLeUnsigned(buf, pos + 1, lw);
             int exp = (int) VPackUtil.readLeSigned(buf, pos + 1 + lw, 4);
             byte[] bcd = Arrays.copyOfRange(buf, pos + 1 + lw + 4, pos + 1 + lw + 4 + (int) mantLen);
-            _numberBigDecimal = VPackUtil.decodeBcd(bcd, exp, neg);
+            java.math.BigDecimal bd = VPackUtil.decodeBcd(bcd, exp, neg);
+            if (bd.scale() == 0) {
+                _numberBigInt = bd.toBigIntegerExact();
+                _numTypesValid = NR_BIGINT;
+                _numberType = NumberType.BIG_INTEGER;
+                return parser._updateToken(JsonToken.VALUE_NUMBER_INT);
+            }
+            _numberBigDecimal = bd;
             _numTypesValid = NR_BIGDECIMAL;
             _numberType = NumberType.BIG_DECIMAL;
             return parser._updateToken(JsonToken.VALUE_NUMBER_FLOAT);

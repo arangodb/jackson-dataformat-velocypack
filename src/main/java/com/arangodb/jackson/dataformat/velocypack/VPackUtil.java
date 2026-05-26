@@ -169,23 +169,28 @@ public class VPackUtil
         BigInteger unscaled = absVal.unscaledValue();
         int scale = absVal.scale();
         String digits = unscaled.toString();
-        // Remove trailing zeros from digits (they are captured in the exponent instead)
-        int trailingZeros = 0;
-        for (int i = digits.length() - 1; i >= 0 && digits.charAt(i) == '0'; i--) {
-            trailingZeros++;
-        }
-        if (trailingZeros > 0 && digits.length() > trailingZeros) {
-            digits = digits.substring(0, digits.length() - trailingZeros);
-            scale -= trailingZeros;
+        // Remove trailing zeros from digits only when scale > 0 (fractional numbers),
+        // and only up to the point where scale remains > 0. This preserves the distinction
+        // between integers (scale=0) and floats-with-trailing-zeros (scale=1 after removal).
+        if (scale > 0) {
+            int trailingZeros = 0;
+            for (int i = digits.length() - 1; i >= 0 && digits.charAt(i) == '0'; i--) {
+                trailingZeros++;
+            }
+            // Only remove trailing zeros if scale remains > 0 after removal
+            int maxRemovable = scale - 1; // keep at least scale=1
+            int toRemove = Math.min(trailingZeros, maxRemovable);
+            if (toRemove > 0 && digits.length() > toRemove) {
+                digits = digits.substring(0, digits.length() - toRemove);
+                scale -= toRemove;
+            }
         }
         // exponent = -scale
         int exponent = -scale;
-        // Pad to even length. We use the trailing-zero approach (append zero, decrement exponent)
-        // to align with the spec's second example: "12345" → "123450" with exponent -1.
-        // This avoids ambiguity and ensures the mantissa integer directly maps to the value.
+        // Pad to even length by prepending a leading zero digit.
+        // This preserves the exponent and scale of the original value exactly.
         if ((digits.length() % 2) != 0) {
-            digits = digits + "0";
-            exponent--;
+            digits = "0" + digits;
         }
         // Pack BCD: 2 digits per byte, big-endian
         int numBytes = digits.length() / 2;

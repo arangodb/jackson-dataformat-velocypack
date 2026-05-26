@@ -239,7 +239,7 @@ public class CoerceFloatToIntTest
     private void _testLegacyFail2804(String doc, JavaType targetType,
             String probValue) throws Exception {
         try {
-            READER_LEGACY_FAIL.forType(targetType).readValue(VPackUtils.toVPack(doc));
+            READER_LEGACY_FAIL.forType(targetType).readValue(VPackUtils.toVPackDecimal(doc));
             fail("Should not pass");
         } catch (InvalidFormatException ex) {
             verifyException(ex, probValue);

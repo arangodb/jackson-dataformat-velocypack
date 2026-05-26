@@ -154,7 +154,8 @@ public class VPackParserFeaturesTest extends BaseTestForVPack
 
     @Test
     public void testNumberType_BIG_DECIMAL() {
-        byte[] bytes = genBytes(g -> g.writeNumber(new BigDecimal("12345")));
+        // BigDecimal with fractional part -> BIG_DECIMAL; integer BigDecimal -> BIG_INTEGER
+        byte[] bytes = genBytes(g -> g.writeNumber(new BigDecimal("12345.67")));
         try (JsonParser p = parserFor(bytes)) {
             p.nextToken();
             assertThat(p.getNumberType()).isEqualTo(JsonParser.NumberType.BIG_DECIMAL);

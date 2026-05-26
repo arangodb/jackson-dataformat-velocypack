@@ -39,7 +39,9 @@ public class NotANumberConversionTest extends DatabindTestUtil
     public void testBigDecimalWithoutNaN() throws Exception
     {
         BigDecimal input = new BigDecimal(Double.MIN_VALUE).divide(new BigDecimal(10L));
-        JsonNode tree = MAPPER.readTree(VPackUtils.toVPack(input.toString()));
+        // Write BigDecimal directly to VPack to preserve precision (avoid JSON double round-trip)
+        byte[] vpack = MAPPER.writeValueAsBytes(input);
+        JsonNode tree = MAPPER.readTree(vpack);
         assertTrue(tree.isBigDecimal());
         BigDecimal output = tree.decimalValue();
         assertEquals(input, output);

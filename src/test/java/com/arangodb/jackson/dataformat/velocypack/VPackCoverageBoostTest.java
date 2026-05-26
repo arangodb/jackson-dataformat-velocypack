@@ -225,7 +225,8 @@ public class VPackCoverageBoostTest extends BaseTestForVPack
     @Test
     public void testNumberConversion_long_from_bigdecimal() {
         VPackMapper m = new VPackMapper();
-        byte[] bytes = m.writeValueAsBytes(new BigDecimal("12345"));
+        // Use a fractional BigDecimal so it stays as BIG_DECIMAL (not BIG_INTEGER)
+        byte[] bytes = m.writeValueAsBytes(new BigDecimal("12345.0"));
         try (JsonParser p = m.createParser(bytes)) {
             p.nextToken();
             assertThat(p.getNumberType()).isEqualTo(JsonParser.NumberType.BIG_DECIMAL);
@@ -292,7 +293,8 @@ public class VPackCoverageBoostTest extends BaseTestForVPack
     @Test
     public void testNumberConversion_int_from_bigdecimal() {
         VPackMapper m = new VPackMapper();
-        byte[] bytes = m.writeValueAsBytes(new BigDecimal("99"));
+        // Use a fractional BigDecimal so it stays as BIG_DECIMAL (not BIG_INTEGER)
+        byte[] bytes = m.writeValueAsBytes(new BigDecimal("99.0"));
         try (JsonParser p = m.createParser(bytes)) {
             p.nextToken();
             assertThat(p.getNumberType()).isEqualTo(JsonParser.NumberType.BIG_DECIMAL);

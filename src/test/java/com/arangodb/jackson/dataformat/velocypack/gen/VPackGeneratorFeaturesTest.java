@@ -207,7 +207,7 @@ public class VPackGeneratorFeaturesTest extends BaseTestForVPack
     @Test
     public void testWriteNumber_float() {
         byte[] bytes = gen(g -> g.writeNumber(1.5f));
-        // Float is cast to double
+        // Float is cast to double -> VPACK_DOUBLE (9 bytes)
         assertThat(bytes).hasSize(9);
         assertThat(bytes[0]).isEqualTo((byte) 0x1b); // VPACK_DOUBLE
     }

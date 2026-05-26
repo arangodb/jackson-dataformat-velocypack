@@ -335,11 +335,11 @@ public class VPackUtilExtendedTest extends BaseTestForVPack
     public void testEncodeBcd_oddDigits() {
         int[] exp = new int[1];
         byte[] bcd = VPackUtil.encodeBcd(new BigDecimal("123"), exp);
-        // "123" (3 digits, odd) → padded to "1230", exponent = -1
+        // "123" (3 digits, odd) → prepend zero → "0123", exponent = 0 (scale=0)
         assertThat(bcd).hasSize(2);
-        assertThat(bcd[0]).isEqualTo((byte) 0x12);
-        assertThat(bcd[1]).isEqualTo((byte) 0x30);
-        assertThat(exp[0]).isEqualTo(-1);
+        assertThat(bcd[0]).isEqualTo((byte) 0x01);
+        assertThat(bcd[1]).isEqualTo((byte) 0x23);
+        assertThat(exp[0]).isEqualTo(0);
     }
 
     @Test

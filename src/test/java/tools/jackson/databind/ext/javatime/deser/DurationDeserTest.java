@@ -103,7 +103,7 @@ public class DurationDeserTest extends DateTimeTestBase
     {
         String input = Long.MAX_VALUE + ".999999999";
         Duration value = READER.without(DateTimeFeature.READ_DATE_TIMESTAMPS_AS_NANOSECONDS)
-                                 .readValue(VPackUtils.toVPack(input));
+                                 .readValue(VPackUtils.toVPackDecimal(input));
         assertEquals(Long.MAX_VALUE, value.getSeconds());
         assertEquals(999999999, value.getNano());
     }
@@ -154,7 +154,7 @@ public class DurationDeserTest extends DateTimeTestBase
         // Just beyond the lower-bound of Duration.
         String input = new BigInteger(Long.toString(Long.MIN_VALUE)).subtract(BigInteger.ONE) + ".0";
         Duration value = READER.without(DateTimeFeature.READ_DATE_TIMESTAMPS_AS_NANOSECONDS)
-                                 .readValue(VPackUtils.toVPack(input));
+                                 .readValue(VPackUtils.toVPackDecimal(input));
         assertEquals(Long.MAX_VALUE, value.getSeconds());  // We've turned a negative number into positive duration!
     }
 

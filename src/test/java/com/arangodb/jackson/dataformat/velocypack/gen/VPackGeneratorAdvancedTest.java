@@ -396,15 +396,16 @@ public class VPackGeneratorAdvancedTest extends BaseTestForVPack {
     @Test
     public void testWriteNumberString_veryLargeBigInteger() {
         // A very large integer that exceeds long range — falls into BigDecimal path
+        // scale=0 -> BCD with exponent=0 -> parser returns VALUE_NUMBER_INT (BigInteger)
         String bigInt = "99999999999999999999999999999";
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try (JsonGenerator g = vpackGenerator(out)) {
             g.writeNumber(bigInt);
         }
         byte[] bytes = out.toByteArray();
-        assertThat(bytes.length ).isPositive();
+        assertThat(bytes.length).isPositive();
         try (JsonParser p = vpackParser(bytes)) {
-            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_NUMBER_FLOAT);
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_NUMBER_INT);
         }
     }
 

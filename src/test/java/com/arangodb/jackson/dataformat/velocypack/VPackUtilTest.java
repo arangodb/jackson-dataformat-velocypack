@@ -151,16 +151,15 @@ public class VPackUtilTest
 
     @Test
     public void testBcdEncodeDecodeSimple() {
-        // 12345: digits = "12345" (odd length), trailing zero appended → "123450", exponent = -1
-        // This matches the spec's second example: c8 03 ff ff ff ff 12 34 50
+        // 12345: scale=0 (integer), digits = "12345" (odd length) → prepend zero → "012345", exponent = 0
         BigDecimal val = new BigDecimal("12345");
         int[] outExp = new int[1];
         byte[] bcd = VPackUtil.encodeBcd(val, outExp);
-        assertThat(outExp[0]).isEqualTo(-1);
+        assertThat(outExp[0]).isEqualTo(0);
         assertThat(bcd).hasSize(3);
-        assertThat(bcd[0]).isEqualTo((byte) 0x12);
-        assertThat(bcd[1]).isEqualTo((byte) 0x34);
-        assertThat(bcd[2]).isEqualTo((byte) 0x50);
+        assertThat(bcd[0]).isEqualTo((byte) 0x01);
+        assertThat(bcd[1]).isEqualTo((byte) 0x23);
+        assertThat(bcd[2]).isEqualTo((byte) 0x45);
 
         // Decode it back
         BigDecimal decoded = VPackUtil.decodeBcd(bcd, outExp[0], false);

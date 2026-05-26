@@ -23,7 +23,7 @@ public abstract class VPackParserBase extends ParserMinimalBase
 {
 
     protected static final JacksonFeatureSet<StreamReadCapability> VPACK_READ_CAPABILITIES
-        = DEFAULT_READ_CAPABILITIES.with(StreamReadCapability.EXACT_FLOATS);
+        = DEFAULT_READ_CAPABILITIES;
 
     /*
     /**********************************************************************
@@ -386,6 +386,9 @@ public abstract class VPackParserBase extends ParserMinimalBase
 
     protected void convertNumberToBigDecimal() throws JacksonException {
         if ((_numTypesValid & NR_DOUBLE) != 0) {
+            if (Double.isNaN(_numberDouble) || Double.isInfinite(_numberDouble)) {
+                _reportError("Cannot convert non-finite double to BigDecimal: " + _numberDouble);
+            }
             _numberBigDecimal = new BigDecimal(_numberDouble);
             _numTypesValid |= NR_BIGDECIMAL;
         } else if ((_numTypesValid & NR_BIGINT) != 0) {

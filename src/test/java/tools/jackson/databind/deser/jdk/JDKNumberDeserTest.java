@@ -584,10 +584,14 @@ public class JDKNumberDeserTest
         ObjectMapper mapper = vpackMapperBuilder()
                 .registerSubtypes(NodeParent2644.class)
                 .build();
-        NodeRoot2644 root = mapper.readValue(
-                VPackUtils.toVPack("{\"type\": \"NodeParent\",\"node\": {\"amount\": 9999999999999999.99} }"),
-                NodeRoot2644.class
-        );
+        // Write VPack directly to preserve BigDecimal precision (avoid JSON double round-trip)
+        NodeRoot2644 input = new NodeRoot2644();
+        input.type = "NodeParent";
+        NodeParent2644 node = new NodeParent2644();
+        node.setVal(new BigDecimal("9999999999999999.99"));
+        input.node = node;
+        byte[] vpack = mapper.writeValueAsBytes(input);
+        NodeRoot2644 root = mapper.readValue(vpack, NodeRoot2644.class);
 
         assertBigDecimalEquals(new BigDecimal("9999999999999999.99"), root.node.getVal());
     }
