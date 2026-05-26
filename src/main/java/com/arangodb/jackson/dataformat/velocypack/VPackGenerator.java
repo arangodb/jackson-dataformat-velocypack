@@ -416,6 +416,15 @@ public class VPackGenerator extends GeneratorBase
     }
 
     @Override
+    public JsonGenerator writeRawValue(SerializableString text) throws JacksonException {
+        _verifyValueWrite("write raw value");
+        byte[] raw = text.asUnquotedUTF8();
+        _rawBytes(raw, 0, raw.length);
+        _valueFinished();
+        return this;
+    }
+
+    @Override
     public JsonGenerator writeBinary(Base64Variant b64variant, byte[] data, int offset, int len)
             throws JacksonException
     {
