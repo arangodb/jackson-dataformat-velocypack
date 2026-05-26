@@ -1,0 +1,76 @@
+package tools.jackson.databind.objectid;
+
+import com.fasterxml.jackson.annotation.JsonIdentityInfo;
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.fasterxml.jackson.annotation.ObjectIdGenerators;
+import org.junit.jupiter.api.Test;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.VPackUtils;
+import tools.jackson.databind.testutil.DatabindTestUtil;
+
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+public class ObjectIdSubTypes4610Test extends DatabindTestUtil
+{
+    // Unused @JsonIdentityInfo
+    @JsonIdentityInfo(generator = ObjectIdGenerators.StringIdGenerator.class)
+    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME)
+    @JsonSubTypes({
+            @JsonSubTypes.Type(value = EnumTypeDefinition.class, name = "enum"),
+            @JsonSubTypes.Type(value = NumberTypeDefinition.class, name = "number")
+    })
+    interface TypeDefinition {
+    }
+
+    static class EnumTypeDefinition implements TypeDefinition {
+        public List<String> values;
+    }
+
+    static class NumberTypeDefinition implements TypeDefinition {
+    }
+
+    private final ObjectMapper MAPPER = newVPackMapper();
+
+    @Test
+    public void shouldHandleTypeDefinitionJson() throws Exception {
+        String input = "{\"@type\": \"number\"}";
+
+        TypeDefinition model = MAPPER.readerFor(TypeDefinition.class)
+                .without(DeserializationFeature.FAIL_ON_UNRESOLVED_OBJECT_IDS)
+                .readValue(VPackUtils.toVPack(input));
+
+        assertInstanceOf(NumberTypeDefinition.class, model);
+    }
+
+    @Test
+    public void testRoundTrip() throws Exception {
+        // Ser
+        String JSON = VPackUtils.toJson(MAPPER.writeValueAsBytes(new NumberTypeDefinition()));
+        assertTrue(JSON.contains("@id"));
+
+        // Deser
+        TypeDefinition model = MAPPER.readerFor(TypeDefinition.class)
+                .with(DeserializationFeature.FAIL_ON_UNRESOLVED_OBJECT_IDS)
+                .readValue(VPackUtils.toVPack(JSON));
+        assertInstanceOf(NumberTypeDefinition.class, model);
+    }
+
+    @Test
+    public void shouldHandleTypeDefinitionJsonFail() throws Exception {
+        String JSON = "{\"@type\": \"number\"}";
+
+        try {
+            /*TypeDefinition model =*/ MAPPER.readerFor(TypeDefinition.class)
+                    .with(DeserializationFeature.FAIL_ON_UNRESOLVED_OBJECT_IDS)
+                    .readValue(VPackUtils.toVPack(JSON));
+            fail("Should not pass");
+        } catch (Exception e) {
+            assertTrue(e.getMessage().startsWith("No Object Id found for an instance of"));
+        }
+    }
+}
+

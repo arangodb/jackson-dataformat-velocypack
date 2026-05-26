@@ -1,0 +1,289 @@
+package tools.jackson.databind.convert;
+
+import org.junit.jupiter.api.Test;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.*;
+import tools.jackson.databind.VPackUtils;
+import tools.jackson.databind.cfg.CoercionAction;
+import tools.jackson.databind.cfg.CoercionInputShape;
+import tools.jackson.databind.exc.MismatchedInputException;
+import tools.jackson.databind.type.LogicalType;
+
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.net.URI;
+import java.net.URL;
+import java.util.*;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static tools.jackson.databind.testutil.DatabindTestUtil.*;
+
+/**
+ * Tests to verify implementation of [databind#540]; also for
+ * follow up work of:
+ *
+ * - [databind#994]
+ */
+public class CoerceEmptyArrayTest
+{
+    private final ObjectMapper DEFAULT_MAPPER = sharedMapper();
+    private final ObjectReader DEFAULT_READER = DEFAULT_MAPPER.reader();
+    private final ObjectReader READER_WITH_ARRAYS = DEFAULT_READER
+            .with(DeserializationFeature.ACCEPT_EMPTY_ARRAY_AS_NULL_OBJECT);
+
+    private final ObjectMapper MAPPER_TO_EMPTY = vpackMapperBuilder()
+            .withCoercionConfigDefaults(cfg ->
+                cfg.setCoercion(CoercionInputShape.EmptyArray, CoercionAction.AsEmpty))
+            .build();
+
+    private final ObjectMapper MAPPER_TRY_CONVERT = vpackMapperBuilder()
+            .withCoercionConfigDefaults(cfg ->
+                cfg.setCoercion(CoercionInputShape.EmptyArray, CoercionAction.TryConvert))
+            .build();
+
+    private final ObjectMapper MAPPER_TO_NULL = vpackMapperBuilder()
+            .withCoercionConfigDefaults(cfg ->
+            cfg.setCoercion(CoercionInputShape.EmptyArray, CoercionAction.AsNull))
+        .build();
+
+    private final ObjectMapper MAPPER_TO_FAIL = vpackMapperBuilder()
+            .withCoercionConfigDefaults(cfg ->
+            cfg.setCoercion(CoercionInputShape.EmptyArray, CoercionAction.Fail))
+        .build();
+
+    static class Bean {
+        public String a = "foo";
+
+        @Override
+        public boolean equals(Object o) {
+            return (o instanceof Bean)
+                    && a.equals(((Bean) o).a);
+        }
+    }
+
+    final static String EMPTY_ARRAY = "  [\n]";
+
+    /*
+    /**********************************************************
+    /* Test methods, settings
+    /**********************************************************
+     */
+
+    @Test
+    public void testSettings() {
+        assertFalse(DEFAULT_MAPPER.isEnabled(DeserializationFeature.ACCEPT_EMPTY_ARRAY_AS_NULL_OBJECT));
+        assertFalse(DEFAULT_READER.isEnabled(DeserializationFeature.ACCEPT_EMPTY_ARRAY_AS_NULL_OBJECT));
+        assertTrue(READER_WITH_ARRAYS.isEnabled(DeserializationFeature.ACCEPT_EMPTY_ARRAY_AS_NULL_OBJECT));
+    }
+
+    /*
+    /**********************************************************
+    /* Test methods, POJOs
+    /**********************************************************
+     */
+
+    // [databind#540]
+    @Test
+    public void testPOJOFromEmptyArray() throws Exception
+    {
+        final Class<?> targetType = Bean.class;
+
+        _verifyFailForEmptyArray(DEFAULT_READER, targetType);
+        _verifyFailForEmptyArray(MAPPER_TO_FAIL, targetType);
+
+        // Nulls for explicit, "TryConvert"
+        _verifyToNullCoercion(MAPPER_TO_NULL, targetType);
+        _verifyToNullCoercion(MAPPER_TRY_CONVERT, targetType);
+
+        _verifyToEmptyCoercion(MAPPER_TO_EMPTY, targetType, new Bean());
+
+        // But let's also check precedence: legacy setting allow, but mask for type
+        ObjectMapper mapper = vpackMapperBuilder()
+                .enable(DeserializationFeature.ACCEPT_EMPTY_ARRAY_AS_NULL_OBJECT)
+                .withCoercionConfig(targetType, cfg ->
+                    cfg.setCoercion(CoercionInputShape.EmptyArray, CoercionAction.Fail))
+                .build();
+        _verifyFailForEmptyArray(mapper, targetType);
+
+        // and conversely
+        mapper = vpackMapperBuilder()
+                .disable(DeserializationFeature.ACCEPT_EMPTY_ARRAY_AS_NULL_OBJECT)
+                .withCoercionConfig(LogicalType.POJO, cfg ->
+                    cfg.setCoercion(CoercionInputShape.EmptyArray, CoercionAction.AsEmpty))
+                .build();
+        _verifyToEmptyCoercion(MAPPER_TO_EMPTY, targetType, new Bean());
+    }
+
+    /*
+    /**********************************************************
+    /* Test methods, Maps
+    /**********************************************************
+     */
+
+    @Test
+    public void testMapFromEmptyArray() throws Exception
+    {
+        final Class<?> targetType = Map.class;
+
+        _verifyFailForEmptyArray(DEFAULT_READER, targetType);
+        _verifyFailForEmptyArray(MAPPER_TO_FAIL, targetType);
+
+        // Nulls for explicit, "TryConvert"
+        _verifyToNullCoercion(MAPPER_TO_NULL, targetType);
+        _verifyToNullCoercion(MAPPER_TRY_CONVERT, targetType);
+
+        _verifyToEmptyCoercion(MAPPER_TO_EMPTY, targetType, new LinkedHashMap<>());
+
+        // assume overrides work ok since POJOs test it
+    }
+
+    @Test
+    public void testEnumMapFromEmptyArray() throws Exception
+    {
+        final JavaType targetType = DEFAULT_READER.typeFactory()
+                .constructType(new TypeReference<EnumMap<ABC,String>>() { });
+
+        assertNull(MAPPER_TO_NULL.readerFor(targetType).readValue(VPackUtils.toVPack(EMPTY_ARRAY)));
+
+        EnumMap<?,?> result = MAPPER_TO_EMPTY.readerFor(targetType).readValue(VPackUtils.toVPack(EMPTY_ARRAY));
+        assertNotNull(result);
+        assertTrue(result.isEmpty());
+    }
+
+    /*
+    /**********************************************************
+    /* Test methods, scalars
+    /**********************************************************
+     */
+
+    @Test
+    public void testNumbersFromEmptyArray() throws Exception
+    {
+        for (Class<?> targetType : new Class<?>[] {
+            Boolean.class, Character.class,
+            Byte.class, Short.class, Integer.class, Long.class,
+            Float.class, Double.class,
+            BigInteger.class, BigDecimal.class
+        }) {
+            // Default, fail; explicit fail
+            _verifyFailForEmptyArray(DEFAULT_READER, targetType);
+            _verifyFailForEmptyArray(MAPPER_TO_FAIL, targetType);
+
+            // Nulls for explicit, "TryConvert"
+            _verifyToNullCoercion(MAPPER_TO_NULL, targetType);
+            _verifyToNullCoercion(MAPPER_TRY_CONVERT, targetType);
+        }
+
+        // But as-empty needs separate
+        _verifyToEmptyCoercion(MAPPER_TO_EMPTY, Boolean.class, Boolean.FALSE);
+        _verifyToEmptyCoercion(MAPPER_TO_EMPTY, Character.class, Character.valueOf('\0'));
+
+        _verifyToEmptyCoercion(MAPPER_TO_EMPTY, Byte.class, Byte.valueOf((byte) 0));
+        _verifyToEmptyCoercion(MAPPER_TO_EMPTY, Short.class, Short.valueOf((short) 0));
+        _verifyToEmptyCoercion(MAPPER_TO_EMPTY, Integer.class, Integer.valueOf(0));
+        _verifyToEmptyCoercion(MAPPER_TO_EMPTY, Long.class, Long.valueOf(0L));
+
+        _verifyToEmptyCoercion(MAPPER_TO_EMPTY, Float.class, Float.valueOf(0f));
+        _verifyToEmptyCoercion(MAPPER_TO_EMPTY, Double.class, Double.valueOf(0d));
+
+        _verifyToEmptyCoercion(MAPPER_TO_EMPTY, BigInteger.class, BigInteger.ZERO);
+        _verifyToEmptyCoercion(MAPPER_TO_EMPTY, BigDecimal.class, new BigDecimal(BigInteger.ZERO));
+    }
+
+    @Test
+    public void testOtherScalarsFromEmptyArray() throws Exception
+    {
+        for (Class<?> targetType : new Class<?>[] {
+            String.class, StringBuilder.class,
+            UUID.class, URL.class, URI.class,
+            Date.class, Calendar.class
+        }) {
+            _verifyFailForEmptyArray(DEFAULT_READER, targetType);
+            _verifyFailForEmptyArray(MAPPER_TO_FAIL, targetType);
+
+            // Nulls for explicit, "TryConvert"
+            _verifyToNullCoercion(MAPPER_TO_NULL, targetType);
+            _verifyToNullCoercion(MAPPER_TRY_CONVERT, targetType);
+        }
+
+        _verifyToEmptyCoercion(MAPPER_TO_EMPTY, String.class, "");
+        StringBuilder sb = MAPPER_TO_EMPTY.readerFor(StringBuilder.class)
+                .readValue(VPackUtils.toVPack(EMPTY_ARRAY));
+        assertEquals(0, sb.length());
+
+        _verifyToEmptyCoercion(MAPPER_TO_EMPTY, UUID.class, new UUID(0L, 0L));
+    }
+
+    // [databind#2124]: Legacy ACCEPT_EMPTY_ARRAY_AS_NULL_OBJECT should work for String
+    @Test
+    public void testStringFromEmptyArrayWithLegacyFeature() throws Exception
+    {
+        final String EMPTY = "[]";
+
+        // Without feature, should fail
+        try {
+            DEFAULT_MAPPER.readerFor(String.class).readValue(VPackUtils.toVPack(EMPTY));
+            fail("Should not accept empty array for String by default");
+        } catch (MismatchedInputException e) {
+            verifyException(e, "Cannot deserialize");
+        }
+
+        // With legacy feature enabled, should return null
+        ObjectMapper legacyMapper = vpackMapperBuilder()
+                .enable(DeserializationFeature.ACCEPT_EMPTY_ARRAY_AS_NULL_OBJECT)
+                .build();
+
+        String result = legacyMapper.readerFor(String.class).readValue(VPackUtils.toVPack(EMPTY));
+        assertNull(result, "Expected null from empty array with legacy feature");
+
+        // Test nested empty arrays in collections (original issue scenario)
+        String json = "[\"hello\", []]";
+        List<String> list = legacyMapper.readValue(VPackUtils.toVPack(json),
+                new TypeReference<List<String>>() {});
+        assertEquals(2, list.size());
+        assertEquals("hello", list.get(0));
+        assertNull(list.get(1), "Expected null for nested empty array");
+    }
+
+    /*
+    /**********************************************************
+    /* Helper methods
+    /**********************************************************
+     */
+
+    private void _verifyToNullCoercion(ObjectMapper mapper, Class<?> cls) throws Exception {
+        _verifyToNullCoercion(mapper.reader(), cls);
+    }
+
+    private void _verifyToNullCoercion(ObjectReader r, Class<?> cls) throws Exception {
+        Object result = r.forType(cls).readValue(VPackUtils.toVPack(EMPTY_ARRAY));
+        if (result != null) {
+            fail("Expect null for "+cls.getName()+", got: "+result);
+        }
+    }
+
+    private void _verifyToEmptyCoercion(ObjectMapper mapper, Class<?> cls, Object exp) throws Exception {
+        _verifyToEmptyCoercion(mapper.reader(), cls, exp);
+    }
+
+    private void _verifyToEmptyCoercion(ObjectReader r, Class<?> cls, Object exp) throws Exception {
+        Object result = r.forType(cls).readValue(VPackUtils.toVPack(EMPTY_ARRAY));
+        if (!exp.equals(result)) {
+            fail("Expect value ["+exp+"] for "+cls.getName()+", got: "+result);
+        }
+    }
+
+    private void _verifyFailForEmptyArray(ObjectMapper mapper, Class<?> targetType) throws Exception {
+        _verifyFailForEmptyArray(mapper.readerFor(targetType), targetType);
+    }
+
+    private void _verifyFailForEmptyArray(ObjectReader r, Class<?> targetType) throws Exception
+    {
+        try {
+            r.forType(targetType).readValue(VPackUtils.toVPack(EMPTY_ARRAY));
+            fail("Should not accept Empty Array for "+targetType.getName()+" by default");
+        } catch (MismatchedInputException e) {
+            verifyException(e, "from Array value (token `JsonToken.START_ARRAY`)");
+        }
+    }
+}

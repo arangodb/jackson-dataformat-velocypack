@@ -1,0 +1,124 @@
+package tools.jackson.databind.deser.dos;
+
+import org.junit.jupiter.api.Test;
+import tools.jackson.databind.*;
+import tools.jackson.databind.VPackUtils;
+import com.arangodb.jackson.dataformat.velocypack.VPackMapper;
+
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
+public class BiggerDataTest
+{
+    static class Citm
+    {
+        public Map<Integer,String> areaNames;
+        public Map<Integer,String> audienceSubCategoryNames;
+        public Map<Integer,String> blockNames;
+        public Map<Integer,String> seatCategoryNames;
+        public Map<Integer,String> subTopicNames;
+        public Map<Integer,String> subjectNames;
+        public Map<Integer,String> topicNames;
+        public Map<Integer,int[]> topicSubTopics;
+        public Map<String,String> venueNames;
+
+        public Map<Integer,Event> events;
+        public List<Performance> performances;
+    }
+
+    static class Event
+    {
+        public int id;
+        public String name;
+        public String description;
+        public String subtitle;
+        public String logo;
+        public Integer subjectCode; // nullable
+        public int[] topicIds;
+        public LinkedHashSet<Integer> subTopicIds;
+    }
+
+    static class Performance
+    {
+        public int id;
+        public int eventId;
+        public String name;
+        public String description;
+        public String logo;
+
+        public List<Price> prices;
+        public List<SeatCategory> seatCategories;
+
+        public long start;
+        public String seatMapImage;
+        public String venueCode;
+    }
+
+    static class Price {
+        public int amount;
+        public int audienceSubCategoryId;
+        public int seatCategoryId;
+    }
+
+    static class SeatCategory {
+        public int seatCategoryId;
+        public List<Area> areas;
+    }
+
+    static class Area {
+        public int areaId;
+        public int[] blockIds;
+    }
+
+    /*
+    /**********************************************************
+    /* Test methods
+    /**********************************************************
+     */
+
+	private final ObjectMapper MAPPER = VPackMapper.builder().build();
+
+	@Test
+	public void testReading() throws Exception
+	{
+		Citm citm = MAPPER.readValue(getClass().getResourceAsStream("/data/citm_catalog.json"),
+				Citm.class);
+		assertNotNull(citm);
+		assertNotNull(citm.areaNames);
+		assertEquals(17, citm.areaNames.size());
+		assertNotNull(citm.events);
+		assertEquals(184, citm.events.size());
+
+		assertNotNull(citm.seatCategoryNames);
+		assertEquals(64, citm.seatCategoryNames.size());
+		assertNotNull(citm.subTopicNames);
+		assertEquals(19, citm.subTopicNames.size());
+		assertNotNull(citm.subjectNames);
+		assertEquals(0, citm.subjectNames.size());
+		assertNotNull(citm.topicNames);
+		assertEquals(4, citm.topicNames.size());
+		assertNotNull(citm.topicSubTopics);
+		assertEquals(4, citm.topicSubTopics.size());
+		assertNotNull(citm.venueNames);
+		assertEquals(1, citm.venueNames.size());
+	}
+
+	@Test
+	public void testRoundTrip() throws Exception
+	{
+		Citm citm = MAPPER.readValue(getClass().getResourceAsStream("/data/citm_catalog.json"),
+				Citm.class);
+
+		ObjectWriter w = MAPPER.writer();
+
+		String json1 = VPackUtils.toJson(w.writeValueAsBytes(citm));
+		Citm citm2 = MAPPER.readValue(VPackUtils.toVPack(json1), Citm.class);
+		String json2 = VPackUtils.toJson(w.writeValueAsBytes(citm2));
+
+		assertEquals(json1, json2);
+	}
+}

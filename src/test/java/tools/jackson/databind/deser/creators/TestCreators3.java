@@ -1,0 +1,269 @@
+package tools.jackson.databind.deser.creators;
+
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonValue;
+import org.junit.jupiter.api.Test;
+import tools.jackson.databind.*;
+import tools.jackson.databind.VPackUtils;
+import tools.jackson.databind.cfg.MapperConfig;
+import tools.jackson.databind.introspect.AnnotatedMember;
+import tools.jackson.databind.introspect.AnnotatedParameter;
+import tools.jackson.databind.introspect.JacksonAnnotationIntrospector;
+
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static tools.jackson.databind.testutil.DatabindTestUtil.*;
+import static tools.jackson.databind.testutil.JacksonTestUtilBase.a2q;
+
+// Misc Creator tests, part 3
+public class TestCreators3
+{
+    // [databind#541]
+    static final class Value541 {
+
+        @JsonProperty("foo")
+        protected Map<Integer, Bar> foo;
+        @JsonProperty("anumber")
+        protected long anumber;
+
+        public Value541() {
+            anumber = 0;
+        }
+
+        public Map<Integer, Bar> getFoo() {
+            return foo;
+        }
+
+        public long getAnumber() {
+            return anumber;
+        }
+    }
+
+    static final class Bar {
+
+        private final long p;
+        private final List<String> stuff;
+
+        @JsonCreator
+        public Bar(@JsonProperty("p") long p, @JsonProperty("stuff") List<String> stuff) {
+            this.p = p;
+            this.stuff = stuff;
+        }
+
+        @JsonProperty("s")
+        public List<String> getStuff() {
+            return stuff;
+        }
+
+        @JsonProperty("stuff")
+        private List<String> getStuffDeprecated() {
+            return stuff;
+        }
+
+        public long getP() {
+            return p;
+        }
+    }
+
+    // [databind#421]
+
+    static class MultiCtor
+    {
+        protected String _a, _b;
+
+        private MultiCtor() { }
+        private MultiCtor(String a, String b, Boolean c) {
+            if (c == null) {
+                throw new RuntimeException("Wrong factory!");
+            }
+            _a = a;
+            _b = b;
+        }
+
+        @JsonCreator
+        static MultiCtor factory(@JsonProperty("a") String a, @JsonProperty("b") String b) {
+            return new MultiCtor(a, b, Boolean.TRUE);
+        }
+    }
+
+    @SuppressWarnings("serial")
+    static class MyParamIntrospector extends JacksonAnnotationIntrospector
+    {
+        @Override
+        public String findImplicitPropertyName(MapperConfig<?> config, AnnotatedMember param) {
+            if (param instanceof AnnotatedParameter ap) {
+                switch (ap.getIndex()) {
+                case 0: return "a";
+                case 1: return "b";
+                case 2: return "c";
+                default:
+                    return "param"+ap.getIndex();
+                }
+            }
+            return super.findImplicitPropertyName(config, param);
+        }
+    }
+
+    // [databind#1853]
+    public static class Product1853 {
+        String name;
+
+        public Object other, errors;
+
+        @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
+        public Product1853(@JsonProperty("name") String name) {
+            this.name = "PROP:" + name;
+        }
+
+        @JsonCreator(mode = JsonCreator.Mode.DELEGATING)
+        public static Product1853 from(String name){
+            return new Product1853(false, "DELEG:"+name);
+        }
+
+        Product1853(boolean bogus, String name) {
+            this.name = name;
+        }
+
+        @JsonValue
+        public String getName() {
+            return name;
+        }
+    }
+
+    // https://github.com/FasterXML/jackson-databind/issues/5008
+    static class SimpleValue5008 {
+        private final String value;
+
+        public SimpleValue5008(String value) {
+            this.value = value;
+        }
+
+        public String getValue() {
+            return value;
+        }
+    }
+
+    // [databind#5253]
+    static class Value5253 {
+        int a, b;
+        public final Map<String, Integer> c;
+
+        boolean ctorCalled = false;
+
+        public Value5253(int a, int b, final Map<String, Integer> c) {
+            this.a = a;
+            this.b = b;
+            this.c = new LinkedHashMap<>(c);
+            ctorCalled = true;
+        }
+    }
+
+    /*
+    /**********************************************************************
+    /* Test methods
+    /**********************************************************************
+     */
+
+    private final ObjectMapper MAPPER = newVPackMapper();
+
+    @Test
+    public void testCreator541() throws Exception
+    {
+        ObjectMapper mapper = vpackMapperBuilder()
+                .disable(MapperFeature.USE_GETTERS_AS_SETTERS)
+                .build();
+
+        final String JSON = "{\n"
+                + "    \"foo\": {\n"
+                + "        \"0\": {\n"
+                + "            \"p\": 0,\n"
+                + "            \"stuff\": [\n"
+                + "              \"a\", \"b\" \n"
+                + "            ]   \n"
+                + "        },\n"
+                + "        \"1\": {\n"
+                + "            \"p\": 1000,\n"
+                + "            \"stuff\": [\n"
+                + "              \"c\", \"d\" \n"
+                + "            ]   \n"
+                + "        }\n"
+                + "    },\n"
+                + "    \"anumber\": 25385874\n"
+                + "}";
+
+        Value541 obj = mapper.readValue(VPackUtils.toVPack(JSON), Value541.class);
+        assertNotNull(obj);
+        assertNotNull(obj.foo);
+        assertEquals(2, obj.foo.size());
+        assertEquals(25385874L, obj.getAnumber());
+    }
+
+    // [databind#421]
+    @Test
+    public void testMultiCtor421() throws Exception
+    {
+        final ObjectMapper mapper = vpackMapperBuilder()
+                .annotationIntrospector(new MyParamIntrospector())
+                .build();
+        MultiCtor bean = mapper.readValue(VPackUtils.toVPack(a2q("{'a':'123','b':'foo'}")), MultiCtor.class);
+        assertNotNull(bean);
+        assertEquals("123", bean._a);
+        assertEquals("foo", bean._b);
+    }
+
+    // [databind#1853]
+    @Test
+    public void testSerialization() throws Exception {
+        assertEquals(q("testProduct"),
+                VPackUtils.toJson(MAPPER.writeValueAsBytes(new Product1853(false, "testProduct"))));
+    }
+
+    @Test
+    public void testDeserializationFromObject() throws Exception {
+        final String EXAMPLE_DATA = "{\"name\":\"dummy\",\"other\":{},\"errors\":{}}";
+        assertEquals("PROP:dummy", MAPPER.readValue(VPackUtils.toVPack(EXAMPLE_DATA), Product1853.class).getName());
+    }
+
+    @Test
+    public void testDeserializationFromString() throws Exception {
+        assertEquals("DELEG:testProduct",
+                MAPPER.readValue(VPackUtils.toVPack(q("testProduct")), Product1853.class).getName());
+    }
+
+    @Test
+    public void testDeserializationFromWrappedString() throws Exception {
+        Product1853 result = MAPPER.readerFor(Product1853.class)
+                .with(DeserializationFeature.UNWRAP_SINGLE_VALUE_ARRAYS)
+                .readValue(VPackUtils.toVPack("[\"testProduct\"]"));
+        assertEquals("DELEG:testProduct", result.getName());
+    }
+
+    // https://github.com/FasterXML/jackson-databind/issues/5008
+    @Test
+    public void testSimpleValue5008() throws Exception {
+        // according to #5008, this only started working in v2.18.0
+        // in Jackson 2, you needed to add the ParameterNamesModule
+        // but this is part of Jackson 3
+        // pre Jackson 2.18, "abc123" is what the deserializer expected
+        SimpleValue5008 value = MAPPER.readValue(
+                VPackUtils.toVPack(a2q("{'value':'abc123'}")), SimpleValue5008.class);
+        assertEquals("abc123", value.value);
+    }
+
+    // [databind#5253]: passing test (cannot reproduce reported problem)
+    @Test
+    public void finalValue5253() throws Exception {
+        Value5253 value = MAPPER.readerFor(Value5253.class)
+                .with(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                .readValue(VPackUtils.toVPack(a2q("{'a':1,'b':2,'c':{'value': 42} }")));
+        assertEquals(1, value.a);
+        assertEquals(2, value.b);
+        assertEquals(Map.of("value", 42), value.c);
+        assertTrue(value.ctorCalled);
+    }
+}
+

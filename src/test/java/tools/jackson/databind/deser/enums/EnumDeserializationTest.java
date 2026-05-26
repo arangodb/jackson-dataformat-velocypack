@@ -1,0 +1,796 @@
+package tools.jackson.databind.deser.enums;
+
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonEnumDefaultValue;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonValue;
+import org.junit.jupiter.api.Test;
+import tools.jackson.core.*;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.*;
+import tools.jackson.databind.VPackUtils;
+import tools.jackson.databind.annotation.JsonDeserialize;
+import tools.jackson.databind.cfg.EnumFeature;
+import tools.jackson.databind.deser.std.FromStringDeserializer;
+import tools.jackson.databind.deser.std.StdDeserializer;
+import tools.jackson.databind.exc.InvalidFormatException;
+import tools.jackson.databind.exc.InvalidNullException;
+import tools.jackson.databind.exc.MismatchedInputException;
+import tools.jackson.databind.exc.ValueInstantiationException;
+import tools.jackson.databind.module.SimpleModule;
+
+import java.util.EnumMap;
+import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static tools.jackson.databind.MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS;
+import static tools.jackson.databind.testutil.DatabindTestUtil.*;
+
+@SuppressWarnings("serial")
+public class EnumDeserializationTest
+{
+    enum TestEnum { JACKSON, RULES, OK; }
+
+    /**
+     * Alternative version that annotates which deserializer to use
+     */
+    @JsonDeserialize(using=DummyDeserializer.class)
+    enum AnnotatedTestEnum {
+        JACKSON, RULES, OK;
+    }
+
+    public static class DummyDeserializer extends StdDeserializer<Object>
+    {
+        public DummyDeserializer() { super(Object.class); }
+        @Override
+        public Object deserialize(JsonParser p, DeserializationContext ctxt)
+        {
+            return AnnotatedTestEnum.OK;
+        }
+    }
+
+    public static class LcEnumDeserializer extends StdDeserializer<TestEnum>
+    {
+        public LcEnumDeserializer() { super(TestEnum.class); }
+        @Override
+        public TestEnum deserialize(JsonParser p, DeserializationContext ctxt)
+        {
+            return TestEnum.valueOf(p.getString().toUpperCase());
+        }
+    }
+
+    protected enum LowerCaseEnum {
+        A, B, C;
+        private LowerCaseEnum() { }
+        @Override
+        public String toString() { return name().toLowerCase(); }
+    }
+
+    protected enum EnumWithJsonValue {
+        A("foo"), B("bar");
+        private final String name;
+        private EnumWithJsonValue(String n) {
+            name = n;
+        }
+        @JsonValue
+        @Override
+        public String toString() { return name; }
+    }
+
+    static class ClassWithEnumMapKey {
+        @JsonProperty Map<TestEnum, String> map;
+    }
+
+    // [databind#677]
+    static enum EnumWithPropertyAnno {
+        @JsonProperty("a")
+        A,
+
+        // For this value, force use of anonymous sub-class, to ensure things still work
+        @JsonProperty("b")
+        B {
+            @Override
+            public String toString() {
+                return "bb";
+            }
+        },
+        
+        @JsonProperty("cc")
+        C
+        ;
+    }
+
+    // [databind#677]
+    static enum EnumWithPropertyAnnoBase {
+        @JsonProperty("a") 
+        A,
+        // For this value, force use of anonymous sub-class, to ensure things still work
+        @JsonProperty("b")
+        B {
+            @Override
+            public String toString() {
+                return "bb";
+            }
+        }
+    }
+
+    // [databind#677]
+    static enum EnumWithPropertyAnnoMixin {
+        @JsonProperty("a_mixin")
+        A,
+        // For this value, force use of anonymous sub-class, to ensure things still work
+        @JsonProperty("b_mixin")
+        B {
+            @Override
+            public String toString() {
+                return "bb";
+            }
+        }
+    }
+
+    // [databind#1161]
+    enum Enum1161 {
+        A, B, C;
+
+        @Override
+        public String toString() {
+            return name().toLowerCase();
+        };
+    }
+
+    static enum EnumWithDefaultAnno {
+        A, B,
+
+        @JsonEnumDefaultValue
+        OTHER;
+    }
+
+    static enum EnumWithDefaultAnnoAndConstructor {
+        A, B,
+
+        @JsonEnumDefaultValue
+        OTHER;
+
+        @JsonCreator public static EnumWithDefaultAnnoAndConstructor fromId(String value) {
+            for (EnumWithDefaultAnnoAndConstructor e: values()) {
+                if (e.name().toLowerCase().equals(value)) return e;
+            }
+            return null;
+        }
+    }
+
+    static enum StrictEnumCreator {
+        A, B, @JsonEnumDefaultValue UNKNOWN;
+
+        @JsonCreator public static StrictEnumCreator fromId(String value) {
+            for (StrictEnumCreator e: values()) {
+                if (e.name().toLowerCase().equals(value)) return e;
+            }
+            throw new IllegalArgumentException(value);
+        }
+    }
+
+    public enum AnEnum {
+        ZERO,
+        ONE
+    }
+
+    public static class AnEnumDeserializer extends FromStringDeserializer<AnEnum> {
+
+        public AnEnumDeserializer() {
+            super(AnEnum.class);
+        }
+
+        @Override
+        protected AnEnum _deserialize(String value, DeserializationContext ctxt) {
+            try {
+                return AnEnum.valueOf(value);
+            } catch (IllegalArgumentException e) {
+                return (AnEnum) ctxt.handleWeirdStringValue(AnEnum.class, value,
+                        "Undefined AnEnum code");
+            }
+        }
+    }
+
+    public static class AnEnumKeyDeserializer extends KeyDeserializer {
+
+        @Override
+        public Object deserializeKey(String key, DeserializationContext ctxt) {
+            try {
+                return AnEnum.valueOf(key);
+            } catch (IllegalArgumentException e) {
+                return ctxt.handleWeirdKey(AnEnum.class, key, "Undefined AnEnum code");
+            }
+        }
+    }
+
+    @JsonDeserialize(using = AnEnumDeserializer.class, keyUsing = AnEnumKeyDeserializer.class)
+    public enum LanguageCodeMixin {
+    }
+
+    public static class EnumModule extends SimpleModule {
+        @Override
+        public void setupModule(SetupContext context) {
+            context.setMixIn(AnEnum.class, LanguageCodeMixin.class);
+        }
+    }
+
+    // for [databind#2164]
+    public enum TestEnum2164 {
+        A, B;
+
+        @JsonCreator
+        public static TestEnum2164 fromString(String input) {
+            throw new IllegalArgumentException("2164");
+        }
+    }
+
+    // for [databind#2309]
+    static enum Enum2309 {
+        NON_NULL("NON_NULL"),
+        NULL(null),
+        OTHER("OTHER")
+        ;
+
+        private String value;
+
+        private Enum2309(String value) {
+            this.value = value;
+        }
+
+        @Override
+        public String toString() {
+            return value;
+        }
+    }
+
+    // [databind#3006]
+    enum Operation3006 {
+        ONE(1L), TWO(2L), THREE(3L);
+
+        private static final Map<Long, Operation3006> mapping = new HashMap<>();
+        static {
+            for (Operation3006 operation : Operation3006.values()) {
+                mapping.put(operation.id, operation);
+            }
+        }
+
+        final long id;
+
+        Operation3006(final long id) {
+            this.id = id;
+        }
+
+        @JsonCreator
+        public static Operation3006 forValue(final String idStr) {
+            Operation3006 candidate = mapping.get(Long.parseLong(idStr));
+            if (candidate == null) {
+                throw new IllegalArgumentException("Unable to find: " + idStr);
+            }
+            return candidate;
+        }
+    }
+
+    // [databind#4896]
+    enum YesOrNoOrEmpty4896 {
+        @JsonProperty("")
+        EMPTY,
+
+        @JsonProperty("yes")
+        YES,
+
+        @JsonProperty("no")
+        NO;
+    }
+
+    /*
+    /**********************************************************
+    /* Test methods
+    /**********************************************************
+     */
+
+    private final ObjectMapper MAPPER = newVPackMapper();
+
+    /**
+     * Enums are considered complex if they have code (and hence sub-classes)...
+     * an example is TimeUnit
+     */
+    @Test
+    public void testComplexEnum() throws Exception
+    {
+        String json = VPackUtils.toJson(MAPPER.writeValueAsBytes(TimeUnit.SECONDS));
+        assertEquals(q("SECONDS"), json);
+        TimeUnit result = MAPPER.readValue(VPackUtils.toVPack(json), TimeUnit.class);
+        assertSame(TimeUnit.SECONDS, result);
+    }
+
+    /**
+     * Testing to see that annotation override works
+     */
+    @Test
+    public void testAnnotated() throws Exception
+    {
+        AnnotatedTestEnum e = MAPPER.readValue(VPackUtils.toVPack("\"JACKSON\""), AnnotatedTestEnum.class);
+        /* dummy deser always returns value OK, independent of input;
+         * only works if annotation is used
+         */
+        assertEquals(AnnotatedTestEnum.OK, e);
+    }
+
+    @Test
+    public void testSubclassedEnums() throws Exception
+    {
+        EnumWithSubClass value = MAPPER.readValue(VPackUtils.toVPack("\"A\""), EnumWithSubClass.class);
+        assertEquals(EnumWithSubClass.A, value);
+    }
+
+    @Test
+    public void testToStringEnums() throws Exception
+    {
+        // can't reuse global one due to reconfig
+        ObjectMapper m = vpackMapperBuilder()
+                .enable(EnumFeature.READ_ENUMS_USING_TO_STRING)
+                .build();
+        LowerCaseEnum value = m.readValue(VPackUtils.toVPack("\"c\""), LowerCaseEnum.class);
+        assertEquals(LowerCaseEnum.C, value);
+    }
+
+    @Test
+    public void testNumbersToEnums() throws Exception
+    {
+        // by default numbers are fine:
+        assertFalse(MAPPER.deserializationConfig().isEnabled(EnumFeature.FAIL_ON_NUMBERS_FOR_ENUMS));
+        TestEnum value = MAPPER.readValue(VPackUtils.toVPack("1"), TestEnum.class);
+        assertSame(TestEnum.RULES, value);
+
+        // but can also be changed to errors:
+        ObjectReader r = MAPPER.readerFor(TestEnum.class)
+                .with(EnumFeature.FAIL_ON_NUMBERS_FOR_ENUMS);
+        MismatchedInputException e = assertThrows(MismatchedInputException.class,
+                () -> r.readValue(VPackUtils.toVPack("1")));
+        verifyException(e, "Cannot deserialize");
+        verifyException(e, "not allowed to deserialize Enum value out of number: disable");
+
+        // and [databind#684]
+        MismatchedInputException e2 = assertThrows(MismatchedInputException.class,
+                () -> r.readValue(VPackUtils.toVPack(q("1"))));
+        verifyException(e2, "Cannot deserialize");
+        // 26-Jan-2017, tatu: as per [databind#1505], should fail bit differently
+        verifyException(e2, "not one of the values accepted for Enum class");
+    }
+
+    @Test
+    public void testEnumsWithIndex() throws Exception
+    {
+        String json = VPackUtils.toJson(MAPPER.writer()
+                .with(EnumFeature.WRITE_ENUMS_USING_INDEX)
+                .writeValueAsBytes(TestEnum.RULES));
+        assertEquals(String.valueOf(TestEnum.RULES.ordinal()), json);
+        TestEnum result = MAPPER.readValue(VPackUtils.toVPack(json), TestEnum.class);
+        assertSame(TestEnum.RULES, result);
+    }
+
+    @Test
+    public void testEnumsWithJsonValue() throws Exception
+    {
+        // first, enum as is
+        EnumWithJsonValue e = MAPPER.readValue(VPackUtils.toVPack(q("foo")), EnumWithJsonValue.class);
+        assertSame(EnumWithJsonValue.A, e);
+        e = MAPPER.readValue(VPackUtils.toVPack(q("bar")), EnumWithJsonValue.class);
+        assertSame(EnumWithJsonValue.B, e);
+
+        // then in EnumSet
+        EnumSet<EnumWithJsonValue> set = MAPPER.readValue(VPackUtils.toVPack("[\"bar\"]"),
+                new TypeReference<EnumSet<EnumWithJsonValue>>() { });
+        assertNotNull(set);
+        assertEquals(1, set.size());
+        assertTrue(set.contains(EnumWithJsonValue.B));
+        assertFalse(set.contains(EnumWithJsonValue.A));
+
+        // and finally EnumMap
+        EnumMap<EnumWithJsonValue,Integer> map = MAPPER.readValue(VPackUtils.toVPack("{\"foo\":13}"),
+                new TypeReference<EnumMap<EnumWithJsonValue, Integer>>() { });
+        assertNotNull(map);
+        assertEquals(1, map.size());
+        assertEquals(Integer.valueOf(13), map.get(EnumWithJsonValue.A));
+    }
+
+    // Ability to ignore unknown Enum values:
+
+    @Test
+    public void testAllowUnknownEnumValuesReadAsNull() throws Exception
+    {
+        // cannot use shared mapper when changing configs...
+        ObjectReader reader = MAPPER.reader(EnumFeature.READ_UNKNOWN_ENUM_VALUES_AS_NULL);
+        assertNull(reader.forType(TestEnum.class).readValue(VPackUtils.toVPack("\"NO-SUCH-VALUE\"")));
+        assertNull(reader.forType(TestEnum.class).readValue(VPackUtils.toVPack(" 4343 ")));
+    }
+
+    // Ability to ignore unknown Enum values as null:
+
+    // [databind#1642]
+    @Test
+    public void testAllowUnknownEnumValuesReadAsNullWithCreatorMethod() throws Exception
+    {
+        // cannot use shared mapper when changing configs...
+        ObjectReader reader = MAPPER.reader(EnumFeature.READ_UNKNOWN_ENUM_VALUES_AS_NULL);
+        assertNull(reader.forType(StrictEnumCreator.class).readValue(VPackUtils.toVPack("\"NO-SUCH-VALUE\"")));
+        assertNull(reader.forType(StrictEnumCreator.class).readValue(VPackUtils.toVPack(" 4343 ")));
+    }
+
+    @Test
+    public void testAllowUnknownEnumValuesForEnumSets() throws Exception
+    {
+        // 05-Nov-2025, tatu: As per [databind#5203], no longer quietly skippped
+        InvalidNullException jex = assertThrows(InvalidNullException.class,
+                () -> MAPPER.reader(EnumFeature.READ_UNKNOWN_ENUM_VALUES_AS_NULL)
+                    .forType(new TypeReference<EnumSet<TestEnum>>() { })
+                    .readValue(VPackUtils.toVPack("[\"NO-SUCH-VALUE\"]")));
+        verifyException(jex, "Invalid `null` value encountered");
+    }
+
+    @Test
+    public void testAllowUnknownEnumValuesAsMapKeysReadAsNull() throws Exception
+    {
+        ClassWithEnumMapKey result = MAPPER.reader(EnumFeature.READ_UNKNOWN_ENUM_VALUES_AS_NULL)
+                .forType(ClassWithEnumMapKey.class)
+                .readValue(VPackUtils.toVPack("{\"map\":{\"NO-SUCH-VALUE\":\"val\"}}"));
+        // 25-Jan-2018, tatu: as per [databind#1883], we upgrade it to `EnumMap`, which won't accept nulls...
+        assertEquals(0, result.map.size());
+    }
+
+    // Ability to ignore unknown Enum values as a defined default:
+
+    // [databind#4979]
+    @Test
+    public void testAllowUnknownEnumValuesReadAsDefaultWithCreatorMethod4979() throws Exception
+    {
+        ObjectReader reader = MAPPER.reader(
+            EnumFeature.READ_UNKNOWN_ENUM_VALUES_USING_DEFAULT_VALUE);
+        assertEquals(
+            StrictEnumCreator.UNKNOWN,
+            reader.forType(StrictEnumCreator.class).readValue(VPackUtils.toVPack("\"NO-SUCH-VALUE\"")));
+    }
+
+    @Test
+    public void testDoNotAllowUnknownEnumValuesAsMapKeysWhenReadAsNullDisabled() throws Exception
+    {
+        assertFalse(MAPPER.isEnabled(EnumFeature.READ_UNKNOWN_ENUM_VALUES_AS_NULL));
+        InvalidFormatException jex = assertThrows(InvalidFormatException.class,
+                () -> MAPPER.readValue(VPackUtils.toVPack("{\"map\":{\"NO-SUCH-VALUE\":\"val\"}}"), ClassWithEnumMapKey.class));
+        verifyException(jex, "Cannot deserialize Map key of type `tools.jackson.databind.deser");
+        verifyException(jex, "EnumDeserializationTest$TestEnum`");
+    }
+
+    // [databind#141]: allow mapping of empty String into null
+    @Test
+    public void testEnumsWithEmpty() throws Exception
+    {
+       final ObjectMapper mapper = vpackMapperBuilder()
+               .configure(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT, true)
+               .build();
+       TestEnum result = mapper.readValue(VPackUtils.toVPack("\"\""), TestEnum.class);
+       assertNull(result);
+    }
+
+    @Test
+    public void testGenericEnumDeserialization() throws Exception
+    {
+       SimpleModule module = new SimpleModule("foobar");
+       module.addDeserializer(Enum.class, new LcEnumDeserializer());
+       final ObjectMapper mapper = vpackMapperBuilder()
+               .addModule(module)
+               .build();
+       // not sure this is totally safe but...
+       assertEquals(TestEnum.JACKSON, mapper.readValue(VPackUtils.toVPack(q("jackson")), TestEnum.class));
+    }
+
+    // [databind#381]
+    @Test
+    public void testUnwrappedEnum() throws Exception {
+        assertEquals(TestEnum.JACKSON,
+                MAPPER.readerFor(TestEnum.class)
+                    .with(DeserializationFeature.UNWRAP_SINGLE_VALUE_ARRAYS)
+                    .readValue(VPackUtils.toVPack("[" + q("JACKSON") + "]")));
+    }
+
+    @Test
+    public void testUnwrappedEnumException() throws Exception {
+        final ObjectMapper mapper = vpackMapperBuilder()
+                .disable(DeserializationFeature.UNWRAP_SINGLE_VALUE_ARRAYS)
+                .build();
+        MismatchedInputException exp = assertThrows(MismatchedInputException.class,
+                () -> mapper.readValue(VPackUtils.toVPack("[" + q("JACKSON") + "]"), TestEnum.class));
+        verifyException(exp, "Cannot deserialize");
+    }
+
+    // [databind#149]: 'stringified' indexes for enums
+    @Test
+    public void testIndexAsString() throws Exception
+    {
+        // first, regular index ought to work fine
+        TestEnum en = MAPPER.readValue(VPackUtils.toVPack("2"), TestEnum.class);
+        assertSame(TestEnum.values()[2], en);
+
+        // but also with qd Strings
+        en = MAPPER.readValue(VPackUtils.toVPack(q("1")), TestEnum.class);
+        assertSame(TestEnum.values()[1], en);
+
+        // [databind#1690]: unless prevented
+        MismatchedInputException e3 = assertThrows(MismatchedInputException.class,
+                () -> vpackMapperBuilder()
+                    .disable(MapperFeature.ALLOW_COERCION_OF_SCALARS)
+                    .build()
+                    .readerFor(TestEnum.class)
+                    .readValue(VPackUtils.toVPack(q("1"))));
+        verifyException(e3, "Cannot deserialize value of type");
+        verifyException(e3, "EnumDeserializationTest$TestEnum");
+        verifyException(e3, "value looks like quoted Enum index");
+    }
+
+    @Test
+    public void testEnumWithJsonPropertyRename() throws Exception
+    {
+        String json = VPackUtils.toJson(MAPPER.writeValueAsBytes(new EnumWithPropertyAnno[] {
+                EnumWithPropertyAnno.B, EnumWithPropertyAnno.A
+        }));
+        assertEquals("[\"b\",\"a\"]", json);
+
+        // and while not really proper place, let's also verify deser while we're at it
+        EnumWithPropertyAnno[] result = MAPPER.readValue(VPackUtils.toVPack(json), EnumWithPropertyAnno[].class);
+        assertNotNull(result);
+        assertEquals(2, result.length);
+        assertSame(EnumWithPropertyAnno.B, result[0]);
+        assertSame(EnumWithPropertyAnno.A, result[1]);
+    }
+
+    @Test
+    public void testEnumWithJsonPropertyRenameWithToString() throws Exception {
+        EnumWithPropertyAnno a = MAPPER.readerFor(EnumWithPropertyAnno.class)
+                .with(EnumFeature.READ_ENUMS_USING_TO_STRING)
+                .readValue(VPackUtils.toVPack(q("a")));
+        assertSame(EnumWithPropertyAnno.A, a);
+
+        EnumWithPropertyAnno b = MAPPER.readerFor(EnumWithPropertyAnno.class)
+                .with(EnumFeature.READ_ENUMS_USING_TO_STRING)
+                .readValue(VPackUtils.toVPack(q("b")));
+        assertSame(EnumWithPropertyAnno.B, b);
+
+        EnumWithPropertyAnno bb = MAPPER.readerFor(EnumWithPropertyAnno.class)
+                .with(EnumFeature.READ_ENUMS_USING_TO_STRING)
+                .with(EnumFeature.READ_UNKNOWN_ENUM_VALUES_AS_NULL)
+                .readValue(VPackUtils.toVPack(q("bb")));
+        assertNull(bb);
+
+        EnumWithPropertyAnno c = MAPPER.readerFor(EnumWithPropertyAnno.class)
+                .with(EnumFeature.READ_ENUMS_USING_TO_STRING)
+                .readValue(VPackUtils.toVPack(q("cc")));
+        assertSame(EnumWithPropertyAnno.C, c);
+    }
+
+    /**
+     * {@link #testEnumWithJsonPropertyRename()}
+     */
+    @Test
+    public void testEnumWithJsonPropertyRenameMixin() throws Exception
+    {
+        ObjectMapper mixinMapper = vpackMapperBuilder()
+                .addMixIn(EnumWithPropertyAnnoBase.class, EnumWithPropertyAnnoMixin.class)
+                .build();
+        String json = VPackUtils.toJson(mixinMapper.writeValueAsBytes(new EnumWithPropertyAnnoBase[] {
+                EnumWithPropertyAnnoBase.B, EnumWithPropertyAnnoBase.A
+        }));
+        assertEquals("[\"b_mixin\",\"a_mixin\"]", json);
+
+        // and while not really proper place, let's also verify deser while we're at it
+        EnumWithPropertyAnnoBase[] result = mixinMapper.readValue(VPackUtils.toVPack(json), EnumWithPropertyAnnoBase[].class);
+        assertNotNull(result);
+        assertEquals(2, result.length);
+        assertSame(EnumWithPropertyAnnoBase.B, result[0]);
+        assertSame(EnumWithPropertyAnnoBase.A, result[1]);
+    }
+
+    // [databind#1161], unable to switch READ_ENUMS_USING_TO_STRING
+    @Test
+    public void testDeserWithToString1161() throws Exception
+    {
+        Enum1161 result = MAPPER.readerFor(Enum1161.class)
+                .without(EnumFeature.READ_ENUMS_USING_TO_STRING)
+                .readValue(VPackUtils.toVPack(q("A")));
+        assertSame(Enum1161.A, result);
+
+        result = MAPPER.readerFor(Enum1161.class)
+                .with(EnumFeature.READ_ENUMS_USING_TO_STRING)
+                .readValue(VPackUtils.toVPack(q("a")));
+        assertSame(Enum1161.A, result);
+
+        // and once again, going back to defaults
+        result = MAPPER.readerFor(Enum1161.class)
+                .without(EnumFeature.READ_ENUMS_USING_TO_STRING)
+                .readValue(VPackUtils.toVPack(q("A")));
+        assertSame(Enum1161.A, result);
+    }
+
+    @Test
+    public void testEnumWithDefaultAnnotation() throws Exception {
+        final ObjectMapper mapper = vpackMapperBuilder()
+                .enable(EnumFeature.READ_UNKNOWN_ENUM_VALUES_USING_DEFAULT_VALUE)
+                .build();
+
+        EnumWithDefaultAnno myEnum = mapper.readValue(VPackUtils.toVPack("\"foo\""), EnumWithDefaultAnno.class);
+        assertSame(EnumWithDefaultAnno.OTHER, myEnum);
+    }
+
+    @Test
+    public void testEnumWithDefaultAnnotationUsingIndexInBound1() throws Exception {
+        final ObjectMapper mapper = vpackMapperBuilder()
+                .enable(EnumFeature.READ_UNKNOWN_ENUM_VALUES_USING_DEFAULT_VALUE)
+                .build();
+
+        EnumWithDefaultAnno myEnum = mapper.readValue(VPackUtils.toVPack("1"), EnumWithDefaultAnno.class);
+        assertSame(EnumWithDefaultAnno.B, myEnum);
+    }
+
+    @Test
+    public void testEnumWithDefaultAnnotationUsingIndexInBound2() throws Exception {
+        final ObjectMapper mapper = vpackMapperBuilder()
+                .enable(EnumFeature.READ_UNKNOWN_ENUM_VALUES_USING_DEFAULT_VALUE)
+                .build();
+
+        EnumWithDefaultAnno myEnum = mapper.readValue(VPackUtils.toVPack("2"), EnumWithDefaultAnno.class);
+        assertSame(EnumWithDefaultAnno.OTHER, myEnum);
+    }
+
+    @Test
+    public void testEnumWithDefaultAnnotationUsingIndexSameAsLength() throws Exception {
+        final ObjectMapper mapper = vpackMapperBuilder()
+                .enable(EnumFeature.READ_UNKNOWN_ENUM_VALUES_USING_DEFAULT_VALUE)
+                .build();
+
+        EnumWithDefaultAnno myEnum = mapper.readValue(VPackUtils.toVPack("3"), EnumWithDefaultAnno.class);
+        assertSame(EnumWithDefaultAnno.OTHER, myEnum);
+    }
+
+    @Test
+    public void testEnumWithDefaultAnnotationUsingIndexOutOfBound() throws Exception {
+        final ObjectMapper mapper = vpackMapperBuilder()
+                .enable(EnumFeature.READ_UNKNOWN_ENUM_VALUES_USING_DEFAULT_VALUE)
+                .build();
+
+        EnumWithDefaultAnno myEnum = mapper.readValue(VPackUtils.toVPack("4"), EnumWithDefaultAnno.class);
+        assertSame(EnumWithDefaultAnno.OTHER, myEnum);
+    }
+
+    @Test
+    public void testEnumWithDefaultAnnotationWithConstructor() throws Exception {
+        final ObjectMapper mapper = vpackMapperBuilder()
+                .enable(EnumFeature.READ_UNKNOWN_ENUM_VALUES_USING_DEFAULT_VALUE)
+                .build();
+
+        EnumWithDefaultAnnoAndConstructor myEnum = mapper.readValue(VPackUtils.toVPack("\"foo\""), EnumWithDefaultAnnoAndConstructor.class);
+        assertNull(myEnum, "When using a constructor, the default value annotation shouldn't be used.");
+    }
+
+    @Test
+    public void testExceptionFromCustomEnumKeyDeserializer() throws Exception {
+        final ObjectMapper mapper = vpackMapperBuilder()
+                .addModule(new EnumModule())
+                .build();
+        MismatchedInputException e4 = assertThrows(MismatchedInputException.class,
+                () -> mapper.readValue(VPackUtils.toVPack("{\"TWO\": \"dumpling\"}"),
+                    new TypeReference<Map<AnEnum, String>>() {}));
+        verifyException(e4, "Undefined AnEnum");
+    }
+
+    // [databind#2164]
+    @Test
+    public void testWrapExceptions() throws Exception
+    {
+        // By default, wrap:
+        ValueInstantiationException vie = assertThrows(ValueInstantiationException.class,
+                () -> MAPPER.readerFor(TestEnum2164.class).readValue(VPackUtils.toVPack(q("B"))));
+        verifyException(vie, "2164");
+
+        // But can disable:
+        IllegalArgumentException iae = assertThrows(IllegalArgumentException.class,
+                () -> MAPPER.readerFor(TestEnum2164.class)
+                    .without(DeserializationFeature.WRAP_EXCEPTIONS)
+                    .readValue(VPackUtils.toVPack(q("B"))));
+        verifyException(iae, "2164");
+    }
+
+    // [databind#2309]
+    @Test
+    public void testEnumToStringNull2309() throws Exception
+    {
+        Enum2309 value = MAPPER.readerFor(Enum2309.class)
+                .with(EnumFeature.READ_ENUMS_USING_TO_STRING)
+                .readValue(VPackUtils.toVPack(q("NON_NULL")));
+        assertEquals(Enum2309.NON_NULL, value);
+    }
+
+    // [databind#2873] -- take case-sensitivity into account for Enum-as-Map-keys too
+    @Test
+    public void testEnumValuesCaseSensitivity() throws Exception {
+        InvalidFormatException e5 = assertThrows(InvalidFormatException.class,
+                () -> MAPPER.readValue(VPackUtils.toVPack("{\"map\":{\"JACkson\":\"val\"}}"), ClassWithEnumMapKey.class));
+        verifyException(e5, "Cannot deserialize Map key of type `tools.jackson.databind.deser.");
+        verifyException(e5, "EnumDeserializationTest$TestEnum");
+    }
+
+    // [databind#2873] -- take case-sensitivity into account for Enum-as-Map-keys too
+    @Test
+    public void testAllowCaseInsensitiveEnumValues() throws Exception {
+        ObjectMapper m = vpackMapperBuilder()
+                .enable(ACCEPT_CASE_INSENSITIVE_ENUMS)
+                .build();
+        ClassWithEnumMapKey result = m.readerFor(ClassWithEnumMapKey.class)
+                .readValue(VPackUtils.toVPack("{\"map\":{\"JACkson\":\"val\"}}"));
+        assertEquals(1, result.map.size());
+    }
+
+    // [databind#3006]
+    @Test
+    public void testIssue3006() throws Exception
+    {
+        assertEquals(Operation3006.ONE, MAPPER.readValue(VPackUtils.toVPack("1"), Operation3006.class));
+        assertEquals(Operation3006.ONE, MAPPER.readValue(VPackUtils.toVPack(q("1")), Operation3006.class));
+        assertEquals(Operation3006.THREE, MAPPER.readValue(VPackUtils.toVPack("3"), Operation3006.class));
+        assertEquals(Operation3006.THREE, MAPPER.readValue(VPackUtils.toVPack(q("3")), Operation3006.class));
+    }
+
+    @Test
+    public void testEnumFeature_EnumIndexAsKey() throws Exception {
+        ObjectReader reader = MAPPER.reader()
+            .forType(ClassWithEnumMapKey.class)
+            .with(EnumFeature.READ_ENUM_KEYS_USING_INDEX);
+
+        ClassWithEnumMapKey result = reader.readValue(VPackUtils.toVPack("{\"map\": {\"0\":\"I AM FOR REAL\"}}"));
+        assertEquals(result.map.get(TestEnum.JACKSON), "I AM FOR REAL");
+    }
+
+    @Test
+    public void testEnumFeature_symmetric_to_writing() throws Exception {
+        ClassWithEnumMapKey obj = new ClassWithEnumMapKey();
+        Map<TestEnum, String> objMap = new HashMap<>();
+        objMap.put(TestEnum.JACKSON, "I AM FOR REAL");
+        obj.map = objMap;
+
+        String deserObj = VPackUtils.toJson(MAPPER.writer()
+            .with(EnumFeature.WRITE_ENUM_KEYS_USING_INDEX)
+            .writeValueAsBytes(obj));
+
+        ClassWithEnumMapKey result = MAPPER.reader()
+            .forType( ClassWithEnumMapKey.class)
+            .with(EnumFeature.READ_ENUM_KEYS_USING_INDEX)
+            .readValue(VPackUtils.toVPack(deserObj));
+
+        assertNotSame(obj, result);
+        assertNotSame(obj.map, result.map);
+        assertEquals(result.map.get(TestEnum.JACKSON), "I AM FOR REAL");
+    }
+
+
+    @Test
+    public void testEnumFeature_READ_ENUM_KEYS_USING_INDEX_isDisabledByDefault() {
+        ObjectReader READER = MAPPER.reader();
+        assertFalse(READER.isEnabled(EnumFeature.READ_ENUM_KEYS_USING_INDEX));
+        assertFalse(READER.without(EnumFeature.READ_ENUM_KEYS_USING_INDEX)
+            .isEnabled(EnumFeature.READ_ENUM_KEYS_USING_INDEX));
+    }
+
+    // [databind#4896]
+    @Test
+    public void testEnumReadFromEmptyString() throws Exception {
+        // First, regular value
+        assertEquals(YesOrNoOrEmpty4896.YES,
+                MAPPER.readerFor(YesOrNoOrEmpty4896.class)
+                    .readValue(VPackUtils.toVPack(q("yes"))));
+        assertEquals(YesOrNoOrEmpty4896.EMPTY,
+            MAPPER.readerFor(YesOrNoOrEmpty4896.class)
+                .readValue(VPackUtils.toVPack(q(""))));
+    }
+}

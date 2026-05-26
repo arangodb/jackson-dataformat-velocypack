@@ -1,0 +1,249 @@
+package tools.jackson.databind.objectid;
+
+import com.fasterxml.jackson.annotation.JsonIdentityInfo;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.fasterxml.jackson.annotation.JsonTypeInfo.As;
+import com.fasterxml.jackson.annotation.JsonTypeInfo.Id;
+import com.fasterxml.jackson.annotation.ObjectIdGenerator;
+import org.junit.jupiter.api.Test;
+import tools.jackson.core.JsonParser;
+import tools.jackson.databind.*;
+import tools.jackson.databind.VPackUtils;
+import tools.jackson.databind.annotation.JsonDeserialize;
+import tools.jackson.databind.testutil.DatabindTestUtil;
+import tools.jackson.databind.testutil.NoCheckSubTypeValidator;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+/**
+ * Unit test(s) for [databind#622], supporting non-scalar-Object-ids,
+ * to support things like JSOG.
+ */
+public class JSOGDeserialize622Test extends DatabindTestUtil
+{
+    /** the key of the property that holds the ref */
+    public static final String REF_KEY = "@ref";
+
+    /**
+     * Custom IdGenerator
+     */
+    static class JSOGGenerator extends ObjectIdGenerator<JSOGRef>  {
+        private static final long serialVersionUID = 1L;
+        protected transient int _nextValue;
+        protected final Class<?> _scope;
+
+        protected JSOGGenerator() { this(null, -1); }
+
+        protected JSOGGenerator(Class<?> scope, int nextValue) {
+            _scope = scope;
+            _nextValue = nextValue;
+        }
+
+        @Override
+        public Class<?> getScope() {
+            return _scope;
+        }
+
+        @Override
+        public boolean canUseFor(ObjectIdGenerator<?> gen) {
+            return (gen.getClass() == getClass()) && (gen.getScope() == _scope);
+        }
+
+        @Override
+        public ObjectIdGenerator<JSOGRef> forScope(Class<?> scope) {
+              return (_scope == scope) ? this : new JSOGGenerator(scope, _nextValue);
+        }
+
+        @Override
+        public ObjectIdGenerator<JSOGRef> newForSerialization(Object context) {
+              return new JSOGGenerator(_scope, 1);
+        }
+
+        @Override
+        public IdKey key(Object key) {
+              return new IdKey(getClass(), _scope, key);
+        }
+
+        // important: otherwise won't get proper handling
+        @Override
+        public boolean maySerializeAsObject() { return true; }
+
+        // ditto: needed for handling Object-valued Object references
+        @Override
+        public boolean isValidReferencePropertyName(String name, Object parser) {
+            return REF_KEY.equals(name);
+        }
+
+        @Override
+        public JSOGRef generateId(Object forPojo) {
+              int id = _nextValue;
+              ++_nextValue;
+              return new JSOGRef(id);
+        }
+    }
+
+    /**
+     * The reference deserializer
+     */
+    static class JSOGRefDeserializer extends ValueDeserializer<JSOGRef>
+    {
+        @Override
+        public JSOGRef deserialize(JsonParser p, DeserializationContext ctxt)
+        {
+            JsonNode node = ctxt.readTree(p);
+            if (node.isString()) {
+                return new JSOGRef(node.asInt());
+            }
+            JsonNode n = node.get(REF_KEY);
+            if (n == null) {
+                ctxt.reportInputMismatch(JSOGRef.class, "Could not find key '"+REF_KEY
+                        +"' from ("+node.getClass().getName()+"): "+node);
+            }
+            return new JSOGRef(n.asInt());
+        }
+    }
+
+    /**
+     * The reference object
+     */
+    @JsonDeserialize(using=JSOGRefDeserializer.class)
+    static class JSOGRef
+    {
+        @JsonProperty(REF_KEY)
+        public int ref;
+
+        public JSOGRef() { }
+
+        public JSOGRef(int val) {
+            ref = val;
+        }
+
+        @Override
+        public String toString() { return "[JSOGRef#"+ref+"]"; }
+
+        @Override
+        public int hashCode() {
+            return ref;
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            return (other instanceof JSOGRef)
+                    && ((JSOGRef) other).ref == this.ref;
+        }
+    }
+
+    /**
+     * Example class using JSOGGenerator
+     */
+    @JsonIdentityInfo(generator=JSOGGenerator.class, property="@id")
+    static class IdentifiableExampleJSOG {
+        public int foo;
+        public IdentifiableExampleJSOG next;
+
+        protected IdentifiableExampleJSOG() { }
+        public IdentifiableExampleJSOG(int v) {
+            foo = v;
+        }
+    }
+
+    static class JSOGWrapper {
+        public int value;
+
+        @JsonTypeInfo(use = Id.CLASS)
+        public Object jsog;
+
+        JSOGWrapper() { }
+        public JSOGWrapper(int v) { value = v; }
+    }
+
+    // For [databind#669]
+
+    @JsonIdentityInfo(generator=JSOGGenerator.class)
+    @JsonTypeInfo(use=Id.CLASS, include= As.PROPERTY, property="@class")
+    public static class Inner {
+        public String bar;
+
+        protected Inner() {}
+        public Inner(String bar) { this.bar = bar; }
+    }
+
+    static class SubInner extends Inner {
+        public String extra;
+
+        protected SubInner() {}
+        public SubInner(String bar, String extra) {
+            super(bar);
+            this.extra = extra;
+        }
+    }
+
+    @JsonIdentityInfo(generator=JSOGGenerator.class)
+    static class Outer {
+        public String foo;
+        public Inner inner1;
+        public Inner inner2;
+    }
+
+    /*
+    /**********************************************************************
+    /* Test methods
+    /**********************************************************************
+     */
+
+    private final ObjectMapper MAPPER = newVPackMapper();
+
+    // Basic for [databind#622]
+    @Test
+    public void testStructJSOGRef() throws Exception
+    {
+        final String EXP_EXAMPLE_JSOG =  a2q(
+                "{'@id':'1','foo':66,'next':{'"+REF_KEY+"':'1'}}");
+
+        IdentifiableExampleJSOG result = MAPPER.readValue(VPackUtils.toVPack(EXP_EXAMPLE_JSOG),
+                IdentifiableExampleJSOG.class);
+        assertEquals(66, result.foo);
+        assertSame(result, result.next);
+    }
+
+    // polymorphic alternative for [databind#622]
+    @Test
+    public void testPolymorphicRoundTrip() throws Exception
+    {
+        final ObjectMapper mapper = vpackMapperBuilder()
+                .polymorphicTypeValidator(new NoCheckSubTypeValidator())
+                .build();
+
+        JSOGWrapper w = new JSOGWrapper(15);
+        // create a nice little loop
+        IdentifiableExampleJSOG ex = new IdentifiableExampleJSOG(123);
+        ex.next = ex;
+        w.jsog = ex;
+
+        String json = VPackUtils.toJson(mapper.writeValueAsBytes(w));
+
+        JSOGWrapper out = mapper.readValue(VPackUtils.toVPack(json), JSOGWrapper.class);
+        assertNotNull(out);
+        assertEquals(15, out.value);
+        assertInstanceOf(IdentifiableExampleJSOG.class, out.jsog);
+        IdentifiableExampleJSOG jsog = (IdentifiableExampleJSOG) out.jsog;
+        assertEquals(123, jsog.foo);
+        assertSame(jsog, jsog.next);
+    }
+
+    // polymorphic alternative for [databind#669]
+    @Test
+    public void testAlterativePolymorphicRoundTrip669() throws Exception
+    {
+        Outer outer = new Outer();
+        outer.foo = "foo";
+        outer.inner1 = outer.inner2 = new SubInner("bar", "extra");
+
+        String jsog = VPackUtils.toJson(MAPPER.writeValueAsBytes(outer));
+
+        Outer back = MAPPER.readValue(VPackUtils.toVPack(jsog), Outer.class);
+
+        assertSame(back.inner1, back.inner2);
+    }
+}

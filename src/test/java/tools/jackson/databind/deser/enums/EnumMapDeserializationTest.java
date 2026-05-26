@@ -1,0 +1,432 @@
+package tools.jackson.databind.deser.enums;
+
+import com.fasterxml.jackson.annotation.*;
+import org.junit.jupiter.api.Test;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.*;
+import tools.jackson.databind.VPackUtils;
+import tools.jackson.databind.annotation.JsonDeserialize;
+import tools.jackson.databind.cfg.EnumFeature;
+import tools.jackson.databind.exc.InvalidNullException;
+import tools.jackson.databind.testutil.NoCheckSubTypeValidator;
+
+import java.util.EnumMap;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static tools.jackson.databind.testutil.DatabindTestUtil.*;
+
+@SuppressWarnings("serial")
+public class EnumMapDeserializationTest
+{
+    enum TestEnum { JACKSON, RULES, OK; }
+
+    enum TestEnumWithDefault {
+        JACKSON, RULES,
+        @JsonEnumDefaultValue
+        OK;
+    }
+
+    protected enum LowerCaseEnum {
+        A, B, C;
+        private LowerCaseEnum() { }
+        @Override
+        public String toString() { return name().toLowerCase(); }
+    }
+
+    static class MySimpleEnumMap extends EnumMap<TestEnum,String> {
+        public MySimpleEnumMap() {
+            super(TestEnum.class);
+        }
+    }
+
+    static class FromStringEnumMap extends EnumMap<TestEnum,String> {
+        @JsonCreator
+        public FromStringEnumMap(String value) {
+            super(TestEnum.class);
+            put(TestEnum.JACKSON, value);
+        }
+    }
+
+    static class FromDelegateEnumMap extends EnumMap<TestEnum,String> {
+        @JsonCreator
+        public FromDelegateEnumMap(Map<Object,Object> stuff) {
+            super(TestEnum.class);
+            put(TestEnum.OK, String.valueOf(stuff));
+        }
+    }
+
+    static class FromPropertiesEnumMap extends EnumMap<TestEnum,String> {
+        int a0, b0;
+
+        @JsonCreator
+        public FromPropertiesEnumMap(@JsonProperty("a") int a,
+                @JsonProperty("b") int b) {
+            super(TestEnum.class);
+            a0 = a;
+            b0 = b;
+        }
+    }
+
+    // [databind#1859]
+    public enum Enum1859 {
+        A, B, C;
+    }
+
+    static class Pojo1859
+    {
+        public EnumMap<Enum1859, String> values;
+
+        public Pojo1859() { }
+        public Pojo1859(EnumMap<Enum1859, String> v) {
+            values = v;
+        }
+    }
+
+    // [databind#1988]
+    enum Enum1988 {
+        FOO_BAR,
+        FOO_BAZ
+    }
+
+    static class Holder1988 {
+        public Map<Enum1988, Number> mapHolder;
+        public Enum1988 enumHolder;
+    }
+
+    // [databind#5165]
+    enum Enum5165 {
+        FOO
+    }
+
+    // [databind#5165]
+    static class Dst5165 {
+        private EnumMap<Enum5165, Integer> map;
+
+        public EnumMap<Enum5165, Integer> getMap() {
+            return map;
+        }
+
+        public void setMap(EnumMap<Enum5165, Integer> map) {
+            this.map = map;
+        }
+    }
+
+    /*
+    /**********************************************************
+    /* Test methods, basic
+    /**********************************************************
+     */
+
+    private final ObjectMapper MAPPER = newVPackMapper();
+
+    @Test
+    public void testEnumMaps() throws Exception
+    {
+        EnumMap<TestEnum,String> value = MAPPER.readValue(VPackUtils.toVPack("{\"OK\":\"value\"}"),
+                new TypeReference<EnumMap<TestEnum,String>>() { });
+        assertEquals("value", value.get(TestEnum.OK));
+    }
+
+    @Test
+    public void testToStringEnumMaps() throws Exception
+    {
+        // can't reuse global one due to reconfig
+        ObjectReader r = MAPPER.reader()
+                .with(EnumFeature.READ_ENUMS_USING_TO_STRING);
+        EnumMap<LowerCaseEnum,String> value = r.forType(
+            new TypeReference<EnumMap<LowerCaseEnum,String>>() { })
+                .readValue(VPackUtils.toVPack("{\"a\":\"value\"}"));
+        assertEquals("value", value.get(LowerCaseEnum.A));
+    }
+
+    /*
+    /**********************************************************
+    /* Test methods: custom enum maps
+    /**********************************************************
+     */
+
+    @Test
+    public void testCustomEnumMapWithDefaultCtor() throws Exception
+    {
+        MySimpleEnumMap map = MAPPER.readValue(VPackUtils.toVPack(a2q("{'RULES':'waves'}")),
+                MySimpleEnumMap.class);
+        assertEquals(1, map.size());
+        assertEquals("waves", map.get(TestEnum.RULES));
+    }
+
+    @Test
+    public void testCustomEnumMapFromString() throws Exception
+    {
+        FromStringEnumMap map = MAPPER.readValue(VPackUtils.toVPack(q("kewl")), FromStringEnumMap.class);
+        assertEquals(1, map.size());
+        assertEquals("kewl", map.get(TestEnum.JACKSON));
+    }
+
+    @Test
+    public void testCustomEnumMapWithDelegate() throws Exception
+    {
+        FromDelegateEnumMap map = MAPPER.readValue(VPackUtils.toVPack(a2q("{'foo':'bar'}")), FromDelegateEnumMap.class);
+        assertEquals(1, map.size());
+        assertEquals("{foo=bar}", map.get(TestEnum.OK));
+    }
+
+    @Test
+    public void testCustomEnumMapFromProps() throws Exception
+    {
+        FromPropertiesEnumMap map = MAPPER.readValue(VPackUtils.toVPack(a2q(
+                "{'a':13,'RULES':'jackson','b':-731,'OK':'yes'}")),
+                FromPropertiesEnumMap.class);
+
+        assertEquals(13, map.a0);
+        assertEquals(-731, map.b0);
+
+        assertEquals("jackson", map.get(TestEnum.RULES));
+        assertEquals("yes", map.get(TestEnum.OK));
+        assertEquals(2, map.size());
+    }
+
+    // [databind#5891]: extra p.nextToken() in _deserializeUsingProperties()
+    //   corrupts parser state when skipping unknown enum key
+    @Test
+    public void testUnknownKeyAsNullWithPropertyBasedCreator() throws Exception
+    {
+        ObjectReader r = MAPPER.readerFor(FromPropertiesEnumMap.class)
+                .with(EnumFeature.READ_UNKNOWN_ENUM_VALUES_AS_NULL);
+
+        _verifyFromPropertiesEnumMap(r.readValue(VPackUtils.toVPack(a2q(
+                "{'NOPE':'skip','a':13,'RULES':'jackson','b':-731,'OK':'yes'}"))));
+
+        // Unknown-key values are skipped before deserializing into EnumMap<String>.
+        _verifyFromPropertiesEnumMap(r.readValue(VPackUtils.toVPack(a2q(
+                "{'NOPE':{'nested':'value'},'a':13,'RULES':'jackson','b':-731,'OK':'yes'}"))));
+        _verifyFromPropertiesEnumMap(r.readValue(VPackUtils.toVPack(a2q(
+                "{'NOPE':[1,2,3],'a':13,'RULES':'jackson','b':-731,'OK':'yes'}"))));
+    }
+
+    private void _verifyFromPropertiesEnumMap(FromPropertiesEnumMap map)
+    {
+        assertEquals(13, map.a0);
+        assertEquals(-731, map.b0);
+        assertEquals("jackson", map.get(TestEnum.RULES));
+        assertEquals("yes", map.get(TestEnum.OK));
+        assertEquals(2, map.size());
+    }
+
+    /*
+    /**********************************************************
+    /* Test methods: polymorphic
+    /**********************************************************
+     */
+
+    // [databind#1859]
+    @Test
+    public void testEnumMapAsPolymorphic() throws Exception
+    {
+        EnumMap<Enum1859, String> enumMap = new EnumMap<>(Enum1859.class);
+        enumMap.put(Enum1859.A, "Test");
+        enumMap.put(Enum1859.B, "stuff");
+        Pojo1859 input = new Pojo1859(enumMap);
+
+        ObjectMapper mapper = vpackMapperBuilder()
+                .activateDefaultTypingAsProperty(NoCheckSubTypeValidator.instance,
+                        DefaultTyping.NON_FINAL, "@type")
+                .build();
+
+        // 05-Mar-2018, tatu: Original issue had this; should not make difference:
+         /*
+        TypeResolverBuilder<?> mapTyperAsPropertyType = new ObjectMapper.DefaultTypeResolverBuilder(NoCheckSubTypeValidator.instance,
+            ObjectMapper.DefaultTyping.NON_FINAL);
+        mapTyperAsPropertyType.init(JsonTypeInfo.Id.CLASS, null);
+        mapTyperAsPropertyType.inclusion(JsonTypeInfo.As.PROPERTY);
+        mapper.setDefaultTyping(mapTyperAsPropertyType);
+         */
+
+        String json = VPackUtils.toJson(mapper.writeValueAsBytes(input));
+        Pojo1859 result = mapper.readValue(VPackUtils.toVPack(json), Pojo1859.class);
+        assertNotNull(result);
+        assertNotNull(result.values);
+        assertEquals(2, result.values.size());
+    }
+
+    /*
+    /**********************************************************
+    /* Test methods: handling of invalid values
+    /**********************************************************
+     */
+
+    // [databind#1859]
+    @Test
+    public void testUnknownKeyAsDefault() throws Exception
+    {
+        // first, via EnumMap
+        EnumMap<TestEnumWithDefault,String> value = MAPPER
+                .readerFor(new TypeReference<EnumMap<TestEnumWithDefault,String>>() { })
+                .with(EnumFeature.READ_UNKNOWN_ENUM_VALUES_USING_DEFAULT_VALUE)
+                .readValue(VPackUtils.toVPack("{\"unknown\":\"value\"}"));
+        assertEquals(1, value.size());
+        assertEquals("value", value.get(TestEnumWithDefault.OK));
+
+        Map<TestEnumWithDefault,String> value2 = MAPPER
+                .readerFor(new TypeReference<Map<TestEnumWithDefault,String>>() { })
+                .with(EnumFeature.READ_UNKNOWN_ENUM_VALUES_USING_DEFAULT_VALUE)
+                .readValue(VPackUtils.toVPack("{\"unknown\":\"value\"}"));
+        assertEquals(1, value2.size());
+        assertEquals("value", value2.get(TestEnumWithDefault.OK));
+    }
+
+    // [databind#1859]
+    @Test
+    public void testUnknownKeyAsNull() throws Exception
+    {
+        // first, via EnumMap
+        EnumMap<TestEnumWithDefault,String> value = MAPPER
+                .readerFor(new TypeReference<EnumMap<TestEnumWithDefault,String>>() { })
+                .with(EnumFeature.READ_UNKNOWN_ENUM_VALUES_AS_NULL)
+                .readValue(VPackUtils.toVPack("{\"unknown\":\"value\"}"));
+        assertEquals(0, value.size());
+
+        // then regular Map
+        Map<TestEnumWithDefault,String> value2 = MAPPER
+                .readerFor(new TypeReference<Map<TestEnumWithDefault,String>>() { })
+                .with(EnumFeature.READ_UNKNOWN_ENUM_VALUES_AS_NULL)
+                .readValue(VPackUtils.toVPack("{\"unknown\":\"value\"}"));
+        // 25-Jan-2018, tatu: as per [databind#1883], we upgrade it to `EnumMap`, which won't accept nulls...
+        assertEquals(0, value2.size());
+        assertEquals(EnumMap.class, value2.getClass());
+    }
+
+
+    // [databind#3188] Most common case: plain Map<Enum,V> declaration
+    @Test
+    public void testUnknownKeyAsNullWithPlainMap() throws Exception {
+        Map<TestEnumWithDefault,String> value = MAPPER
+                .readerFor(new TypeReference<Map<TestEnumWithDefault,String>>() { })
+                .with(EnumFeature.READ_UNKNOWN_ENUM_VALUES_AS_NULL)
+                .readValue(VPackUtils.toVPack("{\"unknown\":\"value\", \"OK\":\"valid\"}"));
+        assertEquals(1, value.size());
+        assertEquals("valid", value.get(TestEnumWithDefault.OK));
+        assertFalse(value.containsKey(null)); // [databind#3188] regression guard
+    }
+
+    // [databind#3188] Ensure consistent skip behavior for enum-keyed HashMap
+    @Test
+    public void testUnknownKeyAsNullWithHashMap() throws Exception {
+        HashMap<TestEnumWithDefault,String> value = MAPPER
+                .readerFor(new TypeReference<HashMap<TestEnumWithDefault,String>>() { })
+                .with(EnumFeature.READ_UNKNOWN_ENUM_VALUES_AS_NULL)
+                .readValue(VPackUtils.toVPack("{\"unknown\":\"value\", \"OK\":\"valid\"}"));
+        assertEquals(1, value.size());
+        assertEquals("valid", value.get(TestEnumWithDefault.OK));
+        assertFalse(value.containsKey(null)); // [databind#3188] regression guard
+    }
+
+    // [databind#3188] Verify LinkedHashMap also skips unknown enum keys
+    @Test
+    public void testUnknownKeyAsNullWithLinkedHashMap() throws Exception {
+        LinkedHashMap<TestEnumWithDefault,String> value = MAPPER
+                .readerFor(new TypeReference<LinkedHashMap<TestEnumWithDefault,String>>() { })
+                .with(EnumFeature.READ_UNKNOWN_ENUM_VALUES_AS_NULL)
+                .readValue(VPackUtils.toVPack("{\"unknown\":\"value\", \"OK\":\"valid\"}"));
+        assertEquals(1, value.size());
+        assertEquals("valid", value.get(TestEnumWithDefault.OK));
+        assertFalse(value.containsKey(null)); // [databind#3188] regression guard
+    }
+
+    // [databind#3188] Verify skip works correctly with interleaved unknown keys
+    @Test
+    public void testUnknownKeyAsNullWithInterleavedUnknowns() throws Exception {
+        LinkedHashMap<TestEnumWithDefault,String> value = MAPPER
+                .readerFor(new TypeReference<LinkedHashMap<TestEnumWithDefault,String>>() { })
+                .with(EnumFeature.READ_UNKNOWN_ENUM_VALUES_AS_NULL)
+                .readValue(VPackUtils.toVPack("{\"bad1\":\"x\", \"OK\":\"v1\", \"bad2\":\"y\", \"JACKSON\":\"v2\"}"));
+        assertEquals(2, value.size());
+        assertEquals("v1", value.get(TestEnumWithDefault.OK));
+        assertEquals("v2", value.get(TestEnumWithDefault.JACKSON));
+        assertFalse(value.containsKey(null)); // [databind#3188] regression guard
+    }
+
+    // [databind#3188] Verify @JsonDeserialize(as=HashMap.class) scenario
+    static class BeanWithHashMapEnumKey {
+        @JsonDeserialize(as = HashMap.class)
+        public Map<TestEnumWithDefault, String> values;
+    }
+
+    @Test
+    public void testUnknownKeyAsNullWithJsonDeserializeAnnotation() throws Exception {
+        BeanWithHashMapEnumKey result = MAPPER.reader()
+                .with(EnumFeature.READ_UNKNOWN_ENUM_VALUES_AS_NULL)
+                .forType(BeanWithHashMapEnumKey.class)
+                .readValue(VPackUtils.toVPack("{\"values\":{\"unknown\":\"value\", \"OK\":\"valid\"}}"));
+        assertEquals(1, result.values.size());
+        assertEquals("valid", result.values.get(TestEnumWithDefault.OK));
+        assertFalse(result.values.containsKey(null)); // [databind#3188] regression guard
+    }
+
+    // [databind#3188] Default behavior unchanged - still fails
+    @Test
+    public void testUnknownKeyFailsWithHashMapByDefault() throws Exception {
+        DatabindException e = assertThrows(DatabindException.class,
+                () -> MAPPER.readerFor(new TypeReference<HashMap<TestEnumWithDefault,String>>() { })
+                    .readValue(VPackUtils.toVPack("{\"unknown\":\"value\"}")));
+        verifyException(e, "Cannot deserialize Map key");
+    }
+
+    /*
+    /**********************************************************************
+    /* Test methods: case-insensitive Enums
+    /**********************************************************************
+     */
+
+    // [databind#1988]
+    @Test
+    public void testCaseInsensitiveEnumsInMaps() throws Exception
+    {
+        ObjectReader r = vpackMapperBuilder()
+            .enable(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS)
+            .build()
+            .readerFor(Holder1988.class);
+
+        Holder1988 h;
+
+        h = r.readValue(VPackUtils.toVPack("{\"mapHolder\":{\"foo_bar\": \"4\"}}"));
+        assertNull(h.enumHolder);
+        assertNotNull(h.mapHolder);
+        assertEquals(Integer.valueOf(4), h.mapHolder.get(Enum1988.FOO_BAR));
+
+        h = r.readValue(VPackUtils.toVPack("{\"enumHolder\":\"foo_bar\"}"));
+        assertEquals(Enum1988.FOO_BAR, h.enumHolder);
+        assertNull(h.mapHolder);
+    }
+
+    /*
+    /**********************************************************************
+    /* Test methods: null handling [databind#5165]
+    /**********************************************************************
+     */
+
+    // [databind#5165]
+    @Test
+    public void testNullsFailEnumMap5165() {
+        ObjectMapper mapper = vpackMapperBuilder()
+                .changeDefaultNullHandling(n -> JsonSetter.Value.forContentNulls(Nulls.FAIL))
+                .build();
+        assertThrows(
+                InvalidNullException.class,
+                () -> mapper.readValue(VPackUtils.toVPack("{\"map\":{\"FOO\":\"\"}}"), new TypeReference<Dst5165>(){})
+        );
+    }
+
+    // [databind#5165]
+    @Test
+    public void testNullsSkipEnumMap5165() throws Exception {
+        ObjectMapper mapper = vpackMapperBuilder()
+                .changeDefaultNullHandling(n -> JsonSetter.Value.forContentNulls(Nulls.SKIP))
+                .build();
+        Dst5165 dst = mapper.readValue(VPackUtils.toVPack("{\"map\":{\"FOO\":\"\"}}"), new TypeReference<Dst5165>() {});
+
+        assertTrue(dst.getMap().isEmpty());
+    }
+}

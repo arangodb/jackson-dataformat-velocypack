@@ -1,0 +1,299 @@
+package tools.jackson.databind.jsontype;
+
+import com.fasterxml.jackson.annotation.*;
+import org.junit.jupiter.api.Test;
+import tools.jackson.databind.*;
+import tools.jackson.databind.VPackUtils;
+import tools.jackson.databind.exc.InvalidTypeIdException;
+import tools.jackson.databind.jsontype.impl.SimpleNameIdResolver;
+import tools.jackson.databind.testutil.DatabindTestUtil;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+/**
+ * Test for <a href="https://github.com/FasterXML/jackson-databind/issues/4061">
+ * [databind#4061] Add JsonTypeInfo.Id.SIMPLE_NAME
+ */
+public class VPackTypeInfoSimpleClassName4061Test extends DatabindTestUtil
+{
+    @JsonTypeInfo(
+            use = JsonTypeInfo.Id.SIMPLE_NAME)
+    @JsonSubTypes({
+            @JsonSubTypes.Type(value = InnerSub4061A.class),
+            @JsonSubTypes.Type(value = InnerSub4061B.class)
+    })
+    static class InnerSuper4061 { }
+
+    static class InnerSub4061A extends InnerSuper4061 { }
+
+    static class InnerSub4061B extends InnerSuper4061 { }
+
+    @JsonTypeInfo(
+            use = JsonTypeInfo.Id.MINIMAL_CLASS)
+    @JsonSubTypes({
+            @JsonSubTypes.Type(value = MinimalInnerSub4061A.class),
+            @JsonSubTypes.Type(value = MinimalInnerSub4061B.class)
+    })
+    static class MinimalInnerSuper4061 { }
+
+    static class MinimalInnerSub4061A extends MinimalInnerSuper4061 { }
+
+    static class MinimalInnerSub4061B extends MinimalInnerSuper4061 { }
+
+    @JsonTypeInfo(
+            use = JsonTypeInfo.Id.SIMPLE_NAME)
+    @JsonSubTypes({
+            @JsonSubTypes.Type(value = MixedSub4061A.class),
+            @JsonSubTypes.Type(value = MixedSub4061B.class)
+    })
+    static class MixedSuper4061 { }
+
+    @JsonTypeInfo(
+            use = JsonTypeInfo.Id.MINIMAL_CLASS)
+    @JsonSubTypes({
+            @JsonSubTypes.Type(value = MixedMinimalSub4061A.class),
+            @JsonSubTypes.Type(value = MixedMinimalSub4061B.class)
+    })
+    static class MixedMinimalSuper4061 { }
+
+    static class Root {
+        @JsonMerge
+        public MergeChild child;
+    }
+
+    @JsonTypeInfo(use = JsonTypeInfo.Id.SIMPLE_NAME)
+    @JsonSubTypes({
+            @JsonSubTypes.Type(value = MergeChildA.class, name = "MergeChildA"),
+            @JsonSubTypes.Type(value = MergeChildB.class, name = "MergeChildB")
+    })
+    static abstract class MergeChild {
+    }
+
+    static class MergeChildA extends MergeChild {
+        public String name;
+    }
+
+    static class MergeChildB extends MergeChild {
+        public String code;
+    }
+
+    static class PolyWrapperForAlias {
+        @JsonTypeInfo(use = JsonTypeInfo.Id.NAME,
+                include = JsonTypeInfo.As.WRAPPER_ARRAY)
+        @JsonSubTypes({
+                @JsonSubTypes.Type(value = AliasBean.class,name = "ab")})
+        public Object value;
+
+        protected PolyWrapperForAlias() { }
+        
+        public PolyWrapperForAlias(Object v) { value = v; }
+    }
+
+    static class AliasBean {
+        @JsonAlias({ "nm", "Name" })
+        public String name;
+        int _xyz;
+        int _a;
+
+        @JsonCreator
+        public AliasBean(@JsonProperty("a") @JsonAlias("A") int a) {
+            _a = a;
+        }
+
+        @JsonAlias({ "Xyz" })
+        public void setXyz(int x) {
+            _xyz = x;
+        }
+    }
+
+    @JsonTypeInfo(
+            use = JsonTypeInfo.Id.SIMPLE_NAME)
+    @JsonSubTypes({
+            @JsonSubTypes.Type(value = DuplicateSubClass.class),
+            @JsonSubTypes.Type(value = tools.jackson.databind.jsontype.DuplicateSubClass.class)
+    })
+    static class DuplicateSuperClass { }
+    
+    static class DuplicateSubClass extends DuplicateSuperClass { }
+
+    /*
+    /**********************************************************
+    /* Unit tests
+    /**********************************************************
+     */
+    
+    private final ObjectMapper MAPPER = newVPackMapper();
+
+    // inner class that has contains dollar sign
+    @Test
+    public void testInnerClass() throws Exception
+    {
+        String jsonStr = a2q("{'@type':'InnerSub4061A'}");
+        
+        // ser
+        assertEquals(jsonStr, VPackUtils.toJson(MAPPER.writeValueAsBytes(new InnerSub4061A())));
+        
+        // deser <- breaks!
+        InnerSuper4061 bean = MAPPER.readValue(VPackUtils.toVPack(jsonStr), InnerSuper4061.class);
+        assertInstanceOf(InnerSuper4061.class, bean);
+    }
+
+    // inner class that has contains dollar sign
+    @Test
+    public void testMinimalInnerClass() throws Exception
+    {
+        String jsonStr = a2q("{'@c':'.VPackTypeInfoSimpleClassName4061Test$MinimalInnerSub4061A'}");
+        
+        // ser
+        assertEquals(jsonStr, VPackUtils.toJson(MAPPER.writeValueAsBytes(new MinimalInnerSub4061A())));
+        
+        // deser <- breaks!
+        MinimalInnerSuper4061 bean = MAPPER.readValue(VPackUtils.toVPack(jsonStr), MinimalInnerSuper4061.class);
+        assertInstanceOf(MinimalInnerSuper4061.class, bean);
+        assertNotNull(bean);
+    }
+
+    // Basic : non-inner class, without dollar sign
+    @Test
+    public void testBasicClass() throws Exception
+    {
+        String jsonStr = a2q("{'@type':'BasicSub4061A'}");
+        
+        // ser
+        assertEquals(jsonStr, VPackUtils.toJson(MAPPER.writeValueAsBytes(new BasicSub4061A())));
+        
+        // deser
+        BasicSuper4061 bean = MAPPER.readValue(VPackUtils.toVPack(jsonStr), BasicSuper4061.class);
+        assertInstanceOf(BasicSuper4061.class, bean);
+        assertInstanceOf(BasicSub4061A.class, bean);
+
+    }
+    
+    // Mixed SimpleClassName : parent as inner, subtype as basic
+    @Test
+    public void testMixedClass() throws Exception
+    {
+        String jsonStr = a2q("{'@type':'MixedSub4061A'}");
+        
+        // ser
+        assertEquals(jsonStr, VPackUtils.toJson(MAPPER.writeValueAsBytes(new MixedSub4061A())));
+        
+        // deser
+        MixedSuper4061 bean = MAPPER.readValue(VPackUtils.toVPack(jsonStr), MixedSuper4061.class);
+        assertInstanceOf(MixedSuper4061.class, bean);
+        assertInstanceOf(MixedSub4061A.class, bean);
+    }
+    
+    // Mixed MinimalClass : parent as inner, subtype as basic
+    @Test
+    public void testMixedMinimalClass() throws Exception
+    {
+        String jsonStr = a2q("{'@c':'.MixedMinimalSub4061A'}");
+        
+        // ser
+        assertEquals(jsonStr, VPackUtils.toJson(MAPPER.writeValueAsBytes(new MixedMinimalSub4061A())));
+        
+        // deser
+        MixedMinimalSuper4061 bean = MAPPER.readValue(VPackUtils.toVPack(jsonStr), MixedMinimalSuper4061.class);
+        assertInstanceOf(MixedMinimalSuper4061.class, bean);
+        assertInstanceOf(MixedMinimalSub4061A.class, bean);
+    }
+
+    @Test
+    public void testPolymorphicNewObject() throws Exception
+    {
+        String jsonStr = "{\"child\": { \"@type\": \"MergeChildA\", \"name\": \"I'm child A\" }}";
+        
+        Root root = MAPPER.readValue(VPackUtils.toVPack(jsonStr), Root.class);
+        
+        assertInstanceOf(MergeChildA.class, root.child);
+        assertEquals("I'm child A", ((MergeChildA) root.child).name);
+    }
+
+    // case insenstive type name
+    @Test
+    public void testPolymorphicNewObjectCaseInsensitive() throws Exception
+    {
+        String jsonStr = "{\"child\": { \"@type\": \"mergechilda\", \"name\": \"I'm child A\" }}";
+        ObjectMapper mapper = vpackMapperBuilder()
+                .enable(MapperFeature.ACCEPT_CASE_INSENSITIVE_VALUES)
+                .build();
+
+        Root root = mapper.readValue(VPackUtils.toVPack(jsonStr), Root.class);
+        
+        assertInstanceOf(MergeChildA.class, root.child);
+        assertEquals("I'm child A", ((MergeChildA) root.child).name);
+    }
+
+    @Test
+    public void testPolymorphicNewObjectUnknownTypeId() throws Exception
+    {
+        try {
+            MAPPER.readValue(VPackUtils.toVPack("{\"child\": { \"@type\": \"UnknownChildA\", \"name\": \"I'm child A\" }}"), Root.class);    
+        } catch (InvalidTypeIdException e) {
+            verifyException(e, "Could not resolve type id 'UnknownChildA' as a subtype of");
+        }
+    }
+
+    @Test
+    public void testAliasWithPolymorphic() throws Exception
+    {
+        String jsonStr = a2q("{'value': ['ab', {'nm' : 'Bob', 'A' : 17} ] }");
+        
+        PolyWrapperForAlias value = MAPPER.readValue(VPackUtils.toVPack(jsonStr), PolyWrapperForAlias.class);
+        
+        assertNotNull(value.value);
+        AliasBean bean = (AliasBean) value.value;
+        assertEquals("Bob", bean.name);
+        assertEquals(17, bean._a);
+    }
+
+    @Test
+    public void testGetMechanism()
+    {
+        final DeserializationConfig config = MAPPER.deserializationConfig();
+        JavaType javaType = config.constructType(InnerSub4061B.class);
+        List<NamedType> namedTypes = new ArrayList<>();
+        namedTypes.add(new NamedType(InnerSub4061A.class));
+        namedTypes.add(new NamedType(InnerSub4061B.class));
+        
+        SimpleNameIdResolver idResolver = SimpleNameIdResolver.construct(config, javaType, namedTypes, false, true);
+        
+        assertEquals(JsonTypeInfo.Id.SIMPLE_NAME, idResolver.getMechanism());
+    }
+
+    @Test
+    public void testDuplicateNameLastOneWins() throws Exception
+    {
+        String jsonStr = a2q("{'@type':'DuplicateSubClass'}");
+        
+        // deser
+        DuplicateSuperClass bean = MAPPER.readValue(VPackUtils.toVPack(jsonStr), DuplicateSuperClass.class);
+        assertInstanceOf(tools.jackson.databind.jsontype.DuplicateSubClass.class, bean);
+    }
+}
+
+@JsonTypeInfo(
+        use = JsonTypeInfo.Id.SIMPLE_NAME)
+@JsonSubTypes({
+        @JsonSubTypes.Type(value = BasicSub4061A.class),
+        @JsonSubTypes.Type(value = BasicSub4061B.class)
+})
+class BasicSuper4061 { }
+
+class BasicSub4061A extends BasicSuper4061 { }
+
+class BasicSub4061B extends BasicSuper4061 { }
+
+class MixedSub4061A extends VPackTypeInfoSimpleClassName4061Test.MixedSuper4061 { }
+
+class MixedSub4061B extends VPackTypeInfoSimpleClassName4061Test.MixedSuper4061 { }
+
+class MixedMinimalSub4061A extends VPackTypeInfoSimpleClassName4061Test.MixedMinimalSuper4061 { }
+
+class MixedMinimalSub4061B extends VPackTypeInfoSimpleClassName4061Test.MixedMinimalSuper4061 { }
+
+class DuplicateSubClass extends VPackTypeInfoSimpleClassName4061Test.DuplicateSuperClass { }

@@ -1,0 +1,128 @@
+package tools.jackson.databind.node;
+
+import tools.jackson.core.JsonParser;
+import tools.jackson.core.TreeNode;
+import tools.jackson.databind.*;
+import tools.jackson.databind.VPackUtils;
+import tools.jackson.databind.testutil.DatabindTestUtil;
+
+import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
+
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.fail;
+
+/**
+ * Tests to verify handling of empty content with "readTree()"
+ */
+public class EmptyContentAsTreeTest extends DatabindTestUtil
+{
+    private final ObjectMapper MAPPER = objectMapper();
+
+    private final String EMPTY0 = "";
+    private final byte[] EMPTY0_BYTES = EMPTY0.getBytes(StandardCharsets.UTF_8);
+    private final String EMPTY1 = "  \n\t  ";
+    private final byte[] EMPTY1_BYTES = EMPTY1.getBytes(StandardCharsets.UTF_8);
+
+    // [databind#1406]: when passing `JsonParser`, indicate lack of content
+    // by returning `null`
+
+    public void testNullFromEOFWithParserAndMapper() throws Exception
+    {
+        try (JsonParser p = MAPPER.createParser(VPackUtils.toVPack(EMPTY0))) {
+            _assertNullTree(MAPPER.readTree(p));
+        }
+        try (JsonParser p = MAPPER.createParser(VPackUtils.toVPack(EMPTY1))) {
+            _assertNullTree(MAPPER.readTree(p));
+        }
+        try (JsonParser p = MAPPER.createParser(EMPTY0_BYTES)) {
+            _assertNullTree(MAPPER.readTree(p));
+        }
+        try (JsonParser p = MAPPER.createParser(EMPTY1_BYTES)) {
+            _assertNullTree(MAPPER.readTree(p));
+        }
+        try (JsonParser p = MAPPER.createParser(EMPTY1_BYTES, 0, EMPTY1_BYTES.length)) {
+            _assertNullTree(MAPPER.readTree(p));
+        }
+        try (JsonParser p = MAPPER.createParser(new ByteArrayInputStream(EMPTY0_BYTES))) {
+            _assertNullTree(MAPPER.readTree(p));
+        }
+        try (JsonParser p = MAPPER.createParser(new ByteArrayInputStream(EMPTY1_BYTES))) {
+            _assertNullTree(MAPPER.readTree(p));
+        }
+    }
+
+    // [databind#1406]
+    public void testNullFromEOFWithParserAndReader() throws Exception
+    {
+        try (JsonParser p = MAPPER.createParser(VPackUtils.toVPack(EMPTY0))) {
+            _assertNullTree(MAPPER.reader().readTree(p));
+        }
+        try (JsonParser p = MAPPER.createParser(VPackUtils.toVPack(EMPTY1))) {
+            _assertNullTree(MAPPER.reader().readTree(p));
+        }
+        try (JsonParser p = MAPPER.createParser(EMPTY0_BYTES)) {
+            _assertNullTree(MAPPER.reader().readTree(p));
+        }
+        try (JsonParser p = MAPPER.createParser(EMPTY1_BYTES)) {
+            _assertNullTree(MAPPER.reader().readTree(p));
+        }
+        try (JsonParser p = MAPPER.createParser(EMPTY1_BYTES, 0, EMPTY1_BYTES.length)) {
+            _assertNullTree(MAPPER.reader().readTree(p));
+        }
+
+        try (JsonParser p = MAPPER.createParser(new ByteArrayInputStream(EMPTY0_BYTES))) {
+            _assertNullTree(MAPPER.reader().readTree(p));
+        }
+        try (JsonParser p = MAPPER.createParser(new ByteArrayInputStream(EMPTY1_BYTES))) {
+            _assertNullTree(MAPPER.reader().readTree(p));
+        }
+    }
+
+    // [databind#2211]: when passing content sources OTHER than `JsonParser`,
+    // return "missing node" instead of alternate (return `null`, throw exception).
+    public void testMissingNodeForEOFOtherMapper() throws Exception
+    {
+        _assertMissing(MAPPER.readTree(VPackUtils.toVPack(EMPTY0)));
+        _assertMissing(MAPPER.readTree(VPackUtils.toVPack(EMPTY1)));
+        // REMOVED: JSON-only feature not applicable to VelocyPack
+//        _assertMissing(MAPPER.readTree(new StringReader(EMPTY0)));
+//        _assertMissing(MAPPER.readTree(new StringReader(EMPTY1)));
+
+        _assertMissing(MAPPER.readTree(EMPTY0_BYTES));
+        _assertMissing(MAPPER.readTree(EMPTY0_BYTES, 0, EMPTY0_BYTES.length));
+        _assertMissing(MAPPER.readTree(new ByteArrayInputStream(EMPTY0_BYTES)));
+        _assertMissing(MAPPER.readTree(EMPTY1_BYTES));
+        _assertMissing(MAPPER.readTree(EMPTY1_BYTES, 0, EMPTY1_BYTES.length));
+        _assertMissing(MAPPER.readTree(new ByteArrayInputStream(EMPTY1_BYTES)));
+
+        // Assume File, URL, etc are fine. Note: `DataInput` probably can't be made to
+        // work since it cannot easily/gracefully handle unexpected end-of-input
+    }
+
+    public void testMissingNodeViaObjectReader() throws Exception
+    {
+        _assertMissing(MAPPER.reader().readTree(VPackUtils.toVPack(EMPTY0)));
+        _assertMissing(MAPPER.reader().readTree(VPackUtils.toVPack(EMPTY1)));
+
+        _assertMissing(MAPPER.reader().readTree(EMPTY0_BYTES));
+        _assertMissing(MAPPER.reader().readTree(EMPTY0_BYTES, 0, EMPTY0_BYTES.length));
+        _assertMissing(MAPPER.reader().readTree(new ByteArrayInputStream(EMPTY0_BYTES)));
+        _assertMissing(MAPPER.reader().readTree(EMPTY1_BYTES));
+        _assertMissing(MAPPER.reader().readTree(EMPTY1_BYTES, 0, EMPTY1_BYTES.length));
+        _assertMissing(MAPPER.reader().readTree(new ByteArrayInputStream(EMPTY1_BYTES)));
+    }
+
+    private void _assertNullTree(TreeNode n) {
+        if (n != null) {
+            fail("Should get `null` for reads with `JsonParser`, instead got: "+n.getClass().getName());
+        }
+    }
+
+    private void _assertMissing(JsonNode n) {
+        assertNotNull(n, "Should not get `null` but `MissingNode`");
+        if (!n.isMissingNode()) {
+            fail("Should get `MissingNode` but got: "+n.getClass().getName());
+        }
+    }
+}

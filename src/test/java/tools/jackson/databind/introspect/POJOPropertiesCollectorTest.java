@@ -1,0 +1,629 @@
+package tools.jackson.databind.introspect;
+
+import com.fasterxml.jackson.annotation.*;
+import org.junit.jupiter.api.Test;
+import tools.jackson.databind.*;
+import tools.jackson.databind.annotation.JsonDeserialize;
+import tools.jackson.databind.cfg.MapperConfig;
+import tools.jackson.databind.testutil.DatabindTestUtil;
+
+import java.beans.ConstructorProperties;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+import java.math.BigDecimal;
+import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+public class POJOPropertiesCollectorTest
+    extends DatabindTestUtil
+{
+    static class Simple {
+        public int value;
+
+        @JsonProperty("value")
+        public void valueSetter(int v) { value = v; }
+
+        @JsonProperty("value")
+        public int getFoobar() { return value; }
+    }
+
+    static class SimpleFieldDeser
+    {
+        @JsonDeserialize String[] values;
+    }
+
+    static class SimpleGetterVisibility {
+        public int getA() { return 0; }
+        protected int getB() { return 1; }
+        @SuppressWarnings("unused")
+        private int getC() { return 2; }
+    }
+
+    // Class for testing 'shared ignore'
+    static class Empty {
+        public int value;
+
+        public void setValue(int v) { value = v; }
+
+        @JsonIgnore
+        public int getValue() { return value; }
+    }
+
+    static class IgnoredSetter {
+        @JsonProperty
+        public int value;
+
+        @JsonIgnore
+        public void setValue(int v) { value = v; }
+
+        public int getValue() { return value; }
+    }
+
+    static class ImplicitIgnores {
+        @JsonIgnore public int a;
+        @JsonIgnore public void setB(int b) { }
+        public int c;
+    }
+
+    // Should find just one setter for "y", due to partial ignore
+    static class IgnoredRenamedSetter {
+        @JsonIgnore public void setY(int value) { }
+        @JsonProperty("y") void foobar(int value) { }
+    }
+
+    // should produce a single property, "x"
+    static class RenamedProperties {
+        @JsonProperty("x")
+        public int value;
+
+        public void setValue(int v) { value = v; }
+
+        public int getX() { return value; }
+    }
+
+    static class RenamedProperties2
+    {
+        @JsonProperty("renamed")
+        public int getValue() { return 1; }
+        public void setValue(int x) { }
+    }
+
+    // Testing that we can "merge" properties with renaming
+    static class MergedProperties {
+        public int x;
+
+        @JsonProperty("x")
+        public void setFoobar(int v) { x = v; }
+    }
+
+    // Testing that property order is obeyed, even for deserialization purposes
+    @JsonPropertyOrder({"a", "b", "c", "d"})
+    static class SortedProperties
+    {
+        public int b;
+        public int c;
+
+        public void setD(int value) { }
+        public void setA(int value) { }
+    }
+
+    // [JACKSON-700]: test property type detection, selection
+    static class TypeTestBean
+    {
+        protected Long value;
+
+        @JsonCreator
+        public TypeTestBean(@JsonProperty("value") String value) { }
+
+        // If you remove this method, the test will pass
+        public Integer getValue() { return 0; }
+    }
+
+    static class Jackson703
+    {
+        private List<FoodOrgLocation> location = new ArrayList<FoodOrgLocation>();
+
+        {
+            location.add(new FoodOrgLocation());
+        }
+
+        public List<FoodOrgLocation> getLocation() { return location; }
+    }
+
+    static class FoodOrgLocation
+    {
+        protected Long id;
+        public String name;
+        protected Location location;
+
+        public FoodOrgLocation() {
+            location = new Location();
+        }
+
+        public FoodOrgLocation(final Location foodOrg) { }
+
+        public FoodOrgLocation(final Long id, final String name, final Location location) { }
+
+        public Location getLocation() { return location; }
+    }
+
+    static class Location {
+        public BigDecimal lattitude;
+        public BigDecimal longitude;
+
+        public Location() { }
+
+        public Location(final BigDecimal lattitude, final BigDecimal longitude) { }
+    }
+
+    class Issue701Bean { // important: non-static!
+        private int i;
+
+        // annotation does not matter -- just need one on the last argument
+        public Issue701Bean(@JsonProperty int i) { this.i = i; }
+
+        public int getX() { return i; }
+    }
+
+    static class Issue744Bean
+    {
+        protected Map<String,Object> additionalProperties;
+
+        @JsonAnySetter
+        public void addAdditionalProperty(String key, Object value) {
+            if (additionalProperties == null) additionalProperties = new HashMap<String, Object>();
+            additionalProperties.put(key,value);
+        }
+
+        public void setAdditionalProperties(Map<String, Object> additionalProperties) {
+            this.additionalProperties = additionalProperties;
+        }
+
+        @JsonAnyGetter
+        public Map<String,Object> getAdditionalProperties() { return additionalProperties; }
+
+        @JsonIgnore
+        public String getName() {
+           return (String) additionalProperties.get("name");
+        }
+    }
+
+    static class PropDescBean
+    {
+        public final static String A_DESC = "That's A!";
+        public final static int B_INDEX = 3;
+
+        @JsonPropertyDescription(A_DESC)
+        public String a;
+
+        protected int b;
+
+        public String getA() { return a; }
+
+        public void setA(String a) { this.a = a; }
+
+        @JsonProperty(required=true, index=B_INDEX, defaultValue="13")
+        public int getB() { return b; }
+    }
+
+    @Target({ElementType.ANNOTATION_TYPE, ElementType.FIELD, ElementType.METHOD, ElementType.PARAMETER})
+    @Retention(RetentionPolicy.RUNTIME)
+    @JacksonAnnotation
+    @interface A {}
+
+    @Target({ElementType.ANNOTATION_TYPE, ElementType.FIELD, ElementType.METHOD, ElementType.PARAMETER})
+    @Retention(RetentionPolicy.RUNTIME)
+    @JacksonAnnotation
+    @interface B {}
+
+    static class DuplicateGetterBean
+    {
+        @A
+        public boolean isBloop() { return true; }
+
+        @B
+        public boolean getBloop() { return true; }
+    }
+
+    static class DuplicateGetterCreatorBean
+    {
+        public DuplicateGetterCreatorBean(@JsonProperty("bloop") @A boolean bloop) {}
+
+        public boolean isBloop() { return true; }
+
+        public boolean getBloop() { return true; }
+    }
+
+    // [databind#3591]: test that getIgnoredPropertyNames() includes
+    // both @JsonIgnore per-field and @JsonIgnoreProperties class-level
+    @JsonIgnoreProperties("second")
+    static class IgnoredMixed {
+        @JsonIgnore
+        public String first;
+        public String second;
+        public String third;
+    }
+
+    /*
+    /**********************************************************
+    /* Unit tests
+    /**********************************************************
+     */
+
+    private final ObjectMapper MAPPER = newVPackMapper();
+
+    @Test
+    public void testSimple()
+    {
+        POJOPropertiesCollector coll = collector(MAPPER,  Simple.class, false);
+        Map<String, POJOPropertyBuilder> props = coll.getPropertyMap();
+        assertEquals(1, props.size());
+        POJOPropertyBuilder prop = props.get("value");
+        assertNotNull(prop);
+        assertTrue(prop.hasSetter());
+        assertTrue(prop.hasGetter());
+        assertTrue(prop.hasField());
+    }
+
+    @Test
+    public void testSimpleFieldVisibility()
+    {
+        // false -> deserialization
+        POJOPropertiesCollector coll = collector(MAPPER, SimpleFieldDeser.class, false);
+        Map<String, POJOPropertyBuilder> props = coll.getPropertyMap();
+        assertEquals(1, props.size());
+        POJOPropertyBuilder prop = props.get("values");
+        assertNotNull(prop);
+        assertFalse(prop.hasSetter());
+        assertFalse(prop.hasGetter());
+        assertTrue(prop.hasField());
+    }
+
+    @Test
+    public void testSimpleGetterVisibility()
+
+    {
+        POJOPropertiesCollector coll = collector(MAPPER,
+        		SimpleGetterVisibility.class, true);
+        Map<String, POJOPropertyBuilder> props = coll.getPropertyMap();
+        assertEquals(1, props.size());
+        POJOPropertyBuilder prop = props.get("a");
+        assertNotNull(prop);
+        assertFalse(prop.hasSetter());
+        assertTrue(prop.hasGetter());
+        assertFalse(prop.hasField());
+    }
+
+    // Unit test for verifying that a single @JsonIgnore can remove the
+    // whole property, unless explicit property marker exists
+    @Test
+    public void testEmpty()
+    {
+        POJOPropertiesCollector coll = collector(MAPPER,
+        		Empty.class, true);
+        Map<String, POJOPropertyBuilder> props = coll.getPropertyMap();
+        assertEquals(0, props.size());
+    }
+
+    // Unit test for verifying handling of 'partial' @JsonIgnore; that is,
+    // if there is at least one explicit annotation to indicate property,
+    // only parts that are ignored are, well, ignored
+    @Test
+    public void testPartialIgnore()
+    {
+        POJOPropertiesCollector coll = collector(MAPPER,
+        		IgnoredSetter.class, true);
+        Map<String, POJOPropertyBuilder> props = coll.getPropertyMap();
+        assertEquals(1, props.size());
+        POJOPropertyBuilder prop = props.get("value");
+        assertNotNull(prop);
+        assertFalse(prop.hasSetter());
+        assertTrue(prop.hasGetter());
+        assertTrue(prop.hasField());
+    }
+
+    @Test
+    public void testSimpleRenamed()
+    {
+        POJOPropertiesCollector coll = collector(MAPPER,
+        		RenamedProperties.class, true);
+        Map<String, POJOPropertyBuilder> props = coll.getPropertyMap();
+        assertEquals(1, props.size());
+        POJOPropertyBuilder prop = props.get("x");
+        assertNotNull(prop);
+        assertTrue(prop.hasSetter());
+        assertTrue(prop.hasGetter());
+        assertTrue(prop.hasField());
+    }
+
+    @Test
+    public void testSimpleRenamed2()
+    {
+        POJOPropertiesCollector coll = collector(MAPPER,
+        		RenamedProperties2.class, true);
+        Map<String, POJOPropertyBuilder> props = coll.getPropertyMap();
+        assertEquals(1, props.size());
+        POJOPropertyBuilder prop = props.get("renamed");
+        assertNotNull(prop);
+        assertTrue(prop.hasSetter());
+        assertTrue(prop.hasGetter());
+        assertFalse(prop.hasField());
+    }
+
+    @Test
+    public void testMergeWithRename()
+    {
+        POJOPropertiesCollector coll = collector(MAPPER,
+        		MergedProperties.class, true);
+        Map<String, POJOPropertyBuilder> props = coll.getPropertyMap();
+        assertEquals(1, props.size());
+        POJOPropertyBuilder prop = props.get("x");
+        assertNotNull(prop);
+        assertTrue(prop.hasSetter());
+        assertFalse(prop.hasGetter());
+        assertTrue(prop.hasField());
+    }
+
+    @Test
+    public void testSimpleIgnoreAndRename()
+    {
+        POJOPropertiesCollector coll = collector(MAPPER,
+        		IgnoredRenamedSetter.class, true);
+        Map<String, POJOPropertyBuilder> props = coll.getPropertyMap();
+        assertEquals(1, props.size());
+        POJOPropertyBuilder prop = props.get("y");
+        assertNotNull(prop);
+        assertTrue(prop.hasSetter());
+        assertFalse(prop.hasGetter());
+        assertFalse(prop.hasField());
+    }
+
+    @Test
+    public void testGlobalVisibilityForGetters()
+    {
+        ObjectMapper m = vpackMapperBuilder()
+                .changeDefaultVisibility(vc ->
+                    vc.withVisibility(PropertyAccessor.GETTER, JsonAutoDetect.Visibility.NONE))
+                .build();
+        POJOPropertiesCollector coll = collector(m, SimpleGetterVisibility.class, true);
+        // should be 1, expect that we disabled getter auto-detection, so
+        Map<String, POJOPropertyBuilder> props = coll.getPropertyMap();
+        assertEquals(0, props.size());
+    }
+
+    @Test
+    public void testCollectionOfIgnored()
+    {
+        // should be 1, due to ignorals
+        Map<String, ?> props = beanPropMap(MAPPER, ImplicitIgnores.class, false);
+        assertEquals(1, props.size());
+        // but also have 2 ignored properties
+        POJOPropertiesCollector coll = collector(MAPPER, ImplicitIgnores.class, false);
+        Collection<String> ign = coll.getIgnoredPropertyNames();
+        assertEquals(2, ign.size());
+        assertTrue(ign.contains("a"));
+        assertTrue(ign.contains("b"));
+    }
+
+    @Test
+    public void testSimpleOrderingForDeserialization()
+    {
+        List<BeanPropertyDefinition> props = beanPropList(MAPPER, SortedProperties.class, false);
+        assertEquals(4, props.size());
+        assertEquals("a", props.get(0).getName());
+        assertEquals("b", props.get(1).getName());
+        assertEquals("c", props.get(2).getName());
+        assertEquals("d", props.get(3).getName());
+    }
+
+    @Test
+    public void testSimpleWithType()
+    {
+        // first for serialization; should base choice on getter
+        List<BeanPropertyDefinition> props = beanPropList(MAPPER, TypeTestBean.class, true);
+        assertEquals(1, props.size());
+        assertEquals("value", props.get(0).getName());
+        AnnotatedMember m = props.get(0).getAccessor();
+        assertInstanceOf(AnnotatedMethod.class, m);
+        assertEquals(Integer.class, m.getRawType());
+
+        // then for deserialization; prefer ctor param
+        props = beanPropList(MAPPER, TypeTestBean.class, false);
+        assertEquals(1, props.size());
+        assertEquals("value", props.get(0).getName());
+        m = props.get(0).getMutator();
+        assertEquals(AnnotatedParameter.class, m.getClass());
+        assertEquals(String.class, m.getRawType());
+    }
+
+    @Test
+    public void testDuplicateGetters() throws Exception
+    {
+        List<BeanPropertyDefinition> props = beanPropList(MAPPER, DuplicateGetterBean.class, true);
+        assertEquals(1, props.size());
+        BeanPropertyDefinition prop = props.get(0);
+        assertEquals("bloop", prop.getName());
+        assertTrue(prop.getGetter().hasAnnotation(A.class));
+        assertTrue(prop.getGetter().hasAnnotation(B.class));
+    }
+
+    // 27-Nov-2019, tatu: Not sure why, but changes for [databind#2555] started to
+    //   fail this test, due to call to `prop.getMetadata()` (to check for `index`).
+    //   Probably related to comment on "Can't call getGetter..."
+    @Test
+    public void testDuplicateGettersCreator() throws Exception
+    {
+        List<BeanPropertyDefinition> props = beanPropList(MAPPER, DuplicateGetterCreatorBean.class, true);
+        assertEquals(1, props.size());
+        POJOPropertyBuilder prop = (POJOPropertyBuilder) props.get(0);
+        assertEquals("bloop", prop.getName());
+        // Can't call getGetter or the duplicate will be removed
+        assertTrue(prop._getters.value.hasAnnotation(A.class));
+        assertNotNull(prop._getters.next);
+        assertTrue(prop._getters.next.value.hasAnnotation(A.class));
+    }
+
+    // [databind#3591]: getIgnoredPropertyNames() should include both
+    // @JsonIgnore per-field and @JsonIgnoreProperties class-level
+    @Test
+    public void testIgnoredPropertyNamesIncludesClassLevel()
+    {
+        // Deserialization
+        BeanDescription descDeser = beanDesc(MAPPER, IgnoredMixed.class, false);
+        Set<String> ignoredDeser = descDeser.getIgnoredPropertyNames();
+        assertTrue(ignoredDeser.contains("first"), "per-field @JsonIgnore should be in ignored (deser)");
+        assertTrue(ignoredDeser.contains("second"), "class-level @JsonIgnoreProperties should be in ignored (deser)");
+        assertEquals(2, ignoredDeser.size());
+
+        // Serialization: should also report ignored names
+        BeanDescription descSer = beanDesc(MAPPER, IgnoredMixed.class, true);
+        Set<String> ignoredSer = descSer.getIgnoredPropertyNames();
+        assertTrue(ignoredSer.contains("first"), "per-field @JsonIgnore should be in ignored (ser)");
+        assertTrue(ignoredSer.contains("second"), "class-level @JsonIgnoreProperties should be in ignored (ser)");
+        assertEquals(2, ignoredSer.size());
+    }
+
+    // [databind#5952]: with class-level @JsonIgnoreProperties on a creator-based POJO,
+    // getIgnoredPropertyNames() must report the class-level name even when it
+    // collides with a creator parameter (where the [databind#2001] rescue path
+    // would previously have stripped it).
+    @JsonIgnoreProperties("name")
+    static class ClassIgnoredCreator5952 {
+        final int id;
+        final String name;
+
+        @JsonCreator
+        public ClassIgnoredCreator5952(@JsonProperty("id") int id,
+                @JsonProperty("name") String name) {
+            this.id = id;
+            this.name = name;
+        }
+    }
+
+    @Test
+    public void testClassLevelIgnoredSurvivesCreatorRescue5952()
+    {
+        BeanDescription desc = beanDesc(MAPPER, ClassIgnoredCreator5952.class, false);
+        Set<String> ignored = desc.getIgnoredPropertyNames();
+        assertTrue(ignored.contains("name"),
+                "class-level @JsonIgnoreProperties name must survive the creator-rename rescue: " + ignored);
+        assertEquals(1, ignored.size());
+    }
+
+    // [databind#5952]: when multiple per-property @JsonIgnore names are rescued by
+    // creator parameters in the same type, the snapshot taken on the FIRST rescue
+    // must capture both names — not just the one that triggered the snapshot. This
+    // exercises the once-only-take semantics in _renameProperties' strip-out site.
+    //
+    // Pattern follows [databind#2001]: the creator parameters' implicit names
+    // (from @ConstructorProperties) differ from the field names, and @JsonProperty
+    // renames each parameter to match the corresponding ignored field name — that
+    // is what causes _replaceCreatorProperty to fire and the strip-out to run.
+    static class MultiRescueCreator5952 {
+        @JsonIgnore
+        public String alpha;
+
+        @JsonIgnore
+        public String beta;
+
+        @JsonCreator
+        @ConstructorProperties({"rawAlpha", "rawBeta"})
+        public MultiRescueCreator5952(
+                @JsonProperty("alpha") String alpha,
+                @JsonProperty("beta") String beta) {
+            this.alpha = alpha;
+            this.beta = beta;
+        }
+    }
+
+    @Test
+    public void testMultiRescueSnapshotCapturesAllNames5952()
+    {
+        BeanDescription desc = beanDesc(MAPPER, MultiRescueCreator5952.class, false);
+
+        // Rescued view: both per-property @JsonIgnore names are overridden by creator
+        // parameters and should be absent.
+        Set<String> rescued = desc.getIgnoredPropertyNames();
+        assertFalse(rescued.contains("alpha"),
+                "alpha should be rescued by creator-rename: " + rescued);
+        assertFalse(rescued.contains("beta"),
+                "beta should be rescued by creator-rename: " + rescued);
+
+        // Un-rescued view: snapshot taken on first rescue must contain BOTH names,
+        // proving the snapshot captures pre-rescue state rather than just the
+        // currently-being-rescued name.
+        Set<String> unrescued = desc.getNonRescuedIgnoredPropertyNames();
+        assertTrue(unrescued.contains("alpha"),
+                "snapshot should contain alpha: " + unrescued);
+        assertTrue(unrescued.contains("beta"),
+                "snapshot should contain beta: " + unrescued);
+    }
+
+    @SuppressWarnings("deprecation")
+    @Test
+    public void testFormatOverridesDeprecated()
+    {
+        POJOPropertiesCollector coll = collector(MAPPER,  Simple.class, false);
+        JsonFormat.Value format = coll.getFormatOverrides();
+        assertNotNull(format);
+        assertEquals(JsonFormat.Shape.ANY, format.getShape());
+    }
+
+    /*
+    /**********************************************************************
+    /* Helper methods
+    /**********************************************************************
+     */
+
+    protected Map<String, BeanPropertyDefinition> beanPropMap(ObjectMapper m0,
+            Class<?> cls, boolean forSerialization) {
+        return beanPropList(m0, cls, forSerialization).stream()
+            .collect(Collectors.toMap(BeanPropertyDefinition::getName,
+                    Function.identity()));
+    }
+
+    protected List<BeanPropertyDefinition> beanPropList(ObjectMapper m0,
+            Class<?> cls, boolean forSerialization) {
+        return beanDesc(m0, cls, forSerialization).findProperties();
+    }
+
+    protected BeanDescription beanDesc(ObjectMapper m0,
+            Class<?> cls, boolean forSerialization)
+    {
+        return forSerialization
+                ? ObjectMapperTestAccess.beanDescriptionForSer(m0, cls)
+                : ObjectMapperTestAccess.beanDescriptionForDeser(m0, cls)
+        ;
+    }
+
+    protected POJOPropertiesCollector collector(ObjectMapper mapper,
+            Class<?> cls, boolean forSerialization)
+    {
+        MapperConfig<?> config = forSerialization
+                ? mapper.serializationConfig()
+                : mapper.deserializationConfig();
+        AnnotatedClass classDef = forSerialization
+                ? ObjectMapperTestAccess.annotatedClassForSer(mapper, cls)
+                : ObjectMapperTestAccess.annotatedClassForDeser(mapper, cls);
+        return new TestPOJOPropertiesCollector(config,
+                forSerialization, mapper.constructType(cls),
+                classDef,
+                config.getAccessorNaming());
+    }
+
+    // @since 3.2
+    static class TestPOJOPropertiesCollector extends POJOPropertiesCollector
+    {
+        public TestPOJOPropertiesCollector(MapperConfig<?> config, boolean forSerialization,
+                JavaType type, AnnotatedClass classDef,
+                AccessorNamingStrategy.Provider accessorNaming) {
+            super(config, forSerialization, type, classDef,
+                    accessorNaming.forPOJO(config, classDef));
+        }
+    }
+}

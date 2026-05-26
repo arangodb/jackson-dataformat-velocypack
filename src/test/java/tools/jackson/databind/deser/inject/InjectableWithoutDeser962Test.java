@@ -1,0 +1,66 @@
+package tools.jackson.databind.deser.inject;
+
+import com.fasterxml.jackson.annotation.JacksonInject;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.OptBoolean;
+import org.junit.jupiter.api.Test;
+import tools.jackson.databind.*;
+import tools.jackson.databind.VPackUtils;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static tools.jackson.databind.testutil.DatabindTestUtil.vpackMapperBuilder;
+
+// [databind#962]: "pure" Injectable that could not be deserialized
+public class InjectableWithoutDeser962Test
+{
+    // [databind#962]
+    static class InjectMe
+    {
+        private String a;
+
+        public InjectMe(boolean dummy) { }
+
+        public void setA(Integer a) {
+            this.a = a.toString();
+        }
+
+        public void setA(InjectMe a) {
+            this.a = String.valueOf(a);
+        }
+
+        public String getA() {
+            return a;
+        }
+    }
+
+    static class Injectee
+    {
+        private String b;
+
+        // Important! Prevent binding from data
+        @JsonCreator
+        public Injectee(@JacksonInject(useInput=OptBoolean.FALSE) InjectMe injectMe,
+                @JsonProperty("b") String b) {
+            this.b = b;
+        }
+
+        public String getB() {
+            return b;
+        }
+    }
+
+    // [databind#962]
+    @Test
+    public void testInjected() throws Exception
+    {
+        InjectMe im = new InjectMe(true);
+        ObjectMapper mapper = vpackMapperBuilder()
+                .injectableValues(new InjectableValues.Std().addValue(InjectMe.class, im))
+                .build();
+        String test = "{\"b\":\"bbb\"}";
+
+        Injectee actual = mapper.readValue(VPackUtils.toVPack(test), Injectee.class);
+        assertEquals("bbb", actual.getB());
+    }
+}

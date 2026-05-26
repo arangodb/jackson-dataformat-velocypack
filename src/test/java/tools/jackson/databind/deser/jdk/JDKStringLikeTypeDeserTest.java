@@ -1,0 +1,264 @@
+package tools.jackson.databind.deser.jdk;
+
+import org.junit.jupiter.api.Test;
+import tools.jackson.core.ObjectReadContext;
+import tools.jackson.databind.*;
+import tools.jackson.databind.VPackUtils;
+import tools.jackson.databind.exc.InvalidFormatException;
+import tools.jackson.databind.exc.MismatchedInputException;
+import tools.jackson.databind.exc.ValueInstantiationException;
+import tools.jackson.databind.util.TokenBuffer;
+
+import java.io.File;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.URI;
+import java.net.URL;
+import java.nio.charset.Charset;
+import java.util.Currency;
+import java.util.regex.Pattern;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static tools.jackson.databind.testutil.DatabindTestUtil.*;
+
+public class JDKStringLikeTypeDeserTest
+{
+    static class ParamClassBean
+    {
+         public String name = "bar";
+         public Class<String> clazz ;
+
+         public ParamClassBean() { }
+         public ParamClassBean(String name) {
+             this.name = name;
+             clazz = String.class;
+         }
+    }
+
+    /*
+    /**********************************************************************
+    /* Test methods
+    /**********************************************************************
+     */
+
+    private final ObjectMapper MAPPER = newVPackMapper();
+
+    @Test
+    public void testCharset() throws Exception
+    {
+        Charset UTF8 = Charset.forName("UTF-8");
+        assertSame(UTF8, MAPPER.readValue(VPackUtils.toVPack(q("UTF-8")), Charset.class));
+    }
+
+    @Test
+    public void testClass() throws Exception
+    {
+        ObjectReader classR = MAPPER.readerFor(Class.class);
+        assertSame(String.class, classR.readValue(VPackUtils.toVPack(q("java.lang.String"))));
+
+        // then primitive types
+        assertSame(Boolean.TYPE, classR.readValue(VPackUtils.toVPack(q("boolean"))));
+        assertSame(Byte.TYPE, classR.readValue(VPackUtils.toVPack(q("byte"))));
+        assertSame(Short.TYPE, classR.readValue(VPackUtils.toVPack(q("short"))));
+        assertSame(Character.TYPE, classR.readValue(VPackUtils.toVPack(q("char"))));
+        assertSame(Integer.TYPE, classR.readValue(VPackUtils.toVPack(q("int"))));
+        assertSame(Long.TYPE, classR.readValue(VPackUtils.toVPack(q("long"))));
+        assertSame(Float.TYPE, classR.readValue(VPackUtils.toVPack(q("float"))));
+        assertSame(Double.TYPE, classR.readValue(VPackUtils.toVPack(q("double"))));
+        assertSame(Void.TYPE, classR.readValue(VPackUtils.toVPack(q("void"))));
+
+        // and then error handling
+        try {
+            classR.readValue(VPackUtils.toVPack(q("UNKNOWN")));
+            fail("Should not pass");
+        } catch (ValueInstantiationException e) {
+            verifyException(e, "instance of `java.lang.Class`");
+            // 13-Feb-2026, tatu: Not a good message, should improve but...
+            verifyException(e, "UNKNOWN");
+        }
+    }
+
+    @Test
+    public void testClassWithParams() throws Exception
+    {
+        String json = VPackUtils.toJson(MAPPER.writeValueAsBytes(new ParamClassBean("Foobar")));
+
+        ParamClassBean result = MAPPER.readValue(VPackUtils.toVPack(json), ParamClassBean.class);
+        assertEquals("Foobar", result.name);
+        assertSame(String.class, result.clazz);
+    }
+
+    @Test
+    public void testCurrency() throws Exception
+    {
+        ObjectReader r = MAPPER.readerFor(Currency.class);
+        assertEquals(Currency.getInstance("USD"), r.readValue(VPackUtils.toVPack(q("USD"))));
+
+        try {
+            r.readValue(VPackUtils.toVPack(q("poobah")));
+            fail("Should not pass!");
+        } catch (InvalidFormatException e) {
+            verifyException(e, "Cannot deserialize value of type `java.util.Currency` from String \"Poobah\"");
+            verifyException(e, "Unrecognized currency");
+        }
+    }
+
+    @Test
+    public void testFile() throws Exception
+    {
+        // Not portable etc... has to do:
+        File src = new File("/test").getAbsoluteFile();
+        String abs = src.getAbsolutePath();
+
+        // escape backslashes (for portability with windows)
+        String json = VPackUtils.toJson(MAPPER.writeValueAsBytes(abs));
+        File result = MAPPER.readValue(VPackUtils.toVPack(json), File.class);
+        assertEquals(abs, result.getAbsolutePath());
+    }
+
+    @Test
+    public void testCharSequence() throws Exception
+    {
+        CharSequence cs = MAPPER.readValue(VPackUtils.toVPack("\"abc\""), CharSequence.class);
+        assertEquals(String.class, cs.getClass());
+        assertEquals("abc", cs.toString());
+    }
+
+    @Test
+    public void testInetAddress() throws Exception
+    {
+        InetAddress address = MAPPER.readValue(VPackUtils.toVPack(q("127.0.0.1")), InetAddress.class);
+        assertEquals("127.0.0.1", address.getHostAddress());
+
+        // should we try resolving host names? That requires connectivity...
+        final String HOST = "google.com";
+        address = MAPPER.readValue(VPackUtils.toVPack(q(HOST)), InetAddress.class);
+        assertEquals(HOST, address.getHostName());
+    }
+
+    @Test
+    public void testInetSocketAddress() throws Exception
+    {
+        ObjectReader r = MAPPER.readerFor(InetSocketAddress.class);
+        InetSocketAddress address = r.readValue(VPackUtils.toVPack(q("127.0.0.1")));
+        assertEquals("127.0.0.1", address.getHostName());
+
+        InetSocketAddress ip6 = r.readValue(VPackUtils.toVPack(q("2001:db8:85a3:8d3:1319:8a2e:370:7348")));
+        assertEquals("2001:db8:85a3:8d3:1319:8a2e:370:7348", ip6.getHostName());
+
+        InetSocketAddress ip6port = r.readValue(VPackUtils.toVPack(
+                q("[2001:db8:85a3:8d3:1319:8a2e:370:7348]:443")));
+        assertEquals("[2001:db8:85a3:8d3:1319:8a2e:370:7348]", ip6port.getHostName());
+        assertEquals(443, ip6port.getPort());
+
+        // should we try resolving host names? That requires connectivity...
+        final String HOST = "www.google.com";
+        address = r.readValue(VPackUtils.toVPack(q(HOST)));
+        assertEquals(HOST, address.getHostName());
+
+        final String HOST_AND_PORT = HOST+":80";
+        address = r.readValue(VPackUtils.toVPack(q(HOST_AND_PORT)));
+        assertEquals(HOST, address.getHostName());
+        assertEquals(80, address.getPort());
+
+        final String BAD_VALUE = "[2001:";
+        try {
+            r.readValue(VPackUtils.toVPack(q(BAD_VALUE)));
+            fail("Should not pass!");
+        } catch (InvalidFormatException e) {
+            verifyException(e, "Cannot deserialize value of type `java.net.InetSocketAddress`");
+            verifyException(e, "from String \""+BAD_VALUE+"\"");
+            verifyException(e, "Bracketed IPv6 address must contain closing bracket");
+        }
+    }
+
+    @Test
+    public void testPattern() throws Exception
+    {
+        Pattern exp = Pattern.compile("abc:\\s?(\\d+)");
+        // Ok: easiest way is to just serialize first; problem
+        // is the backslash
+        String json = VPackUtils.toJson(MAPPER.writeValueAsBytes(exp));
+        Pattern result = MAPPER.readValue(VPackUtils.toVPack(json), Pattern.class);
+        assertEquals(exp.pattern(), result.pattern());
+
+        // [databind#3290]: actually need to retain at least trailing space
+        // (and since we do that, just retain all...)
+        exp = Pattern.compile("^WIN\\ ");
+        json = VPackUtils.toJson(MAPPER.writeValueAsBytes(exp));
+        result = MAPPER.readValue(VPackUtils.toVPack(json), Pattern.class);
+        assertEquals(exp.pattern(), result.pattern());
+
+        // [databind#3598]: should also handle invalid pattern serialization
+        // somewhat gracefully
+        try {
+            MAPPER.readValue(VPackUtils.toVPack(q("[abc")), Pattern.class);
+            fail("Should not pass");
+        } catch (InvalidFormatException e) {
+            verifyException(e, "Cannot deserialize value of type `java.util.regex.Pattern` from String \"[abc\"");
+            verifyException(e, "Invalid pattern, problem");
+        }
+    }
+
+    @Test
+    public void testStringBuilder() throws Exception
+    {
+        ObjectReader r = MAPPER.readerFor(StringBuilder.class);
+        assertEquals("abc", r.readValue(VPackUtils.toVPack(q("abc"))).toString());
+    }
+
+    @Test
+    public void testStringBuffer() throws Exception
+    {
+        ObjectReader r = MAPPER.readerFor(StringBuffer.class);
+        assertEquals("def", r.readValue(VPackUtils.toVPack(q("def"))).toString());
+    }
+
+    @Test
+    public void testURI() throws Exception
+    {
+        final ObjectReader reader = MAPPER.readerFor(URI.class);
+        final URI value = new URI("http://foo.com");
+        assertEquals(value, reader.readValue(VPackUtils.toVPack("\""+value.toString()+"\"")));
+
+        // and finally: broken URI should give proper failure
+        try {
+            URI result = reader.readValue(VPackUtils.toVPack(q("a b")));
+            fail("Should not accept malformed URI, instead got: "+result);
+        } catch (InvalidFormatException e) {
+            verifyException(e, "not a valid textual representation");
+        }
+    }
+
+    @Test
+    public void testURL() throws Exception
+    {
+        URL exp = new URL("http://foo.com");
+        assertEquals(exp, MAPPER.readValue(VPackUtils.toVPack("\""+exp.toString()+"\""), URL.class));
+
+        // trivial case; null to null, embedded URL to URL
+        TokenBuffer buf = TokenBuffer.forGeneration();
+        buf.writePOJO(null);
+        assertNull(MAPPER.readValue(buf.asParser(ObjectReadContext.empty()), URL.class));
+        buf.close();
+
+        // then, URLitself come as is:
+        buf = TokenBuffer.forGeneration();
+        buf.writePOJO(exp);
+        assertSame(exp, MAPPER.readValue(buf.asParser(ObjectReadContext.empty()), URL.class));
+        buf.close();
+    }
+
+    public void testURLInvalid() throws Exception
+    {
+        // and finally, invalid URL should be handled appropriately too
+        try {
+            URL result = MAPPER.readValue(VPackUtils.toVPack(q("a b")), URL.class);
+            fail("Should not accept malformed URI, instead got: "+result);
+        } catch (InvalidFormatException e) {
+            verifyException(e, "not a valid textual representation");
+        }
+    }
+
+
+}

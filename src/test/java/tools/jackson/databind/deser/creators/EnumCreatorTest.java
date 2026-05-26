@@ -1,0 +1,512 @@
+package tools.jackson.databind.deser.creators;
+
+import com.fasterxml.jackson.annotation.*;
+import org.junit.jupiter.api.Test;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.*;
+import tools.jackson.databind.VPackUtils;
+import tools.jackson.databind.cfg.EnumFeature;
+import tools.jackson.databind.deser.Deserializers;
+import tools.jackson.databind.deser.jdk.EnumDeserializer;
+import tools.jackson.databind.exc.ValueInstantiationException;
+import tools.jackson.databind.introspect.AnnotatedMethod;
+import tools.jackson.databind.module.SimpleModule;
+import tools.jackson.databind.testutil.DatabindTestUtil;
+import com.arangodb.jackson.dataformat.velocypack.VPackMapper;
+
+import java.math.BigDecimal;
+import java.util.*;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+public class EnumCreatorTest extends DatabindTestUtil
+{
+    protected enum EnumWithCreator {
+        A, B;
+
+        @JsonCreator
+        public static EnumWithCreator fromEnum(String str) {
+            if ("enumA".equals(str)) return A;
+            if ("enumB".equals(str)) return B;
+            return null;
+        }
+    }
+
+    protected enum EnumWithBDCreator {
+        E5, E8;
+
+        @JsonCreator
+        public static EnumWithBDCreator create(BigDecimal bd) {
+            if (bd.longValue() == 5L) return E5;
+            if (bd.longValue() == 8L) return E8;
+            return null;
+        }
+    }
+
+    protected enum TestEnumFromInt
+    {
+        ENUM_A(1), ENUM_B(2), ENUM_C(3);
+
+        private final int id;
+
+        private TestEnumFromInt(int id) {
+            this.id = id;
+        }
+
+        @JsonCreator public static TestEnumFromInt fromId(int id) {
+            for (TestEnumFromInt e: values()) {
+                if (e.id == id) return e;
+            }
+            return null;
+        }
+    }
+
+    protected enum TestEnumFromString
+    {
+        ENUM_A, ENUM_B, ENUM_C;
+
+        @JsonCreator public static TestEnumFromString fromId(String id) {
+            return valueOf(id);
+        }
+    }
+
+    static enum EnumWithPropertiesModeJsonCreator {
+        TEST1,
+        TEST2,
+        TEST3;
+
+        @JsonGetter("name")
+        public String getName() {
+            return name();
+        }
+
+        @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
+        public static EnumWithPropertiesModeJsonCreator create(@JsonProperty("name") String name) {
+            return EnumWithPropertiesModeJsonCreator.valueOf(name);
+        }
+    }
+
+    static enum EnumWithDelegateModeJsonCreator {
+        TEST1,
+        TEST2,
+        TEST3;
+
+        @JsonGetter("name")
+        public String getName() {
+            return name();
+        }
+
+        @JsonCreator(mode = JsonCreator.Mode.DELEGATING)
+        public static EnumWithDelegateModeJsonCreator create(JsonNode json) {
+            return EnumWithDelegateModeJsonCreator.valueOf(json.get("name").asString());
+        }
+    }
+
+    // [databind#324]: exception from creator method
+    protected enum TestEnum324
+    {
+        A, B;
+
+        @JsonCreator public static TestEnum324 creator(String arg) {
+            throw new RuntimeException("Foobar!");
+        }
+    }
+
+    // [databind#745]
+    static class DelegatingDeserializers extends Deserializers.Base
+    {
+        @Override
+        public ValueDeserializer<?> findEnumDeserializer(JavaType type,
+                DeserializationConfig config, BeanDescription.Supplier beanDescRef)
+        {
+            final Collection<AnnotatedMethod> factoryMethods = beanDescRef.get().getFactoryMethods();
+            if (factoryMethods != null) {
+                for (AnnotatedMethod am : factoryMethods) {
+                    final JsonCreator creator = am.getAnnotation(JsonCreator.class);
+                    if (creator != null) {
+                        return EnumDeserializer.deserializerForCreator(
+                            config, type.getRawClass(), am, null, null, null);
+                    }
+                }
+            }
+            return null;
+        }
+
+        @Override
+        public boolean hasDeserializerFor(DeserializationConfig config,
+                Class<?> valueType) {
+            return false;
+        }
+    }
+
+    // [databind#745]
+    static class DelegatingDeserializersModule extends SimpleModule
+    {
+        private static final long serialVersionUID = 1L;
+
+        @Override
+        public void setupModule(final SetupContext context) {
+            context.addDeserializers(new DelegatingDeserializers());
+        }
+    }
+
+    // [databind#929]: support multi-arg enum creator
+    static enum Enum929
+    {
+        A, B, C;
+
+        @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
+        static Enum929 forValues(@JsonProperty("id") int intProp,
+                                 @JsonProperty("name") String name)
+        {
+            return Enum929.valueOf(name);
+        }
+    }
+
+    static enum MyEnum960
+    {
+        VALUE, BOGUS;
+
+        @JsonCreator
+        public static MyEnum960 getInstance() {
+            return VALUE;
+        }
+    }
+
+    static class MyEnum960Wrapper {
+        public MyEnum960 value;
+    }
+
+    static enum Enum1291 {
+
+        V1("val1"),
+        V2("val2"),
+        V3("val3"),
+        V4("val4"),
+        V5("val5"),
+        V6("val6");
+
+        private final String name;
+
+        Enum1291(String name) {
+            this.name = name;
+        }
+
+        public static Enum1291 fromString(String name) {
+            for (Enum1291 type : Enum1291.values()) {
+                if (type.name.equals(name)) {
+                    return type;
+                }
+            }
+            return Enum1291.valueOf(name.toUpperCase());
+        }
+
+        @Override
+        public String toString() {
+            return name;
+        }
+    }
+
+    // [databind#3280]
+    static enum Enum3280 {
+        x("x"),
+        y("y"),
+        z("z");
+        private final String value;
+        Enum3280(String value) {
+            this.value = value;
+        }
+        @JsonCreator
+        public static Enum3280 getByValue(@JsonProperty("b") String value) {
+            for (Enum3280 e : Enum3280.values()) {
+                if (e.value.equals(value)) {
+                    return e;
+                }
+            }
+            return null;
+        }
+    }
+
+    // [databind#5395]: @JsonCreator on Enum supporting both DELEGATING and PROPERTIES mode
+    @JsonFormat(shape = JsonFormat.Shape.OBJECT)
+    @JsonIncludeProperties({"code", "desc"})
+    enum ChannelEnum {
+        ALIPAY(0, "Alipay"),
+        WECHAT(1, "WeChat");
+
+        private final int code;
+        private final String desc;
+
+        ChannelEnum(int code, String desc) {
+            this.code = code;
+            this.desc = desc;
+        }
+
+        @JsonProperty("code")
+        public int getCode() {
+            return code;
+        }
+
+        @JsonProperty("desc")
+        public String getDesc() {
+            return desc;
+        }
+
+        @JsonCreator
+        private static ChannelEnum ofCode(@JsonProperty("code") String code) {
+            if (code == null) {
+                return null;
+            }
+            int codeInt = Integer.parseInt(code);
+            for (ChannelEnum ch : values()) {
+                if (ch.code == codeInt) {
+                    return ch;
+                }
+            }
+            return null;
+        }
+    }
+
+    static class DataClass4544 {
+        public DataEnum4544 data;
+    }
+
+    public enum DataEnum4544
+    {
+        TEST(0);
+
+        private final int data;
+
+        DataEnum4544(int data) {
+            this.data = data;
+        }
+
+        // Important! Without ignoring accessor will find logical property
+        // that matches Creator parameter... and assume properties-based
+        @JsonIgnore
+        public int getData() {
+            return data;
+        }
+
+        @JsonCreator
+        public static DataEnum4544 of(@ImplicitName("data") int data) {
+            return Arrays.stream(values())
+                    .filter(it -> it.getData() == data)
+                    .findAny().get();
+        }
+    }
+
+    /*
+    /**********************************************************
+    /* Test methods
+    /**********************************************************
+     */
+
+    protected final ObjectMapper MAPPER = newVPackMapper();
+
+    @Test
+    public void testCreatorEnums() throws Exception {
+        EnumWithCreator value = MAPPER.readValue(VPackUtils.toVPack("\"enumA\""), EnumWithCreator.class);
+        assertEquals(EnumWithCreator.A, value);
+    }
+
+    @Test
+    public void testCreatorEnumsFromBigDecimal() throws Exception {
+        EnumWithBDCreator value = MAPPER.readValue(VPackUtils.toVPack("\"8.0\""), EnumWithBDCreator.class);
+        assertEquals(EnumWithBDCreator.E8, value);
+    }
+
+    @Test
+    public void testEnumWithCreatorEnumMaps() throws Exception {
+        EnumMap<EnumWithCreator,String> value = MAPPER.readValue(VPackUtils.toVPack("{\"enumA\":\"value\"}"),
+                new TypeReference<EnumMap<EnumWithCreator,String>>() {});
+        assertEquals("value", value.get(EnumWithCreator.A));
+    }
+
+    @Test
+    public void testEnumWithCreatorMaps() throws Exception {
+        HashMap<EnumWithCreator,String> value = MAPPER.readValue(VPackUtils.toVPack("{\"enumA\":\"value\"}"),
+                new TypeReference<HashMap<EnumWithCreator,String>>() {});
+        assertEquals("value", value.get(EnumWithCreator.A));
+    }
+
+    @Test
+    public void testEnumWithCreatorEnumSets() throws Exception {
+        EnumSet<EnumWithCreator> value = MAPPER.readValue(VPackUtils.toVPack("[\"enumA\"]"),
+                new TypeReference<EnumSet<EnumWithCreator>>() {});
+        assertTrue(value.contains(EnumWithCreator.A));
+    }
+
+    @Test
+    public void testJsonCreatorPropertiesWithEnum() throws Exception
+    {
+        EnumWithPropertiesModeJsonCreator type1 = MAPPER.readValue(VPackUtils.toVPack("{\"name\":\"TEST1\", \"description\":\"TEST\"}"), EnumWithPropertiesModeJsonCreator.class);
+        assertSame(EnumWithPropertiesModeJsonCreator.TEST1, type1);
+
+        EnumWithPropertiesModeJsonCreator type2 = MAPPER.readValue(VPackUtils.toVPack("{\"name\":\"TEST3\", \"description\":\"TEST\"}"), EnumWithPropertiesModeJsonCreator.class);
+        assertSame(EnumWithPropertiesModeJsonCreator.TEST3, type2);
+
+    }
+
+    @Test
+    public void testJsonCreatorDelagateWithEnum() throws Exception {
+        final ObjectMapper mapper = new VPackMapper();
+
+        EnumWithDelegateModeJsonCreator type1 = mapper.readValue(VPackUtils.toVPack("{\"name\":\"TEST1\", \"description\":\"TEST\"}"), EnumWithDelegateModeJsonCreator.class);
+        assertSame(EnumWithDelegateModeJsonCreator.TEST1, type1);
+
+        EnumWithDelegateModeJsonCreator type2 = mapper.readValue(VPackUtils.toVPack("{\"name\":\"TEST3\", \"description\":\"TEST\"}"), EnumWithDelegateModeJsonCreator.class);
+        assertSame(EnumWithDelegateModeJsonCreator.TEST3, type2);
+
+    }
+
+    @Test
+    public void testEnumsFromInts() throws Exception
+    {
+        Object ob = MAPPER.readValue(VPackUtils.toVPack("1 "), TestEnumFromInt.class);
+        assertEquals(TestEnumFromInt.class, ob.getClass());
+        assertSame(TestEnumFromInt.ENUM_A, ob);
+    }
+
+    // [databind#324]
+    @Test
+    public void testExceptionFromCreator() throws Exception
+    {
+        try {
+            /*TestEnum324 e =*/ MAPPER.readValue(VPackUtils.toVPack(q("xyz")), TestEnum324.class);
+            fail("Should throw exception");
+        } catch (ValueInstantiationException e) {
+            verifyException(e, "foobar");
+        }
+    }
+
+    // [databind#745]
+    @Test
+    public void testDeserializerForCreatorWithEnumMaps() throws Exception
+    {
+        final ObjectMapper mapper = vpackMapperBuilder()
+                .addModule(new DelegatingDeserializersModule())
+                .build();
+        EnumMap<EnumWithCreator,String> value = mapper.readValue(VPackUtils.toVPack("{\"enumA\":\"value\"}"),
+                new TypeReference<EnumMap<EnumWithCreator,String>>() {});
+        assertEquals("value", value.get(EnumWithCreator.A));
+    }
+
+    // for [databind#929]
+    @Test
+    public void testMultiArgEnumCreator() throws Exception
+    {
+        Enum929 v = MAPPER.readValue(VPackUtils.toVPack("{\"id\":3,\"name\":\"B\"}"), Enum929.class);
+        assertEquals(Enum929.B, v);
+    }
+
+    // for [databind#960]
+    @Test
+    public void testNoArgEnumCreator() throws Exception
+    {
+        MyEnum960 v = MAPPER.readValue(VPackUtils.toVPack("{\"value\":\"bogus\"}"), MyEnum960.class);
+        assertEquals(MyEnum960.VALUE, v);
+    }
+
+    // for [databind#1291]
+    @Test
+    public void testEnumCreators1291() throws Exception
+    {
+        ObjectMapper mapper = vpackMapperBuilder()
+                .disable(EnumFeature.READ_ENUMS_USING_TO_STRING)
+                .disable(EnumFeature.WRITE_ENUMS_USING_TO_STRING)
+                .build();
+        String json = VPackUtils.toJson(mapper.writeValueAsBytes(Enum1291.V2));
+        Enum1291 result = mapper.readValue(VPackUtils.toVPack(json), Enum1291.class);
+        assertSame(Enum1291.V2, result);
+    }
+
+    // for [databind#1389]
+    @Test
+    public void testMultiArgEnumInCollections() throws Exception
+    {
+        EnumSet<Enum929> valueEnumSet = MAPPER.readValue(VPackUtils.toVPack("[{\"id\":3,\"name\":\"B\"}, {\"id\":3,\"name\":\"A\"}]"),
+                new TypeReference<EnumSet<Enum929>>() {});
+        assertEquals(2, valueEnumSet.size());
+        assertTrue(valueEnumSet.contains(Enum929.A));
+        assertTrue(valueEnumSet.contains(Enum929.B));
+        List<Enum929> valueList = MAPPER.readValue(VPackUtils.toVPack("[{\"id\":3,\"name\":\"B\"}, {\"id\":3,\"name\":\"A\"}, {\"id\":3,\"name\":\"B\"}]"),
+                new TypeReference<List<Enum929>>() {});
+        assertEquals(3, valueList.size());
+        assertEquals(Enum929.B, valueList.get(2));
+    }
+
+    // for [databind#3280]
+    @Test
+    public void testPropertyCreatorEnum3280() throws Exception
+    {
+        final ObjectReader r = MAPPER.readerFor(Enum3280.class);
+        assertEquals(Enum3280.x, r.readValue(VPackUtils.toVPack("{\"b\":\"x\"}")));
+        assertEquals(Enum3280.x, r.readValue(VPackUtils.toVPack("{\"a\":\"1\", \"b\":\"x\"}")));
+        assertEquals(Enum3280.y, r.readValue(VPackUtils.toVPack("{\"b\":\"y\", \"a\":{}}")));
+        assertEquals(Enum3280.y, r.readValue(VPackUtils.toVPack("{\"b\":\"y\", \"a\":{}}")));
+        assertEquals(Enum3280.x, r.readValue(VPackUtils.toVPack("{\"a\":[], \"b\":\"x\"}")));
+        assertEquals(Enum3280.x, r.readValue(VPackUtils.toVPack("{\"a\":{}, \"b\":\"x\"}")));
+    }
+
+    // for [databind#3655]
+    @Test
+    public void testEnumsFromIntsUnwrapped() throws Exception
+    {
+        Object ob = MAPPER
+                .readerFor(TestEnumFromInt.class)
+                .with(DeserializationFeature.UNWRAP_SINGLE_VALUE_ARRAYS)
+                .readValue(VPackUtils.toVPack("[1]"));
+        assertEquals(TestEnumFromInt.class, ob.getClass());
+        assertSame(TestEnumFromInt.ENUM_A, ob);
+    }
+
+    // for [databind#3655]
+    @Test
+    public void testEnumsFromStringUnwrapped() throws Exception
+    {
+        Object ob = MAPPER
+                .readerFor(TestEnumFromString.class)
+                .with(DeserializationFeature.UNWRAP_SINGLE_VALUE_ARRAYS)
+                .readValue(VPackUtils.toVPack("[\"ENUM_A\"]"));
+        assertEquals(TestEnumFromString.class, ob.getClass());
+        assertSame(TestEnumFromString.ENUM_A, ob);
+    }
+
+    // for [databind#4544]
+    @Test
+    void testEnumsWithImplicitNames4544() throws Exception {
+        final ObjectMapper mapper = vpackMapperBuilder()
+                .annotationIntrospector(new ImplicitNameIntrospector())
+                .build();
+
+        String json = a2q("{'data': 0}");
+        DataClass4544 data = mapper.readValue(VPackUtils.toVPack(json), DataClass4544.class);
+
+        assertEquals(DataEnum4544.TEST, data.data);
+    }
+
+    // [databind#5395]: Test PROPERTIES mode: deserialize from JSON object {"code": 1}
+    @Test
+    public void testEnumDualModeProperties5395() throws Exception {
+        String json = a2q("{'code': 1}");
+        ChannelEnum channel = MAPPER.readValue(VPackUtils.toVPack(json), ChannelEnum.class);
+        assertSame(ChannelEnum.WECHAT, channel);
+    }
+
+    // [databind#5395]: Test DELEGATING mode: deserialize from scalar value 1
+    @Test
+    public void testEnumDualModeDelegating5395() throws Exception {
+        String json = "1";
+        ChannelEnum channel = MAPPER.readValue(VPackUtils.toVPack(json), ChannelEnum.class);
+        assertSame(ChannelEnum.WECHAT, channel);
+    }
+
+    // [databind#5395]: Test with missing "code" property: should return null
+    @Test
+    public void testEnumDualModeNoCode5395() throws Exception {
+        String json = a2q("{'desc': 'Alipay'}");
+        ChannelEnum channel = MAPPER.readValue(VPackUtils.toVPack(json), ChannelEnum.class);
+        assertNull(channel);
+    }
+}

@@ -1,0 +1,170 @@
+package tools.jackson.databind.deser.inject;
+
+import com.fasterxml.jackson.annotation.JacksonInject;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.OptBoolean;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import tools.jackson.databind.InjectableValues;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.VPackUtils;
+import tools.jackson.databind.testutil.DatabindTestUtil;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+
+class JacksonInject1381WithOptionalTest extends DatabindTestUtil
+{
+    static class InputDefault
+    {
+        @JacksonInject(value = "key", optional = OptBoolean.TRUE)
+        @JsonProperty("field")
+        private final String _field;
+
+        @JsonCreator
+        public InputDefault(@JsonProperty("field") final String field) {
+            _field = field;
+        }
+
+        public String getField() {
+            return _field;
+        }
+    }
+
+    static class InputDefaultConstructor
+    {
+        private final String _field;
+
+        @JsonCreator
+        public InputDefaultConstructor(@JacksonInject(value = "key", optional = OptBoolean.TRUE)
+                            @JsonProperty("field") final String field) {
+            _field = field;
+        }
+
+        public String getField() {
+            return _field;
+        }
+    }
+
+    static class InputTrue
+    {
+        @JacksonInject(value = "key", useInput = OptBoolean.TRUE, optional = OptBoolean.TRUE)
+        @JsonProperty("field")
+        private final String _field;
+
+        @JsonCreator
+        public InputTrue(@JsonProperty("field") final String field) {
+            _field = field;
+        }
+
+        public String getField() {
+            return _field;
+        }
+    }
+
+    static class InputTrueConstructor
+    {
+        private final String _field;
+
+        @JsonCreator
+        public InputTrueConstructor(@JacksonInject(value = "key", useInput = OptBoolean.TRUE, optional = OptBoolean.TRUE)
+                         @JsonProperty("field") final String field) {
+            _field = field;
+        }
+
+        public String getField() {
+            return _field;
+        }
+
+    }
+
+    static class InputFalse
+    {
+        @JacksonInject(value = "key", useInput = OptBoolean.FALSE, optional = OptBoolean.TRUE)
+        @JsonProperty("field")
+        private final String _field;
+
+        @JsonCreator
+        public InputFalse(@JsonProperty("field") final String field) {
+            _field = field;
+        }
+
+        public String getField() {
+            return _field;
+        }
+    }
+
+    static class InputFalseConstructor
+    {
+        private final String _field;
+
+        @JsonCreator
+        public InputFalseConstructor(@JacksonInject(value = "key", useInput = OptBoolean.FALSE, optional = OptBoolean.TRUE)
+                          @JsonProperty("field") final String field) {
+            _field = field;
+        }
+
+        public String getField() {
+            return _field;
+        }
+    }
+
+    private final String empty = "{}";
+    private final String input = "{\"field\": \"input\"}";
+
+    private final ObjectMapper plainMapper = newVPackMapper();
+    private final ObjectMapper injectedMapper = vpackMapperBuilder()
+            .injectableValues(new InjectableValues.Std().addValue("key", "injected"))
+            .build();
+
+    // Optional=true so should NOT throw exceptions
+    @Test
+    @DisplayName("optional YES, input NO, injectable NO, useInput DEFAULT|TRUE|FALSE => exception")
+    void test1() throws Exception {
+        assertNull(plainMapper.readValue(VPackUtils.toVPack(empty), InputDefault.class).getField());
+        assertNull(plainMapper.readValue(VPackUtils.toVPack(empty), InputDefaultConstructor.class).getField());
+        assertNull(plainMapper.readValue(VPackUtils.toVPack(empty), InputTrue.class).getField());
+        assertNull(plainMapper.readValue(VPackUtils.toVPack(empty), InputTrueConstructor.class).getField());
+        assertNull(plainMapper.readValue(VPackUtils.toVPack(empty), InputFalse.class).getField());
+        assertNull(plainMapper.readValue(VPackUtils.toVPack(empty), InputFalseConstructor.class).getField());
+    }
+
+    @Test
+    @DisplayName("optional YES, input NO, injectable YES, useInput DEFAULT|TRUE|FALSE => injected")
+    void test2() throws Exception {
+        assertEquals("injected", injectedMapper.readValue(VPackUtils.toVPack(empty), InputDefault.class).getField());
+        assertEquals("injected", injectedMapper.readValue(VPackUtils.toVPack(empty), InputDefaultConstructor.class).getField());
+        assertEquals("injected", injectedMapper.readValue(VPackUtils.toVPack(empty), InputTrue.class).getField());
+        assertEquals("injected", injectedMapper.readValue(VPackUtils.toVPack(empty), InputTrueConstructor.class).getField());
+        assertEquals("injected", injectedMapper.readValue(VPackUtils.toVPack(empty), InputFalse.class).getField());
+        assertEquals("injected", injectedMapper.readValue(VPackUtils.toVPack(empty), InputFalseConstructor.class).getField());
+    }
+
+    @Test
+    @DisplayName("optional YES, input YES, injectable NO, useInput DEFAULT|TRUE|FALSE => [varied]")
+    void test3() throws Exception {
+        assertEquals("input", plainMapper.readValue(VPackUtils.toVPack(input), InputDefault.class).getField());
+        assertEquals("input", plainMapper.readValue(VPackUtils.toVPack(input), InputDefaultConstructor.class).getField());
+        assertNull(plainMapper.readValue(VPackUtils.toVPack(input), InputFalse.class).getField());
+        assertNull(plainMapper.readValue(VPackUtils.toVPack(input), InputFalseConstructor.class).getField());
+        assertEquals("input", plainMapper.readValue(VPackUtils.toVPack(input), InputTrue.class).getField());
+        assertEquals("input", plainMapper.readValue(VPackUtils.toVPack(input), InputTrueConstructor.class).getField());
+    }
+
+    @Test
+    @DisplayName("optional YES, input YES, injectable YES, useInput DEFAULT|FALSE => injected")
+    void test4() throws Exception {
+        assertEquals("injected", injectedMapper.readValue(VPackUtils.toVPack(input), InputDefault.class).getField());
+        assertEquals("injected", injectedMapper.readValue(VPackUtils.toVPack(input), InputDefaultConstructor.class).getField());
+        assertEquals("injected", injectedMapper.readValue(VPackUtils.toVPack(input), InputFalse.class).getField());
+        assertEquals("injected", injectedMapper.readValue(VPackUtils.toVPack(input), InputFalseConstructor.class).getField());
+    }
+
+    @Test
+    @DisplayName("optional YES, input YES, injectable YES, useInput TRUE => input")
+    void test5() throws Exception {
+        assertEquals("input", injectedMapper.readValue(VPackUtils.toVPack(input), InputTrue.class).getField());
+        assertEquals("input", injectedMapper.readValue(VPackUtils.toVPack(input), InputTrueConstructor.class).getField());
+    }
+}

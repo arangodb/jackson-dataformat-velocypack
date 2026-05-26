@@ -1,0 +1,173 @@
+package tools.jackson.databind.deser.enums;
+
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import org.junit.jupiter.api.Test;
+import tools.jackson.databind.MapperFeature;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.VPackUtils;
+import tools.jackson.databind.cfg.EnumFeature;
+import tools.jackson.databind.exc.InvalidFormatException;
+import com.arangodb.jackson.dataformat.velocypack.VPackMapper;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static tools.jackson.databind.testutil.DatabindTestUtil.*;
+
+public class EnumDeserMixin2787Test
+{
+    static enum Enum2787 {
+        ITEM_A,
+
+        @JsonAlias({"B_ORIGIN_ALIAS_1", "B_ORIGIN_ALIAS_2"})
+        @JsonProperty("B_ORIGIN_PROP")
+        ITEM_B,
+
+        @JsonAlias({"C_ORIGIN_ALIAS"})
+        @JsonProperty("C_ORIGIN_PROP")
+        ITEM_C,
+
+        ITEM_ORIGIN
+    }
+
+    static enum EnumMixin2787 {
+        ITEM_A,
+
+        @JsonProperty("B_MIXIN_PROP")
+        ITEM_B,
+
+        @JsonAlias({"C_MIXIN_ALIAS_1", "C_MIXIN_ALIAS_2"})
+        @JsonProperty("C_MIXIN_PROP")
+        ITEM_C,
+
+        ITEM_MIXIN;
+
+        @Override
+        public String toString() {
+            return "SHOULD NOT USE WITH TO STRING";
+        }
+    }
+
+    static class EnumWrapper {
+        public Enum2787 value;
+    }
+
+    static class Bean2787 {
+        public String x;
+    }
+
+    static class BeanMixin2787 {
+        @JsonProperty("x_mixin")
+        public String x;
+    }
+
+    /*
+    /**********************************************************************
+    /* Test methods
+    /**********************************************************************
+     */
+
+    private final ObjectMapper MAPPER_ENUM_MIXIN
+        = mapperWithMixIn(Enum2787.class, EnumMixin2787.class);
+
+    @Test
+    public void testEnumDeserSuccess() throws Exception {
+        assertEquals(Enum2787.ITEM_B,
+                MAPPER_ENUM_MIXIN.readValue(VPackUtils.toVPack(q("B_MIXIN_PROP")), Enum2787.class));
+    }
+
+    @Test
+    public void testEnumMixinRoundTripSerDeser() throws Exception {
+        // ser -> deser
+        // from
+        String result = VPackUtils.toJson(MAPPER_ENUM_MIXIN.writeValueAsBytes(Enum2787.ITEM_B));
+        assertEquals(q("B_MIXIN_PROP"), result);
+        // to
+        Enum2787 result2 = MAPPER_ENUM_MIXIN.readValue(VPackUtils.toVPack(result), Enum2787.class);
+        assertEquals(Enum2787.ITEM_B, result2);
+    }
+
+    @Test
+    public void testEnumMixinRoundTripDeserSer() throws Exception {
+        // deser -> ser
+        // from
+        Enum2787 result = MAPPER_ENUM_MIXIN.readValue(VPackUtils.toVPack(q("B_MIXIN_PROP")), Enum2787.class);
+        assertEquals(Enum2787.ITEM_B, result);
+        // to
+        String value = VPackUtils.toJson(MAPPER_ENUM_MIXIN.writeValueAsBytes(result));
+        assertEquals(q("B_MIXIN_PROP"), value);
+    }
+
+    @Test
+    public void testBeanMixin() throws Exception {
+        ObjectMapper mapper = mapperWithMixIn(Bean2787.class, BeanMixin2787.class);
+        Bean2787 result = mapper.readValue(VPackUtils.toVPack(a2q("{'x_mixin': 'value'}")), Bean2787.class);
+        assertEquals("value", result.x);
+    }
+
+    @Test
+    public void testEnumDeserSuccessCaseInsensitive() throws Exception {
+        ObjectMapper mapper = builderWithMixIn(Enum2787.class, EnumMixin2787.class)
+            .enable(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS)
+            .build();
+
+        Enum2787 result = mapper.readValue(VPackUtils.toVPack(q("B_mIxIn_pRoP")), Enum2787.class);
+        assertEquals(Enum2787.ITEM_B, result);
+    }
+
+    @Test
+    public void testEnumDeserSuccessMissingFromMixIn() throws Exception {
+        assertEquals(Enum2787.ITEM_ORIGIN,
+                MAPPER_ENUM_MIXIN.readValue(VPackUtils.toVPack(q("ITEM_ORIGIN")), Enum2787.class));
+    }
+
+    @Test
+    public void testEnumDeserMixinFail() throws Exception {
+        // fail for Bean property name
+        InvalidFormatException e = assertThrows(InvalidFormatException.class,
+                () -> MAPPER_ENUM_MIXIN.readValue(VPackUtils.toVPack(q("tax10")), Enum2787.class));
+        verifyException(e, "tax10", "not one of the values accepted for Enum class");
+
+        // fail for Bean's JsonProperty because overridden
+        InvalidFormatException e2 = assertThrows(InvalidFormatException.class,
+                () -> MAPPER_ENUM_MIXIN.readValue(VPackUtils.toVPack(q("B_ORIGIN_PROP")), Enum2787.class));
+        verifyException(e2, "B_ORIGIN_PROP", "not one of the values accepted for Enum class");
+    }
+
+    @Test
+    public void testMixInItselfNonJsonProperty() throws Exception {
+        EnumMixin2787 result = MAPPER_ENUM_MIXIN.readValue(VPackUtils.toVPack(q("ITEM_MIXIN")), EnumMixin2787.class);
+
+        assertEquals(EnumMixin2787.ITEM_MIXIN, result);
+    }
+
+    @Test
+    public void testMixInValueForTargetClass() throws Exception {
+        InvalidFormatException e = assertThrows(InvalidFormatException.class,
+                () -> MAPPER_ENUM_MIXIN.readValue(VPackUtils.toVPack(q("tax30")), Enum2787.class));
+        verifyException(e, " String \"tax30\": not one of the values accepted for Enum class:");
+    }
+
+    @Test
+    public void testMixinOnEnumValuesThrowWhenUnknown() throws Exception {
+        InvalidFormatException e = assertThrows(InvalidFormatException.class,
+                () -> MAPPER_ENUM_MIXIN.readValue(VPackUtils.toVPack(q("should-not-exist")), Enum2787.class));
+        verifyException(e, "should-not-exist", "not one of the values accepted for Enum class");
+    }
+
+    @Test
+    public void testMixinForWrapper() throws Exception {
+        EnumWrapper result = MAPPER_ENUM_MIXIN.readValue(VPackUtils.toVPack(a2q("{'value': 'C_MIXIN_ALIAS_1'}")), EnumWrapper.class);
+
+        assertEquals(Enum2787.ITEM_C, result.value);
+    }
+
+    private static ObjectMapper mapperWithMixIn(Class<?> target, Class<?> mixin) {
+        return builderWithMixIn(target, mixin).build();
+    }
+
+    private static VPackMapper.Builder builderWithMixIn(Class<?> target, Class<?> mixin) {
+        return vpackMapperBuilder().disable(EnumFeature.READ_ENUMS_USING_TO_STRING)
+                .addMixIn(target, mixin);
+    }
+}

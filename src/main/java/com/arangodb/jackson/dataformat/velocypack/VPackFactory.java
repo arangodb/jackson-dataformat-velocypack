@@ -1,61 +1,95 @@
 package com.arangodb.jackson.dataformat.velocypack;
 
-import com.arangodb.jackson.dataformat.velocypack.internal.VPackGenerator;
-import com.arangodb.jackson.dataformat.velocypack.internal.VPackParser;
-import com.fasterxml.jackson.core.*;
-import com.fasterxml.jackson.core.format.InputAccessor;
-import com.fasterxml.jackson.core.format.MatchStrength;
-import com.fasterxml.jackson.core.io.IOContext;
-import com.fasterxml.jackson.core.json.PackageVersion;
-import org.slf4j.LoggerFactory;
+import tools.jackson.core.*;
+import tools.jackson.core.base.BinaryTSFactory;
+import tools.jackson.core.io.IOContext;
+import tools.jackson.core.sym.BinaryNameMatcher;
+import tools.jackson.core.sym.ByteQuadsCanonicalizer;
+import tools.jackson.core.sym.PropertyNameMatcher;
+import tools.jackson.core.util.Named;
+import tools.jackson.databind.cfg.PackageVersion;
 
 import java.io.*;
-import java.net.URL;
+import java.util.List;
+import java.util.Locale;
 
-public class VPackFactory extends JsonFactory {
-    private static final long serialVersionUID = 1;
-
-    static {
-        Version version = com.fasterxml.jackson.databind.cfg.PackageVersion.VERSION;
-        int major = version.getMajorVersion();
-        int minor = version.getMinorVersion();
-        if (major != 2 || minor < 10 || minor > 20) {
-            LoggerFactory.getLogger(VPackFactory.class)
-                    .warn("Unsupported version of jackson-databind: {}", version);
-        }
-    }
+/**
+ * Factory used for constructing {@link VPackParser} and {@link VPackGenerator}
+ * instances; both of which handle
+ * <a href="https://github.com/arangodb/velocypack">VelocyPack</a> encoded data.
+ *<p>
+ * Note on using non-byte-based sources/targets (char-based, like
+ * {@link Reader} and {@link Writer}): these can not be
+ * used for VelocyPack documents.
+ */
+public class VPackFactory
+    extends BinaryTSFactory
+    implements Serializable
+{
+    @Serial
+    private static final long serialVersionUID = 1L;
 
     /*
-    /**********************************************************
+    /**********************************************************************
     /* Constants
-    /**********************************************************
+    /**********************************************************************
      */
 
     /**
-     * Name used to identify Velocypack format.
-     * (and returned by {@link #getFormatName()}
+     * Name used to identify VelocyPack format.
+     * (and returned by {@link #getFormatName()})
      */
-    public static final String FORMAT_NAME_VELOCYPACK = "Velocypack";
+    public final static String FORMAT_NAME_VPACK = "VelocyPack";
+
+    /**
+     * Bitfield (set of flags) of all parser features that are enabled
+     * by default.
+     */
+    final static int DEFAULT_VPACK_PARSER_FEATURE_FLAGS = VPackReadFeature.collectDefaults();
+
+    /**
+     * Bitfield (set of flags) of all generator features that are enabled
+     * by default.
+     */
+    final static int DEFAULT_VPACK_GENERATOR_FEATURE_FLAGS = VPackWriteFeature.collectDefaults();
 
     /*
-    /**********************************************************
-    /* Factory construction, configuration
-    /**********************************************************
+    /**********************************************************************
+    /* Symbol table management
+    /**********************************************************************
      */
 
+    /**
+     * Alternative to the basic symbol table; stream-based parsers use this
+     * for name canonicalization.
+     */
+    protected final transient ByteQuadsCanonicalizer _byteSymbolCanonicalizer = ByteQuadsCanonicalizer.createRoot();
+
+    /*
+    /**********************************************************************
+    /* Factory construction, configuration
+    /**********************************************************************
+     */
+
+    /**
+     * Default constructor used to create factory instances.
+     */
     public VPackFactory() {
+        super(StreamReadConstraints.defaults(), StreamWriteConstraints.defaults(),
+                ErrorReportConfiguration.defaults(),
+                DEFAULT_VPACK_PARSER_FEATURE_FLAGS, DEFAULT_VPACK_GENERATOR_FEATURE_FLAGS);
     }
 
-    public VPackFactory(ObjectCodec codec) {
-        super(codec);
+    public VPackFactory(VPackFactory src)
+    {
+        super(src);
     }
 
-    protected VPackFactory(VPackFactory src, ObjectCodec oc) {
-        super(src, oc);
-    }
-
+    /**
+     * Constructor used by {@link VPackFactoryBuilder} for instantiation.
+     */
     protected VPackFactory(VPackFactoryBuilder b) {
-        super(b, false);
+        super(b);
     }
 
     @Override
@@ -64,8 +98,8 @@ public class VPackFactory extends JsonFactory {
     }
 
     /**
-     * Main factory method to use for constructing {@link VPackFactory} instances with
-     * different configuration.
+     * Main factory method to use for constructing {@link VPackFactory} instances
+     * with different configuration.
      */
     public static VPackFactoryBuilder builder() {
         return new VPackFactoryBuilder();
@@ -73,30 +107,32 @@ public class VPackFactory extends JsonFactory {
 
     @Override
     public VPackFactory copy() {
-        _checkInvalidCopy(VPackFactory.class);
-        return new VPackFactory(this, null);
+        return new VPackFactory(this);
     }
-
-    /*
-    /**********************************************************
-    /* Serializable overrides
-    /**********************************************************
-     */
 
     /**
-     * Method that we need to override to actually make restoration go
-     * through constructors etc.
-     * Also: must be overridden by sub-classes as well.
+     * Instances are immutable so just return {@code this}.
      */
     @Override
-    protected Object readResolve() {
-        return new VPackFactory(this, _objectCodec);
+    public TokenStreamFactory snapshot() {
+        return this;
     }
 
     /*
-    /**********************************************************
-    /* Versioned
-    /**********************************************************
+    /**********************************************************************
+    /* Serializable overrides
+    /**********************************************************************
+     */
+
+    @Serial
+    protected Object readResolve() {
+        return new VPackFactory(this);
+    }
+
+    /*
+    /**********************************************************************
+    /* Capability introspection
+    /**********************************************************************
      */
 
     @Override
@@ -104,169 +140,115 @@ public class VPackFactory extends JsonFactory {
         return PackageVersion.VERSION;
     }
 
+    @Override
+    public boolean canParseAsync() { return false; }
+
+    /**
+     * Check whether specified parser feature is enabled.
+     */
+    public final boolean isEnabled(VPackReadFeature f) {
+        return f.enabledIn(_formatReadFeatures);
+    }
+
+    /**
+     * Check whether specified generator feature is enabled.
+     */
+    public final boolean isEnabled(VPackWriteFeature f) {
+        return f.enabledIn(_formatWriteFeatures);
+    }
+
     /*
-    /**********************************************************
-    /* Format detection functionality
-    /**********************************************************
+    /**********************************************************************
+    /* Format support
+    /**********************************************************************
      */
 
     @Override
     public String getFormatName() {
-        return FORMAT_NAME_VELOCYPACK;
+        return FORMAT_NAME_VPACK;
     }
 
-    /**
-     * Sub-classes need to override this method
-     */
     @Override
-    public MatchStrength hasFormat(InputAccessor acc) {
-        // TODO, if possible... probably isn't?
-        return MatchStrength.INCONCLUSIVE;
-    }
-
-    /*
-    /**********************************************************
-    /* Capability introspection
-    /**********************************************************
-     */
-
-    @Override
-    public boolean requiresPropertyOrdering() {
+    public boolean canUseSchema(FormatSchema schema) {
         return false;
     }
 
     @Override
-    public boolean canHandleBinaryNatively() {
-        return true;
+    public Class<VPackReadFeature> getFormatReadFeatureType() {
+        return VPackReadFeature.class;
     }
 
     @Override
-    public boolean canUseCharArrays() {
-        return false;
+    public Class<VPackWriteFeature> getFormatWriteFeatureType() {
+        return VPackWriteFeature.class;
     }
 
     /*
-    /**********************************************************
-    /* Overridden parser factory methods
-    /**********************************************************
+    /**********************************************************************
+    /* Factory method impls: parsers
+    /**********************************************************************
      */
 
-    @SuppressWarnings("resource")
     @Override
-    public VPackParser createParser(File f) throws IOException {
-        final IOContext ctxt = _createContext(f, true);
-        return _createParser(_decorate(new FileInputStream(f), ctxt), ctxt);
+    protected JsonParser _createParser(ObjectReadContext readCtxt, IOContext ioCtxt,
+            InputStream in)
+    {
+        return new VPackParserBootstrapper(ioCtxt, in)
+            .constructParser(readCtxt, _factoryFeatures,
+                    readCtxt.getStreamReadFeatures(_streamReadFeatures),
+                    readCtxt.getFormatReadFeatures(_formatReadFeatures),
+                    _byteSymbolCanonicalizer);
     }
 
     @Override
-    public VPackParser createParser(URL url) throws IOException {
-        final IOContext ctxt = _createContext(url, true);
-        return _createParser(_decorate(_optimizedStreamFromURL(url), ctxt), ctxt);
+    protected JsonParser _createParser(ObjectReadContext readCtxt, IOContext ioCtxt,
+            byte[] data, int offset, int len)
+    {
+        // Validate doc length up front for fixed buffers
+        _streamReadConstraints.validateDocumentLength(len);
+        return new VPackParserBootstrapper(ioCtxt, data, offset, len)
+            .constructParser(readCtxt, _factoryFeatures,
+                readCtxt.getStreamReadFeatures(_streamReadFeatures),
+                readCtxt.getFormatReadFeatures(_formatReadFeatures),
+                _byteSymbolCanonicalizer);
     }
 
     @Override
-    public VPackParser createParser(InputStream in) throws IOException {
-        final IOContext ctxt = _createContext(in, false);
-        return _createParser(_decorate(in, ctxt), ctxt);
-    }
-
-    @Override
-    public VPackParser createParser(byte[] data) {
-        return _createParser(data, 0, data.length, _createContext(data, true));
-    }
-
-    @SuppressWarnings("resource")
-    @Override
-    public VPackParser createParser(byte[] data, int offset, int len) throws IOException {
-        IOContext ctxt = _createContext(data, true);
-        if (_inputDecorator != null) {
-            InputStream in = _inputDecorator.decorate(ctxt, data, 0, data.length);
-            if (in != null) {
-                return _createParser(in, ctxt);
-            }
-        }
-        return _createParser(data, offset, len, ctxt);
+    protected JsonParser _createParser(ObjectReadContext readCtxt, IOContext ioCtxt,
+            DataInput input) {
+        return _unsupported();
     }
 
     /*
-    /**********************************************************
-    /* Overridden generator factory methods
-    /**********************************************************
+    /**********************************************************************
+    /* Factory method impls: generators
+    /**********************************************************************
      */
 
     @Override
-    public VPackGenerator createGenerator(OutputStream out, JsonEncoding enc) throws IOException {
-        IOContext ctxt = _createContext(out, false);
-        ctxt.setEncoding(enc);
-        return createVelocypackGenerator(ctxt, _generatorFeatures, _objectCodec, _decorate(out, ctxt));
-    }
-
-    /**
-     * Method for constructing {@link JsonGenerator} for generating
-     * velocypack-encoded output.
-     * <p>
-     * Since velocypack format always uses UTF-8 internally, no encoding need
-     * to be passed to this method.
-     */
-    @Override
-    public VPackGenerator createGenerator(OutputStream out) throws IOException {
-        IOContext ctxt = _createContext(out, false);
-        return createVelocypackGenerator(ctxt, _generatorFeatures, _objectCodec, _decorate(out, ctxt));
+    protected JsonGenerator _createGenerator(ObjectWriteContext writeCtxt,
+            IOContext ioCtxt, OutputStream out)
+    {
+        return new VPackGenerator(writeCtxt, ioCtxt,
+                writeCtxt.getStreamWriteFeatures(_streamWriteFeatures),
+                writeCtxt.getFormatWriteFeatures(_formatWriteFeatures),
+                out);
     }
 
     /*
-    /******************************************************
-    /* Overridden internal factory methods
-    /******************************************************
+    /**********************************************************************
+    /* Other factory methods
+    /**********************************************************************
      */
 
     @Override
-    protected VPackParser _createParser(InputStream in, IOContext ctxt) {
-        throw new UnsupportedOperationException("Stream decoding is not supported!");
+    public PropertyNameMatcher constructNameMatcher(List<Named> matches, boolean alreadyInterned) {
+        return BinaryNameMatcher.constructFrom(matches, alreadyInterned);
     }
 
     @Override
-    protected JsonParser _createParser(Reader r, IOContext ctxt) {
-        return nonByteSource();
-    }
-
-    @Override
-    protected JsonParser _createParser(char[] data, int offset, int len, IOContext ctxt,
-                                       boolean recyclable) {
-        return nonByteSource();
-    }
-
-    @Override
-    protected VPackParser _createParser(byte[] data, int offset, int len, IOContext ctxt) {
-        return new VPackParser(ctxt, _parserFeatures,
-                _objectCodec, data, offset, false);
-    }
-
-    @Override
-    protected VPackGenerator _createGenerator(Writer out, IOContext ctxt) {
-        return nonByteTarget();
-    }
-
-    @Override
-    protected VPackGenerator _createUTF8Generator(OutputStream out, IOContext ctxt) {
-        return createVelocypackGenerator(ctxt, _generatorFeatures, _objectCodec, out);
-    }
-
-    @Override
-    protected Writer _createWriter(OutputStream out, JsonEncoding enc, IOContext ctxt) {
-        return nonByteTarget();
-    }
-
-    private final VPackGenerator createVelocypackGenerator(IOContext ctxt,
-                                                                int stdFeat, ObjectCodec codec, OutputStream out) {
-        return new VPackGenerator(ctxt, stdFeat, codec, out);
-    }
-
-    protected <T> T nonByteSource() {
-        throw new UnsupportedOperationException("Can not create parser for non-byte-based source");
-    }
-
-    protected <T> T nonByteTarget() {
-        throw new UnsupportedOperationException("Can not create generator for non-byte-based target");
+    public PropertyNameMatcher constructCINameMatcher(List<Named> matches, boolean alreadyInterned,
+            Locale locale) {
+        return BinaryNameMatcher.constructCaseInsensitive(locale, matches, alreadyInterned);
     }
 }

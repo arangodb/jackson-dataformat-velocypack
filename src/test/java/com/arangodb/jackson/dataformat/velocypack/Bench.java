@@ -1,8 +1,8 @@
 package com.arangodb.jackson.dataformat.velocypack;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.dataformat.smile.databind.SmileMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.dataformat.smile.SmileMapper;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -52,8 +52,8 @@ public class Bench {
 
         public Data() {
             try {
-                String str = new String(Files.readAllBytes(
-                        Paths.get(Bench.class.getResource("/api-docs.json").toURI())));
+                String str = Files.readString(
+                        Paths.get(Bench.class.getResource("/api-docs.json").toURI()));
                 JsonNode jn = jsonMapper.readTree(str);
 
                 vpack = vpackMapper.writeValueAsBytes(jn);
@@ -92,63 +92,63 @@ public class Bench {
     }
 
     @Benchmark
-    public void readTreeJson(Data data, Blackhole bh) throws IOException {
+    public void readTreeJson(Data data, Blackhole bh) {
         readTree(data.json, bh, data.jsonMapper);
     }
 
     @Benchmark
-    public void readTreeVPack(Data data, Blackhole bh) throws IOException {
+    public void readTreeVPack(Data data, Blackhole bh) {
         readTree(data.vpack, bh, data.vpackMapper);
     }
 
     @Benchmark
-    public void readTreeSmile(Data data, Blackhole bh) throws IOException {
+    public void readTreeSmile(Data data, Blackhole bh) {
         readTree(data.smile, bh, data.smileMapper);
     }
 
-    private void readTree(byte[] bytes, Blackhole bh, ObjectMapper mapper) throws IOException {
+    private void readTree(byte[] bytes, Blackhole bh, ObjectMapper mapper) {
         bh.consume(
                 mapper.readTree(bytes)
         );
     }
 
     @Benchmark
-    public void writeValueAsBytesJson(Data data, Blackhole bh) throws IOException {
+    public void writeValueAsBytesJson(Data data, Blackhole bh) {
         writeValueAsBytes(data.jsonNode, bh, data.jsonMapper);
     }
 
     @Benchmark
-    public void writeValueAsBytesVPack(Data data, Blackhole bh) throws IOException {
+    public void writeValueAsBytesVPack(Data data, Blackhole bh) {
         writeValueAsBytes(data.vpackNode, bh, data.vpackMapper);
     }
 
     @Benchmark
-    public void writeValueAsBytesSmile(Data data, Blackhole bh) throws IOException {
+    public void writeValueAsBytesSmile(Data data, Blackhole bh) {
         writeValueAsBytes(data.smileNode, bh, data.smileMapper);
     }
 
-    private void writeValueAsBytes(JsonNode node, Blackhole bh, ObjectMapper mapper) throws IOException {
+    private void writeValueAsBytes(JsonNode node, Blackhole bh, ObjectMapper mapper) {
         bh.consume(
                 mapper.writeValueAsBytes(node)
         );
     }
 
     @Benchmark
-    public void roundTripJson(Data data, Blackhole bh) throws IOException {
+    public void roundTripJson(Data data, Blackhole bh) {
         roundTrip(data.json, bh, data.jsonMapper);
     }
 
     @Benchmark
-    public void roundTripVPack(Data data, Blackhole bh) throws IOException {
+    public void roundTripVPack(Data data, Blackhole bh) {
         roundTrip(data.vpack, bh, data.vpackMapper);
     }
 
     @Benchmark
-    public void roundTripSmile(Data data, Blackhole bh) throws IOException {
+    public void roundTripSmile(Data data, Blackhole bh) {
         roundTrip(data.smile, bh, data.smileMapper);
     }
 
-    private void roundTrip(byte[] bytes, Blackhole bh, ObjectMapper mapper) throws IOException {
+    private void roundTrip(byte[] bytes, Blackhole bh, ObjectMapper mapper) {
         bh.consume(
                 mapper.writeValueAsBytes(
                         mapper.readTree(bytes)

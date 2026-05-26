@@ -1,0 +1,625 @@
+package tools.jackson.databind.deser;
+
+import com.fasterxml.jackson.annotation.*;
+import org.junit.jupiter.api.Test;
+import tools.jackson.databind.*;
+import tools.jackson.databind.VPackUtils;
+import tools.jackson.databind.exc.InvalidDefinitionException;
+import tools.jackson.databind.exc.UnrecognizedPropertyException;
+import tools.jackson.databind.node.ObjectNode;
+import tools.jackson.databind.testutil.DatabindTestUtil;
+
+import java.util.*;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+/**
+ * Unit tests for verifying that {@link JsonAnySetter} annotation
+ * works as expected.
+ */
+public class AnySetterTest extends DatabindTestUtil
+{
+    static class MapImitator
+    {
+        HashMap<String,Object> _map;
+
+        public MapImitator() {
+            _map = new HashMap<String,Object>();
+        }
+
+        @JsonAnySetter
+        void addEntry(String key, Object value)
+        {
+            _map.put(key, value);
+        }
+    }
+
+    // for [databind#1376]
+    static class MapImitatorDisabled extends MapImitator
+    {
+        @Override
+        @JsonAnySetter(enabled=false)
+        void addEntry(String key, Object value) {
+            throw new RuntimeException("Should not get called");
+        }
+    }
+
+    /**
+     * Let's also verify that it is possible to define different
+     * value: not often useful, but possible.
+     */
+    static class MapImitatorWithValue
+    {
+        HashMap<String,int[]> _map;
+
+        public MapImitatorWithValue() {
+            _map = new HashMap<String,int[]>();
+        }
+
+        @JsonAnySetter
+        void addEntry(String key, int[] value)
+        {
+            _map.put(key, value);
+        }
+    }
+
+    // Bad; 2 "any setters"
+    static class Broken
+    {
+        @JsonAnySetter
+        void addEntry1(String key, Object value) { }
+        @JsonAnySetter
+        void addEntry2(String key, Object value) { }
+    }
+
+    @JsonIgnoreProperties("dummy")
+    static class Ignored
+    {
+        HashMap<String,Object> map = new HashMap<String,Object>();
+
+        @JsonIgnore
+        public String bogus;
+
+        @JsonAnySetter
+        void addEntry(String key, Object value)
+        {
+            map.put(key, value);
+        }
+    }
+
+    // [databind#5952]
+    static class UserWithAnySetter5952
+    {
+        public String name;
+
+        @JsonIgnore
+        public String sensitiveField;
+
+        @JsonAnySetter
+        public Map<String, Object> extras = new HashMap<>();
+    }
+
+    static class Bean744
+    {
+        protected Map<String,Object> additionalProperties;
+
+        @JsonAnySetter
+        public void addAdditionalProperty(String key, Object value) {
+            if (additionalProperties == null) additionalProperties = new HashMap<String, Object>();
+            additionalProperties.put(key,value);
+        }
+
+        public void setAdditionalProperties(Map<String, Object> additionalProperties) {
+            this.additionalProperties = additionalProperties;
+        }
+
+        @JsonAnyGetter
+        public Map<String,Object> getAdditionalProperties() { return additionalProperties; }
+
+        @JsonIgnore
+        public String getName() {
+           return (String) additionalProperties.get("name");
+        }
+    }
+
+    static class Bean797Base
+    {
+        @JsonAnyGetter
+        public Map<String, JsonNode> getUndefinedProperties() {
+            throw new IllegalStateException("Should not call parent version!");
+        }
+    }
+
+    static class Bean797BaseImpl extends Bean797Base
+    {
+        @Override
+        public Map<String, JsonNode> getUndefinedProperties() {
+            return new HashMap<String, JsonNode>();
+        }
+    }
+
+    @JsonTypeInfo(use = JsonTypeInfo.Id.CLASS)
+    static abstract class Base { }
+
+    static class Impl extends Base {
+        public String value;
+
+        public Impl() { }
+        public Impl(String v) { value = v; }
+    }
+
+    static class PolyAnyBean
+    {
+        protected Map<String,Base> props = new HashMap<String,Base>();
+
+        @JsonAnyGetter
+        public Map<String,Base> props() {
+            return props;
+        }
+
+        @JsonAnySetter
+        public void prop(String name, Base value) {
+            props.put(name, value);
+        }
+    }
+
+    static class JsonAnySetterOnMap {
+        public int id;
+
+        @JsonAnySetter
+        protected HashMap<String, String> other = new HashMap<String, String>();
+
+        @JsonAnyGetter
+        public Map<String, String> any() {
+            return other;
+        }
+    }
+
+    static class JsonAnySetterOnNullMap {
+        public int id;
+
+        @JsonAnySetter
+        protected Map<String, String> other;
+
+        @JsonAnyGetter
+        public Map<String, String> any() {
+            return other;
+        }
+    }
+
+    @SuppressWarnings("serial")
+    static class CustomMap extends LinkedHashMap<String, String> { }
+
+    static class JsonAnySetterOnCustomNullMap {
+        @JsonAnySetter
+        public CustomMap other;
+    }
+
+    static class MyGeneric<T>
+    {
+        private String staticallyMappedProperty;
+        private Map<T, Integer> dynamicallyMappedProperties = new HashMap<T, Integer>();
+
+        public String getStaticallyMappedProperty() {
+            return staticallyMappedProperty;
+        }
+
+        @JsonAnySetter
+        public void addDynamicallyMappedProperty(T key, int value) {
+            dynamicallyMappedProperties.put(key, value);
+        }
+
+        public void setStaticallyMappedProperty(String staticallyMappedProperty) {
+            this.staticallyMappedProperty = staticallyMappedProperty;
+        }
+
+        @JsonAnyGetter
+        public Map<T, Integer> getDynamicallyMappedProperties() {
+            return dynamicallyMappedProperties;
+        }
+    }
+
+    static class MyWrapper
+    {
+        private MyGeneric<String> myStringGeneric;
+        private MyGeneric<Integer> myIntegerGeneric;
+
+        public MyGeneric<String> getMyStringGeneric() {
+            return myStringGeneric;
+        }
+
+        public void setMyStringGeneric(MyGeneric<String> myStringGeneric) {
+            this.myStringGeneric = myStringGeneric;
+        }
+
+        public MyGeneric<Integer> getMyIntegerGeneric() {
+            return myIntegerGeneric;
+        }
+
+        public void setMyIntegerGeneric(MyGeneric<Integer> myIntegerGeneric) {
+            this.myIntegerGeneric = myIntegerGeneric;
+        }
+    }
+
+    // [databind#349]
+    static class Bean349
+    {
+        public String type;
+        public int x, y;
+
+        Map<String, Object> props = new HashMap<>();
+
+        @JsonAnySetter
+        public void addProperty(String key, Object value) {
+            props.put(key, value);
+        }
+
+        @JsonAnyGetter
+        public Map<String, Object> getProperties() {
+            return props;
+        }
+
+        @JsonUnwrapped
+        public IdentityDTO349 identity;
+    }
+
+    static class IdentityDTO349 {
+        public int x, y;
+    }
+
+    // [databind#3394]
+    static class AnySetter3394Bean {
+        public int id;
+
+        @JsonAnySetter
+        public JsonNode extraData = new ObjectNode(null);
+    }
+
+    // [databind#4316]
+    static class Problem4316 extends Exception {
+        private static final long serialVersionUID = 1L;
+
+        @JsonAnySetter
+        @JsonAnyGetter
+        Map<String, Object> additionalProperties = new HashMap<>();
+    }
+
+    // [databind#4639]
+    public static class AnySetterCreatorBean4639 {
+        int b;
+        int d;
+
+        @JsonAnySetter
+        Map<String, ?> any;
+
+        @JsonCreator
+        public AnySetterCreatorBean4639(@JsonProperty("b") int b, @JsonProperty("d") int d) {
+            this.b = b;
+            this.d = d;
+        }
+    }
+
+    // [databind#4639]
+    public static class AnySetterMethodCreatorBean4639 {
+        final int b;
+        final int d;
+        final Map<String, Object> any = new HashMap<>();
+
+        @JsonCreator
+        public AnySetterMethodCreatorBean4639(@JsonProperty("b") int b, @JsonProperty("d") int d) {
+            this.b = b;
+            this.d = d;
+        }
+
+        @JsonAnySetter
+        public void setAny(String name, Object value) {
+            any.put(name, value);
+        }
+    }
+
+    /*
+    /**********************************************************
+    /* Test methods
+    /**********************************************************
+     */
+
+    private final ObjectMapper MAPPER = newVPackMapper();
+
+    @Test
+    public void testSimpleMapImitation() throws Exception
+    {
+        MapImitator mapHolder = MAPPER.readValue
+            (VPackUtils.toVPack("{ \"a\" : 3, \"b\" : true, \"c\":[1,2,3] }"), MapImitator.class);
+        Map<String,Object> result = mapHolder._map;
+        assertEquals(3, result.size());
+        assertEquals(Integer.valueOf(3), result.get("a"));
+        assertEquals(Boolean.TRUE, result.get("b"));
+        Object ob = result.get("c");
+        assertInstanceOf(List.class, ob);
+        List<?> l = (List<?>)ob;
+        assertEquals(3, l.size());
+        assertEquals(Integer.valueOf(3), l.get(2));
+    }
+
+    @Test
+    public void testAnySetterDisable() throws Exception
+    {
+        try {
+            MAPPER.readerFor(MapImitatorDisabled.class)
+                    .with(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                    .readValue(VPackUtils.toVPack(a2q("{'value':3}")));
+            fail("Should not pass");
+        } catch (UnrecognizedPropertyException e) {
+            verifyException(e, "Unrecognized property \"value\"");
+        }
+
+    }
+
+    @Test
+    public void testSimpleTyped() throws Exception
+    {
+        MapImitatorWithValue mapHolder = MAPPER.readValue
+            (VPackUtils.toVPack("{ \"a\" : [ 3, -1 ], \"b\" : [ ] }"), MapImitatorWithValue.class);
+        Map<String,int[]> result = mapHolder._map;
+        assertEquals(2, result.size());
+        assertArrayEquals(new int[] { 3, -1 }, result.get("a"));
+        assertArrayEquals(new int[0], result.get("b"));
+    }
+
+    @Test
+    public void testBrokenWithDoubleAnnotations() throws Exception
+    {
+        try {
+            @SuppressWarnings("unused")
+            Broken b = MAPPER.readValue(VPackUtils.toVPack("{ \"a\" : 3 }"), Broken.class);
+            fail("Should have gotten an exception");
+        } catch (InvalidDefinitionException e) {
+            verifyException(e, "Multiple 'any-setter' methods");
+        }
+    }
+
+    @Test
+    public void testIgnored() throws Exception
+    {
+        ObjectMapper mapper = vpackMapperBuilder()
+                .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                .build();
+        _testIgnorals(mapper);
+    }
+
+    @Test
+    public void testIgnoredPart2() throws Exception
+    {
+        ObjectMapper mapper = vpackMapperBuilder()
+                .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                .build();
+        _testIgnorals(mapper);
+    }
+
+    // [databind#5952]: per-property @JsonIgnore must block routing to any-setter
+    @Test
+    public void testJsonIgnoreFieldNotPassedToAnySetter5952() throws Exception
+    {
+        UserWithAnySetter5952 u = MAPPER.readValue(
+                VPackUtils.toVPack(a2q("{'name':'alice','sensitiveField':'secret','other':'val'}")),
+                UserWithAnySetter5952.class);
+        assertEquals("alice", u.name);
+        assertNull(u.sensitiveField);
+        assertEquals(1, u.extras.size());
+        assertEquals("val", u.extras.get("other"));
+    }
+
+    @Test
+    public void testProblem744() throws Exception
+    {
+        // [databind#5952]: @JsonIgnore on getter "getName" makes "name" an ignored
+        // property; with the per-property ignore now applied even when an any-setter
+        // is present, "name" no longer flows into the any-setter map.
+        Bean744 bean = MAPPER.readValue(VPackUtils.toVPack("{\"name\":\"Bob\",\"other\":\"val\"}"), Bean744.class);
+        assertNotNull(bean.additionalProperties);
+        assertEquals(1, bean.additionalProperties.size());
+        assertEquals("val", bean.additionalProperties.get("other"));
+        assertNull(bean.additionalProperties.get("name"));
+    }
+
+    @Test
+    public void testIssue797() throws Exception
+    {
+        String json = VPackUtils.toJson(MAPPER.writeValueAsBytes(new Bean797BaseImpl()));
+        assertEquals("{}", json);
+    }
+
+    // [Issue#337]
+    @Test
+    public void testPolymorphic() throws Exception
+    {
+        PolyAnyBean input = new PolyAnyBean();
+        input.props.put("a", new Impl("xyz"));
+
+        String json = VPackUtils.toJson(MAPPER.writeValueAsBytes(input));
+
+//        System.err.println("JSON: "+json);
+
+        PolyAnyBean result = MAPPER.readValue(VPackUtils.toVPack(json), PolyAnyBean.class);
+        assertEquals(1, result.props.size());
+        Base ob = result.props.get("a");
+        assertNotNull(ob);
+        assertInstanceOf(Impl.class, ob);
+        assertEquals("xyz", ((Impl) ob).value);
+    }
+
+    @Test
+    public void testJsonAnySetterOnMap() throws Exception {
+		JsonAnySetterOnMap result = MAPPER.readValue(VPackUtils.toVPack("{\"id\":2,\"name\":\"Joe\", \"city\":\"New Jersey\"}"),
+		        JsonAnySetterOnMap.class);
+		assertEquals(2, result.id);
+		assertEquals("Joe", result.other.get("name"));
+		assertEquals("New Jersey", result.other.get("city"));
+    }
+
+    @Test
+    public void testJsonAnySetterOnNullMap() throws Exception {
+        final String DOC = a2q("{'id':2,'name':'Joe', 'city':'New Jersey'}");
+        JsonAnySetterOnNullMap result = MAPPER.readValue(VPackUtils.toVPack(DOC),
+                JsonAnySetterOnNullMap.class);
+        assertEquals(2, result.id);
+        // 01-Aug-2022, tatu: As per [databind#3559] should "just work"...
+        assertNotNull(result.other);
+        assertEquals("Joe", result.other.get("name"));
+        assertEquals("New Jersey", result.other.get("city"));
+
+        // But not with unknown "special" maps
+        try {
+            MAPPER.readValue(VPackUtils.toVPack(DOC), JsonAnySetterOnCustomNullMap.class);
+            fail("Should not pass");
+        } catch (DatabindException e) {
+            verifyException(e, "Cannot create an instance of");
+            verifyException(e, "for use as \"any-setter\" 'other'");
+        }
+    }
+
+    final static String UNWRAPPED_JSON_349 = a2q(
+            "{ 'type' : 'IST',\n"
+                    +" 'x' : 3,\n"
+                    //+" 'name' : 'BLAH-New',\n"
+                    //+" 'description' : 'namespace.name: X THIN FIR.DR-WD12-New',\n"
+                    +" 'ZoomLinks': [ 'foofoofoofoo', 'barbarbarbar' ],\n"
+                    +" 'y' : 4, 'z' : 8 }"
+            );
+
+    // [databind#349]
+    @Test
+    public void testUnwrappedWithAny() throws Exception
+    {
+        final ObjectMapper mapper = newVPackMapper();
+        Bean349 value = mapper.readValue(VPackUtils.toVPack(UNWRAPPED_JSON_349),  Bean349.class);
+        assertNotNull(value);
+        assertEquals(3, value.x);
+        assertEquals(4, value.y);
+        assertEquals(2, value.props.size());
+    }
+
+    // [databind#349]
+    @Test
+    public void testUnwrappedWithAnyAsUpdate() throws Exception
+    {
+        final ObjectMapper mapper = newVPackMapper();
+        Bean349 bean = mapper.readerFor(Bean349.class)
+                .withValueToUpdate(new Bean349())
+                .readValue(VPackUtils.toVPack(UNWRAPPED_JSON_349));
+        assertEquals(3, bean.x);
+        assertEquals(4, bean.y);
+        assertEquals(2, bean.props.size());
+    }
+
+    // [databind#1035]
+    @Test
+    public void testGenericAnySetter() throws Exception
+    {
+        ObjectMapper mapper = newVPackMapper();
+
+        Map<String, Integer> stringGenericMap = new HashMap<String, Integer>();
+        stringGenericMap.put("testStringKey", 5);
+        Map<Integer, Integer> integerGenericMap = new HashMap<Integer, Integer>();
+        integerGenericMap.put(111, 6);
+
+        MyWrapper deserialized = mapper.readValue(VPackUtils.toVPack(a2q(
+                "{'myStringGeneric':{'staticallyMappedProperty':'Test','testStringKey':5},'myIntegerGeneric':{'staticallyMappedProperty':'Test2','111':6}}"
+                )), MyWrapper.class);
+        MyGeneric<String> stringGeneric = deserialized.getMyStringGeneric();
+        MyGeneric<Integer> integerGeneric = deserialized.getMyIntegerGeneric();
+
+        assertNotNull(stringGeneric);
+        assertEquals(stringGeneric.getStaticallyMappedProperty(), "Test");
+        for(Map.Entry<String, Integer> entry : stringGeneric.getDynamicallyMappedProperties().entrySet()) {
+            assertInstanceOf(String.class, entry.getKey(), "A key in MyGeneric<String> is not an String.");
+            assertInstanceOf(Integer.class, entry.getValue(), "A value in MyGeneric<Integer> is not an Integer.");
+        }
+        assertEquals(stringGeneric.getDynamicallyMappedProperties(), stringGenericMap);
+
+        assertNotNull(integerGeneric);
+        assertEquals(integerGeneric.getStaticallyMappedProperty(), "Test2");
+        for(Map.Entry<Integer, Integer> entry : integerGeneric.getDynamicallyMappedProperties().entrySet()) {
+            Object key = entry.getKey();
+            assertEquals(Integer.class, key.getClass(), "A key in MyGeneric<Integer> is not an Integer.");
+            Object value = entry.getValue();
+            assertEquals(Integer.class, value.getClass(), "A value in MyGeneric<Integer> is not an Integer.");
+        }
+        assertEquals(integerGeneric.getDynamicallyMappedProperties(), integerGenericMap);
+    }
+
+    // [databind#3394]
+    @Test
+    public void testAnySetterWithJsonNode() throws Exception
+    {
+        final String DOC = a2q("{'test':3,'nullable':null,'id':42,'value':true}");
+        AnySetter3394Bean bean = MAPPER.readValue(VPackUtils.toVPack(DOC), AnySetter3394Bean.class);
+        assertEquals(a2q("{'test':3,'nullable':null,'value':true}"),
+                ""+bean.extraData);
+        assertEquals(42, bean.id);
+    }
+
+    // [databind#4316]
+    @Test
+    public void testWithAnySetter() throws Exception
+    {
+        Problem4316 problem = new Problem4316();
+        problem.additionalProperties.put("key", "value");
+        String json = VPackUtils.toJson(MAPPER.writeValueAsBytes(problem));
+        Problem4316 result = MAPPER.readValue(VPackUtils.toVPack(json), Problem4316.class);
+        assertEquals(Collections.singletonMap("key", "value"),
+                result.additionalProperties);
+    }
+
+    // [databind#4639]
+    @Test
+    public void testAnySetterFieldWithCreator4639() throws Exception
+    {
+        String json = "{\"a\":1,\"b\":2,\"c\":3,\"d\":4,\"e\":5,\"f\":6}";
+
+        AnySetterCreatorBean4639 bean = MAPPER.readValue(VPackUtils.toVPack(json), AnySetterCreatorBean4639.class);
+        assertEquals(2, bean.b);
+        assertEquals(4, bean.d);
+        Map<String, Integer> expected = new HashMap<>();
+        expected.put("a", 1);
+        expected.put("c", 3);
+        expected.put("e", 5);
+        expected.put("f", 6);
+        assertEquals(expected, bean.any);
+    }
+
+    // [databind#4639]
+    @Test
+    public void testAnySetterMethodWithCreator4639() throws Exception
+    {
+        String json = "{\"a\":1,\"b\":2,\"c\":3,\"d\":4,\"e\":5,\"f\":6}";
+
+        AnySetterMethodCreatorBean4639 bean = MAPPER.readValue(VPackUtils.toVPack(json),
+                AnySetterMethodCreatorBean4639.class);
+        assertEquals(2, bean.b);
+        assertEquals(4, bean.d);
+        Map<String, Integer> expected = new HashMap<>();
+        expected.put("a", 1);
+        expected.put("c", 3);
+        expected.put("e", 5);
+        expected.put("f", 6);
+        assertEquals(expected, bean.any);
+    }
+
+    /*
+    /**********************************************************
+    /* Private helper methods
+    /**********************************************************
+     */
+
+    private void _testIgnorals(ObjectMapper mapper) throws Exception
+    {
+        Ignored bean = mapper.readValue(VPackUtils.toVPack("{\"name\":\"Bob\", \"bogus\": [ 1, 2, 3], \"dummy\" : 13 }"), Ignored.class);
+        // [databind#5952]: both @JsonIgnoreProperties (class-level) and @JsonIgnore
+        // (per-property) must block routing to the any-setter
+        assertNull(bean.map.get("dummy"));
+        assertNull(bean.map.get("bogus"));
+        assertEquals("Bob", bean.map.get("name"));
+        assertEquals(1, bean.map.size());
+    }
+}

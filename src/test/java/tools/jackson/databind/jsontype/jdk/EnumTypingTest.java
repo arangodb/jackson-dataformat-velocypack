@@ -1,0 +1,275 @@
+package tools.jackson.databind.jsontype.jdk;
+
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.fasterxml.jackson.annotation.JsonTypeName;
+import org.junit.jupiter.api.Test;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.VPackUtils;
+import tools.jackson.databind.testutil.DatabindTestUtil;
+import tools.jackson.databind.testutil.NoCheckSubTypeValidator;
+
+import java.util.ArrayList;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+@SuppressWarnings("serial")
+public class EnumTypingTest extends DatabindTestUtil
+{
+    // note: As.WRAPPER_ARRAY worked initially; but as per [JACKSON-485], As.PROPERTY had issues
+    @JsonTypeInfo(use=JsonTypeInfo.Id.MINIMAL_CLASS, include=JsonTypeInfo.As.PROPERTY)
+    public interface EnumInterface { }
+
+    public enum Tag implements EnumInterface
+    { A, B };
+
+    static class EnumInterfaceWrapper {
+        public EnumInterface value;
+    }
+
+    static class EnumInterfaceList extends ArrayList<EnumInterface> { }
+
+    static class TagList extends ArrayList<Tag> { }
+
+    static enum TestEnum { A, B, C; }
+
+    static class UntypedEnumBean
+    {
+        @JsonTypeInfo(use=JsonTypeInfo.Id.CLASS, include=JsonTypeInfo.As.PROPERTY, property="__type")
+        public Object value;
+
+        public UntypedEnumBean() { }
+        public UntypedEnumBean(TestEnum v) { value = v; }
+
+        @JsonTypeInfo(use=JsonTypeInfo.Id.CLASS, include=JsonTypeInfo.As.PROPERTY, property="__type")
+        public void setValue(Object o) {
+            value = o;
+        }
+    }
+
+    // for [databind#2605]
+    static class EnumContaintingClass<ENUM_TYPE extends Enum<ENUM_TYPE>> {
+        @JsonTypeInfo(
+            use = JsonTypeInfo.Id.CLASS,
+            include = JsonTypeInfo.As.PROPERTY,
+            property = "@class"
+        )
+        public ENUM_TYPE selected;
+
+        protected EnumContaintingClass() { }
+
+        public EnumContaintingClass(ENUM_TYPE selected) {
+          this.selected = selected;
+        }
+    }
+
+    // [databind#2775]
+    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME
+// work-around:
+//            , include = JsonTypeInfo.As.WRAPPER_ARRAY
+            )
+    @JsonSubTypes(@JsonSubTypes.Type(TestEnum2775.class))
+    interface Base2775 {}
+
+    @JsonTypeName("Test")
+    enum TestEnum2775 implements Base2775 {
+        VALUE;
+    }
+
+    // [databind#4733] Baseline case that already worked
+    @JsonTypeInfo(use = JsonTypeInfo.Id.CLASS)
+    @JsonSubTypes({
+         @JsonSubTypes.Type(value = A_CLASS.class),
+    })
+    interface InterClass {
+         default void yes() {}
+    }
+
+    enum A_CLASS implements InterClass {
+        A1,
+        A2 {
+            @Override
+            public void yes() { }
+        };
+    }
+
+    // [databind#4733] Failed before fix
+    @JsonTypeInfo(use = JsonTypeInfo.Id.MINIMAL_CLASS)
+    @JsonSubTypes({
+         @JsonSubTypes.Type(value = A_MIN_CLASS.class),
+    })
+    interface InterMinimalClass {
+         default void yes() {}
+    }
+
+    enum A_MIN_CLASS implements InterMinimalClass {
+        A1,
+        A2 {
+            @Override
+            public void yes() { }
+        };
+    }
+
+    // [databind#4733] Failed before fix
+    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME)
+    @JsonSubTypes({
+         @JsonSubTypes.Type(value = A_NAME.class),
+    })
+    interface InterName {
+         default void yes() {}
+    }
+
+    enum A_NAME implements InterName {
+        A1,
+        A2 {
+            @Override
+            public void yes() { }
+        };
+    }
+
+    // [databind#4733] Failed before fix
+    @JsonTypeInfo(use = JsonTypeInfo.Id.SIMPLE_NAME)
+    @JsonSubTypes({
+         @JsonSubTypes.Type(value = A_SIMPLE_NAME.class),
+    })
+    interface InterSimpleName {
+         default void yes() {}
+    }
+
+    enum A_SIMPLE_NAME implements InterSimpleName {
+        A1,
+        A2 {
+            @Override
+            public void yes() { }
+        };
+    }
+
+    /*
+    /**********************************************************************
+    /* Test methods
+    /**********************************************************************
+     */
+
+    private final ObjectMapper MAPPER = newVPackMapper();
+
+    @Test
+    public void testTagList() throws Exception
+    {
+        TagList list = new TagList();
+        list.add(Tag.A);
+        list.add(Tag.B);
+        String json = VPackUtils.toJson(MAPPER.writeValueAsBytes(list));
+
+        TagList result = MAPPER.readValue(VPackUtils.toVPack(json), TagList.class);
+        assertEquals(2, result.size());
+        assertSame(Tag.A, result.get(0));
+        assertSame(Tag.B, result.get(1));
+    }
+
+    @Test
+    public void testEnumInterface() throws Exception
+    {
+        String json = VPackUtils.toJson(MAPPER.writeValueAsBytes(Tag.B));
+        EnumInterface result = MAPPER.readValue(VPackUtils.toVPack(json), EnumInterface.class);
+        assertSame(Tag.B, result);
+    }
+
+    @Test
+    public void testEnumInterfaceList() throws Exception
+    {
+        EnumInterfaceList list = new EnumInterfaceList();
+        list.add(Tag.A);
+        list.add(Tag.B);
+        String json = VPackUtils.toJson(MAPPER.writeValueAsBytes(list));
+
+        EnumInterfaceList result = MAPPER.readValue(VPackUtils.toVPack(json), EnumInterfaceList.class);
+        assertEquals(2, result.size());
+        assertSame(Tag.A, result.get(0));
+        assertSame(Tag.B, result.get(1));
+    }
+
+    @Test
+    public void testUntypedEnum() throws Exception
+    {
+        final ObjectMapper mapper = vpackMapperBuilder()
+                .polymorphicTypeValidator(new NoCheckSubTypeValidator())
+                .build();
+        String str = VPackUtils.toJson(mapper.writeValueAsBytes(new UntypedEnumBean(TestEnum.B)));
+        UntypedEnumBean result = mapper.readValue(VPackUtils.toVPack(str), UntypedEnumBean.class);
+        assertNotNull(result);
+        assertNotNull(result.value);
+        Object ob = result.value;
+        assertSame(TestEnum.class, ob.getClass());
+        assertEquals(TestEnum.B, result.value);
+    }
+
+    // for [databind#2605]
+    @Test
+    public void testRoundtrip() throws Exception
+    {
+        EnumContaintingClass<TestEnum> input = new EnumContaintingClass<TestEnum>(TestEnum.B);
+        String json = VPackUtils.toJson(MAPPER.writeValueAsBytes(input));
+//      Object o = MAPPER.readerFor(EnumContaintingClass.class).readValue(VPackUtils.toVPack(json));
+        Object o = MAPPER.readValue(VPackUtils.toVPack(json), EnumContaintingClass.class);
+        assertNotNull(o);
+    }
+
+    // [databind#2775]
+    @Test
+    public void testEnumAsSubtypeNoFailOnInvalidTypeId() throws Exception
+    {
+        final Base2775 testValue = TestEnum2775.VALUE;
+        String json = VPackUtils.toJson(MAPPER.writeValueAsBytes(testValue));
+//System.err.println("JSON: "+json);
+
+        Base2775 deserializedValue = MAPPER.readerFor(Base2775.class)
+                .without(DeserializationFeature.FAIL_ON_INVALID_SUBTYPE)
+                .readValue(VPackUtils.toVPack(json));
+        assertEquals(testValue, deserializedValue);
+    }
+
+    // [databind#4733]
+    @Test
+    public void testIssue4733Class() throws Exception
+    {
+         String json1 = VPackUtils.toJson(MAPPER.writeValueAsBytes(A_CLASS.A1));
+         String json2 = VPackUtils.toJson(MAPPER.writeValueAsBytes(A_CLASS.A2));
+
+         assertEquals(A_CLASS.A1, MAPPER.readValue(VPackUtils.toVPack(json1), A_CLASS.class));
+         assertEquals(A_CLASS.A2,  MAPPER.readValue(VPackUtils.toVPack(json2), A_CLASS.class));
+    }
+
+    @Test
+    public void testIssue4733MinimalClass() throws Exception
+    {
+         String json1 = VPackUtils.toJson(MAPPER.writeValueAsBytes(A_MIN_CLASS.A1));
+         String json2 = VPackUtils.toJson(MAPPER.writeValueAsBytes(A_MIN_CLASS.A2));
+         assertEquals(A_MIN_CLASS.A1, MAPPER.readValue(VPackUtils.toVPack(json1), A_MIN_CLASS.class),
+                 "JSON: "+json1);
+         assertEquals(A_MIN_CLASS.A2,  MAPPER.readValue(VPackUtils.toVPack(json2), A_MIN_CLASS.class),
+                 "JSON: "+json2);
+    }
+
+    @Test
+    public void testIssue4733Name() throws Exception
+    {
+         String json1 = VPackUtils.toJson(MAPPER.writeValueAsBytes(A_NAME.A1));
+         String json2 = VPackUtils.toJson(MAPPER.writeValueAsBytes(A_NAME.A2));
+         assertEquals(A_NAME.A1, MAPPER.readValue(VPackUtils.toVPack(json1), A_NAME.class),
+                 "JSON: "+json1);
+         assertEquals(A_NAME.A2,  MAPPER.readValue(VPackUtils.toVPack(json2), A_NAME.class),
+                 "JSON: "+json2);
+    }
+
+    @Test
+    public void testIssue4733SimpleName() throws Exception
+    {
+         String json1 = VPackUtils.toJson(MAPPER.writeValueAsBytes(A_SIMPLE_NAME.A1));
+         String json2 = VPackUtils.toJson(MAPPER.writeValueAsBytes(A_SIMPLE_NAME.A2));
+         assertEquals(A_SIMPLE_NAME.A1, MAPPER.readValue(VPackUtils.toVPack(json1), A_SIMPLE_NAME.class),
+                 "JSON: "+json1);
+         assertEquals(A_SIMPLE_NAME.A2,  MAPPER.readValue(VPackUtils.toVPack(json2), A_SIMPLE_NAME.class),
+                 "JSON: "+json2);
+    }
+}
