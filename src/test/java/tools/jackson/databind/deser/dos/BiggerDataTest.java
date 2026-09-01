@@ -8,6 +8,7 @@ import com.arangodb.jackson.dataformat.velocypack.VPackMapper;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.nio.charset.StandardCharsets;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -85,7 +86,8 @@ public class BiggerDataTest
 	@Test
 	public void testReading() throws Exception
 	{
-		Citm citm = MAPPER.readValue(getClass().getResourceAsStream("/data/citm_catalog.json"),
+		Citm citm = MAPPER.readValue(VPackUtils.toVPack(new String(getClass()
+				.getResourceAsStream("/data/citm_catalog.json").readAllBytes(), StandardCharsets.UTF_8)),
 				Citm.class);
 		assertNotNull(citm);
 		assertNotNull(citm.areaNames);
@@ -110,7 +112,8 @@ public class BiggerDataTest
 	@Test
 	public void testRoundTrip() throws Exception
 	{
-		Citm citm = MAPPER.readValue(getClass().getResourceAsStream("/data/citm_catalog.json"),
+		Citm citm = MAPPER.readValue(VPackUtils.toVPack(new String(getClass()
+				.getResourceAsStream("/data/citm_catalog.json").readAllBytes(), StandardCharsets.UTF_8)),
 				Citm.class);
 
 		ObjectWriter w = MAPPER.writer();

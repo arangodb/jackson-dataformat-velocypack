@@ -201,9 +201,33 @@ public class VPackFactory
     }
 
     @Override
+    public JsonParser createParser(byte[] data) throws JacksonException {
+        if (data == null) {
+            throw new IllegalArgumentException("argument \"data\" is null");
+        }
+        return super.createParser(data);
+    }
+
+    @Override
+    public JsonParser createParser(ObjectReadContext readCtxt, byte[] data) throws JacksonException {
+        if (data == null) {
+            throw new IllegalArgumentException("argument \"data\" is null");
+        }
+        return super.createParser(readCtxt, data);
+    }
+
+    @Override
     protected JsonParser _createParser(ObjectReadContext readCtxt, IOContext ioCtxt,
             byte[] data, int offset, int len)
     {
+        if (data == null) {
+            throw new IllegalArgumentException("argument \"data\" is null");
+        }
+        if (offset < 0 || len < 0 || offset > data.length - len) {
+            throw new IndexOutOfBoundsException(String.format(
+                    "Invalid byte range: offset %d, length %d, buffer length %d",
+                    offset, len, data.length));
+        }
         // Validate doc length up front for fixed buffers
         _streamReadConstraints.validateDocumentLength(len);
         return new VPackParserBootstrapper(ioCtxt, data, offset, len)

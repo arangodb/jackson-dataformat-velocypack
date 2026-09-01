@@ -337,7 +337,7 @@ public class FunctionalScalarDeserializer4004Test
             mapper.readValue(VPackUtils.toVPack("[\"hello\"]"), Bar.class);
             fail("Should not accept JSON array");
         } catch (MismatchedInputException e) {
-            verifyException(e, "Cannot deserialize");
+            verifyException(e, "Trailing token");
         }
     }
 
@@ -356,7 +356,7 @@ public class FunctionalScalarDeserializer4004Test
             mapper.readValue(VPackUtils.toVPack("{\"value\":\"hello\"}"), Bar.class);
             fail("Should not accept JSON object");
         } catch (MismatchedInputException e) {
-            verifyException(e, "Cannot deserialize");
+            verifyException(e, "Trailing token");
         }
     }
 

@@ -4,6 +4,8 @@ import com.fasterxml.jackson.annotation.JsonAnySetter;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.junit.jupiter.api.Test;
+
+import java.util.Arrays;
 import tools.jackson.core.*;
 import tools.jackson.databind.*;
 import tools.jackson.databind.VPackUtils;
@@ -261,11 +263,15 @@ public class CreatorReturningNullTest
                 .with(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
         // ...with unknown properties in front
         try {
-            enabled.readValue(VPackUtils.toVPack( "{ \"en\": null, \"de\": null, \"fr\": null, \"unknown\": null, \"unknown2\": \"hello\" }" +
-                    "!!!!!!!!!!!!BOOM!!!!!!!!!!!!!!"));
+            byte[] bytes = VPackUtils.toVPack(
+                    "{ \"en\": null, \"de\": null, \"fr\": null, \"unknown\": null, \"unknown2\": \"hello\" }");
+            bytes = Arrays.copyOf(bytes, bytes.length + 1);
+            bytes[bytes.length - 1] = (byte) 0x17; // illegal VPack type marker
+            enabled.readValue(bytes);
             fail("Should not pass");
         } catch (JacksonException e) {
-            verifyException(e, "Unexpected character ('!'");
+            verifyException(e, "illegal");
+            verifyException(e, "byte offset");
         }
     }
 

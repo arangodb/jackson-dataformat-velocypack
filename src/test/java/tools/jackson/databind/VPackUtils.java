@@ -12,6 +12,7 @@ import tools.jackson.core.json.JsonReadFeature;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.io.ByteArrayOutputStream;
+import java.math.BigDecimal;
 
 /**
  * @author Michele Rastelli
@@ -80,7 +81,21 @@ public final class VPackUtils {
             try (JsonParser p = JSON_FACTORY.createParser(json);
                  JsonGenerator g = VPACK_FACTORY.createGenerator(out)) {
                 while (p.nextToken() != null) {
-                    g.copyCurrentEvent(p);
+                    // copyCurrentEvent() routes floating-point values through double;
+                    // preserve the source literal by explicitly using BigDecimal instead.
+                    if (p.currentToken() == tools.jackson.core.JsonToken.VALUE_NUMBER_FLOAT
+                            && !p.isNaN()) {
+                        BigDecimal decimal = p.getDecimalValue();
+                        double value = decimal.doubleValue();
+                        if (Double.isFinite(value)
+                                && BigDecimal.valueOf(value).compareTo(decimal) == 0) {
+                            g.writeNumber(value);
+                        } else {
+                            g.writeNumber(decimal);
+                        }
+                    } else {
+                        g.copyCurrentEvent(p);
+                    }
                 }
             } catch (Exception e) {
                 throw new RuntimeException(e);
@@ -89,25 +104,10 @@ public final class VPackUtils {
         }
     }
 
-    /**
-     * Like {@link #toVPack(String)} but reads floating-point numbers as BigDecimal
-     * to preserve full precision (avoids double round-trip loss).
-     */
+    /** @deprecated {@link #toVPack(String)} preserves decimal literals. */
+    @Deprecated
     public static byte[] toVPackDecimal(String json) {
-        if (json == null) return null;
-        else if (json.isEmpty()) return new byte[0];
-        else {
-            JsonMapper preciseMapper = JsonMapper.builder(JsonFactory.builder()
-                    .enable(JsonReadFeature.ALLOW_NON_NUMERIC_NUMBERS)
-                    .streamReadConstraints(StreamReadConstraints.builder()
-                            .maxNestingDepth(Integer.MAX_VALUE)
-                            .maxStringLength(Integer.MAX_VALUE)
-                            .maxNumberLength(Integer.MAX_VALUE)
-                            .build())
-                    .build()
-            ).enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS).build();
-            return VPACK_MAPPER.writeValueAsBytes(preciseMapper.readTree(json));
-        }
+        return toVPack(json);
     }
 
 }

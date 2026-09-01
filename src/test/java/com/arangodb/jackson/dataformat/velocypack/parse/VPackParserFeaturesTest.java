@@ -5,10 +5,13 @@ import tools.jackson.core.JsonGenerator;
 import tools.jackson.core.JsonParser;
 import tools.jackson.core.JsonToken;
 import tools.jackson.core.StreamReadFeature;
+import tools.jackson.core.StreamReadConstraints;
+import tools.jackson.core.exc.InputCoercionException;
 import tools.jackson.core.exc.StreamReadException;
 import com.arangodb.jackson.dataformat.velocypack.BaseTestForVPack;
 import com.arangodb.jackson.dataformat.velocypack.VPackCustomValue;
 import com.arangodb.jackson.dataformat.velocypack.VPackMapper;
+import com.arangodb.jackson.dataformat.velocypack.VPackFactory;
 import com.arangodb.jackson.dataformat.velocypack.VPackReadFeature;
 
 import java.io.ByteArrayOutputStream;
@@ -40,6 +43,34 @@ public class VPackParserFeaturesTest extends BaseTestForVPack
     @FunctionalInterface
     interface WriteAction {
         void write(JsonGenerator g);
+    }
+
+    @Test
+    public void testNumericAccessorsRejectNonNumericTokens() {
+        try (JsonParser p = parserFor(vpackBytes("\"text\""))) {
+            assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_STRING);
+            assertThatThrownBy(p::getIntValue).isInstanceOf(InputCoercionException.class);
+            assertThatThrownBy(p::getDecimalValue).isInstanceOf(InputCoercionException.class);
+        }
+    }
+
+    @Test
+    public void testBcdNumbersHonorConfiguredNumberLengthInRootAndContainer() throws Exception {
+        byte[] scalar = genBytes(g -> g.writeNumber(new BigDecimal("12345.6")));
+        byte[] array = genBytes(g -> {
+            g.writeStartArray();
+            g.writeNumber(new BigDecimal("12345.6"));
+            g.writeEndArray();
+        });
+        VPackMapper constrained = VPackMapper.builder(VPackFactory.builder()
+                .streamReadConstraints(StreamReadConstraints.builder().maxNumberLength(5).build())
+                .build()).build();
+        assertThatThrownBy(() -> constrained.readTree(scalar))
+                .isInstanceOf(tools.jackson.core.exc.StreamConstraintsException.class)
+                .hasMessageContaining("Number value length");
+        assertThatThrownBy(() -> constrained.readTree(array))
+                .isInstanceOf(tools.jackson.core.exc.StreamConstraintsException.class)
+                .hasMessageContaining("Number value length");
     }
 
     // =========================================================

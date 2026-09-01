@@ -231,6 +231,7 @@ public abstract class VPackParserBase extends ParserMinimalBase
 
     @Override
     public Number getNumberValue() throws JacksonException {
+        _verifyNumericToken();
         if (_currToken == JsonToken.VALUE_NUMBER_INT) {
             if ((_numTypesValid & NR_INT) != 0) return _numberInt;
             if ((_numTypesValid & NR_LONG) != 0) return _numberLong;
@@ -263,6 +264,7 @@ public abstract class VPackParserBase extends ParserMinimalBase
 
     @Override
     public int getIntValue() throws JacksonException {
+        _verifyNumericToken();
         if ((_numTypesValid & NR_INT) == 0) {
             convertNumberToInt();
         }
@@ -271,6 +273,7 @@ public abstract class VPackParserBase extends ParserMinimalBase
 
     @Override
     public long getLongValue() throws JacksonException {
+        _verifyNumericToken();
         if ((_numTypesValid & NR_LONG) == 0) {
             convertNumberToLong();
         }
@@ -279,6 +282,7 @@ public abstract class VPackParserBase extends ParserMinimalBase
 
     @Override
     public BigInteger getBigIntegerValue() throws JacksonException {
+        _verifyNumericToken();
         if ((_numTypesValid & NR_BIGINT) == 0) {
             convertNumberToBigInteger();
         }
@@ -292,6 +296,7 @@ public abstract class VPackParserBase extends ParserMinimalBase
 
     @Override
     public double getDoubleValue() throws JacksonException {
+        _verifyNumericToken();
         if ((_numTypesValid & NR_DOUBLE) == 0) {
             convertNumberToDouble();
         }
@@ -300,6 +305,7 @@ public abstract class VPackParserBase extends ParserMinimalBase
 
     @Override
     public BigDecimal getDecimalValue() throws JacksonException {
+        _verifyNumericToken();
         if ((_numTypesValid & NR_BIGDECIMAL) == 0) {
             convertNumberToBigDecimal();
         }
@@ -314,12 +320,23 @@ public abstract class VPackParserBase extends ParserMinimalBase
 
     protected void convertNumberToInt() throws JacksonException {
         if ((_numTypesValid & NR_LONG) != 0) {
+            if (_numberLong < Integer.MIN_VALUE || _numberLong > Integer.MAX_VALUE) {
+                _reportOverflowInt();
+            }
             _numberInt = (int) _numberLong;
             _numTypesValid |= NR_INT;
         } else if ((_numTypesValid & NR_BIGINT) != 0) {
+            if (_numberBigInt.compareTo(BigInteger.valueOf(Integer.MIN_VALUE)) < 0
+                    || _numberBigInt.compareTo(BigInteger.valueOf(Integer.MAX_VALUE)) > 0) {
+                _reportOverflowInt();
+            }
             _numberInt = _numberBigInt.intValue();
             _numTypesValid |= NR_INT;
         } else if ((_numTypesValid & NR_BIGDECIMAL) != 0) {
+            if (_numberBigDecimal.compareTo(BigDecimal.valueOf(Integer.MIN_VALUE)) < 0
+                    || _numberBigDecimal.compareTo(BigDecimal.valueOf(Integer.MAX_VALUE)) > 0) {
+                _reportOverflowInt();
+            }
             _numberInt = _numberBigDecimal.intValue();
             _numTypesValid |= NR_INT;
         } else if ((_numTypesValid & NR_DOUBLE) != 0) {
@@ -330,14 +347,28 @@ public abstract class VPackParserBase extends ParserMinimalBase
         }
     }
 
+    private void _verifyNumericToken() throws JacksonException {
+        if (_currToken != JsonToken.VALUE_NUMBER_INT && _currToken != JsonToken.VALUE_NUMBER_FLOAT) {
+            throw _constructNotNumericType(_currToken, NR_UNKNOWN);
+        }
+    }
+
     protected void convertNumberToLong() throws JacksonException {
         if ((_numTypesValid & NR_INT) != 0) {
             _numberLong = _numberInt;
             _numTypesValid |= NR_LONG;
         } else if ((_numTypesValid & NR_BIGINT) != 0) {
+            if (_numberBigInt.compareTo(BigInteger.valueOf(Long.MIN_VALUE)) < 0
+                    || _numberBigInt.compareTo(BigInteger.valueOf(Long.MAX_VALUE)) > 0) {
+                _reportOverflowLong();
+            }
             _numberLong = _numberBigInt.longValue();
             _numTypesValid |= NR_LONG;
         } else if ((_numTypesValid & NR_BIGDECIMAL) != 0) {
+            if (_numberBigDecimal.compareTo(BigDecimal.valueOf(Long.MIN_VALUE)) < 0
+                    || _numberBigDecimal.compareTo(BigDecimal.valueOf(Long.MAX_VALUE)) > 0) {
+                _reportOverflowLong();
+            }
             _numberLong = _numberBigDecimal.longValue();
             _numTypesValid |= NR_LONG;
         } else if ((_numTypesValid & NR_DOUBLE) != 0) {

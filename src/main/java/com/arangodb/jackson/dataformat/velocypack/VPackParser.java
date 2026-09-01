@@ -629,6 +629,7 @@ public class VPackParser extends VPackParserBase
                 ? typeByte - VPACK_BCD_NEG_FIRST + 1
                 : typeByte - VPACK_BCD_POS_FIRST + 1;
         long mantLen = _readLeUnsigned(mantLenWidth);
+        _validateBcdLength(mantLen);
         int exponent = (int) _readLeSigned(4);
         byte[] bcd = _readBytes((int) mantLen);
         java.math.BigDecimal bd = VPackUtil.decodeBcd(bcd, exponent, negative);
@@ -643,6 +644,18 @@ public class VPackParser extends VPackParserBase
         _numTypesValid = NR_BIGDECIMAL;
         _numberType = NumberType.BIG_DECIMAL;
         return _updateToken(JsonToken.VALUE_NUMBER_FLOAT);
+    }
+
+    /** BCD packs two decimal digits per mantissa byte. */
+    protected void _validateBcdLength(long mantLen) throws JacksonException {
+        if (mantLen > Integer.MAX_VALUE) {
+            throw _constructReadException("BCD mantissa too large: " + mantLen);
+        }
+        long digits = mantLen * 2L;
+        if (digits > Integer.MAX_VALUE) {
+            throw _constructReadException("BCD number too large: " + digits + " digits");
+        }
+        _streamReadConstraints.validateFPLength((int) digits);
     }
 
     protected JsonToken _readCustomType(int typeByte) throws JacksonException {
@@ -1364,6 +1377,7 @@ public class VPackParser extends VPackParserBase
         JsonToken parseBcdInBuf(VPackParser parser, int tb, int pos, boolean neg) throws JacksonException {
             int lw = neg ? (tb - VPACK_BCD_NEG_FIRST + 1) : (tb - VPACK_BCD_POS_FIRST + 1);
             long mantLen = VPackUtil.readLeUnsigned(buf, pos + 1, lw);
+            parser._validateBcdLength(mantLen);
             int exp = (int) VPackUtil.readLeSigned(buf, pos + 1 + lw, 4);
             byte[] bcd = Arrays.copyOfRange(buf, pos + 1 + lw + 4, pos + 1 + lw + 4 + (int) mantLen);
             java.math.BigDecimal bd = VPackUtil.decodeBcd(bcd, exp, neg);

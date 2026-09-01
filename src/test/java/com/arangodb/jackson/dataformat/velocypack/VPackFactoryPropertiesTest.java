@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import tools.jackson.core.Version;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Tests for basic factory properties.
@@ -28,6 +29,17 @@ public class VPackFactoryPropertiesTest extends BaseTestForVPack
     public void testCanParseAsync() {
         VPackFactory f = new VPackFactory();
         assertThat(f.canParseAsync()).isFalse();
+    }
+
+    @Test
+    public void testRejectsInvalidByteRangesBeforeParserBootstrap() {
+        VPackFactory f = new VPackFactory();
+        assertThatThrownBy(() -> f.createParser((byte[]) null))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> f.createParser(new byte[1], -1, 1))
+                .isInstanceOf(IndexOutOfBoundsException.class);
+        assertThatThrownBy(() -> f.createParser(new byte[1], 1, 1))
+                .isInstanceOf(IndexOutOfBoundsException.class);
     }
 
     @Test

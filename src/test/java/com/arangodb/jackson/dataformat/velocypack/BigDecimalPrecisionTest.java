@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import tools.jackson.core.JsonParser;
 import tools.jackson.core.JsonToken;
 import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.VPackUtils;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -58,6 +59,13 @@ public class BigDecimalPrecisionTest extends BaseTestForVPack
         BigDecimal input = new BigDecimal("1234567890123456789");
         byte[] vpack = mapper.writeValueAsBytes(input);
         BigDecimal output = mapper.readValue(vpack, BigDecimal.class);
+        assertThat(output).isEqualByComparingTo(input);
+    }
+
+    @Test
+    public void testJsonConversionPreservesPrecisionSensitiveDecimalLiteral() throws Exception {
+        BigDecimal input = new BigDecimal("0.10000000000000000001");
+        BigDecimal output = mapper.readValue(VPackUtils.toVPack(input.toPlainString()), BigDecimal.class);
         assertThat(output).isEqualByComparingTo(input);
     }
 

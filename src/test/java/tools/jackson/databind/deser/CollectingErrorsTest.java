@@ -800,8 +800,8 @@ public class CollectingErrorsTest extends DatabindTestUtil
             // setup
             File tempFile = File.createTempFile("test", ".json");
             try {
-                java.nio.file.Files.writeString(tempFile.toPath(),
-                    "{\"name\":\"Bob\",\"age\":\"notANumber\"}");
+                java.nio.file.Files.write(tempFile.toPath(), VPackUtils.toVPack(
+                    "{\"name\":\"Bob\",\"age\":\"notANumber\"}"));
                 ObjectReader reader = MAPPER.readerFor(Person.class).problemCollectingReader();
 
                 // when
