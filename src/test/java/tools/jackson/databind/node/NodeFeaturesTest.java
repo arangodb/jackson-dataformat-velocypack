@@ -91,7 +91,7 @@ public class NodeFeaturesTest extends DatabindTestUtil
         ObjectNode exp = noNullsMapper.createObjectNode();
         exp.put("a", 1);
         exp.put("c", true);
-        assertEquals(exp, r.readTree(a2q("{'a':1,'b':null,'c':true}")));
+        assertEquals(exp, r.readTree(VPackUtils.toVPack(a2q("{'a':1,'b':null,'c':true}"))));
     }
 
     // [databind#3476]

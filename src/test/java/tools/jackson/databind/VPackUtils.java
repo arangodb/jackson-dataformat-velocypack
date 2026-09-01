@@ -86,6 +86,10 @@ public final class VPackUtils {
                     if (p.currentToken() == tools.jackson.core.JsonToken.VALUE_NUMBER_FLOAT
                             && !p.isNaN()) {
                         BigDecimal decimal = p.getDecimalValue();
+                        if (decimal.signum() == 0 && p.getText().startsWith("-")) {
+                            g.writeNumber(-0.0d);
+                            continue;
+                        }
                         double value = decimal.doubleValue();
                         if (Double.isFinite(value)
                                 && BigDecimal.valueOf(value).compareTo(decimal) == 0) {

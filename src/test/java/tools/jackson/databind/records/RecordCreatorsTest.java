@@ -244,7 +244,7 @@ public class RecordCreatorsTest extends DatabindTestUtil
 
         // But then failure for non-empty Array (f.ex)
         try {
-            R.readValue(VPackUtils.toVPack(a2q("{'id':2,'options':[123]}}")));
+            R.readValue(VPackUtils.toVPack(a2q("{'id':2,'options':[123]}")));
             fail("Should not pass");
         } catch (DatabindException e) {
             verifyException(e, ERROR_3938_PREFIX);

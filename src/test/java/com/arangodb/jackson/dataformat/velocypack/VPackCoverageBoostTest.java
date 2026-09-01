@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import tools.jackson.core.JsonGenerator;
 import tools.jackson.core.JsonParser;
 import tools.jackson.core.JsonToken;
+import tools.jackson.core.exc.InputCoercionException;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -18,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Targeted tests to boost coverage for specific uncovered code paths.
@@ -258,8 +260,7 @@ public class VPackCoverageBoostTest extends BaseTestForVPack
         try (JsonParser p = m.createParser(bytes)) {
             p.nextToken();
             assertThat(p.getNumberType()).isEqualTo(JsonParser.NumberType.BIG_INTEGER);
-            long v = p.getLongValue();
-            assertThat(v).isEqualTo(-1L);
+            assertThatThrownBy(p::getLongValue).isInstanceOf(InputCoercionException.class);
         }
     }
 
@@ -270,8 +271,7 @@ public class VPackCoverageBoostTest extends BaseTestForVPack
         try (JsonParser p = m.createParser(bytes)) {
             p.nextToken();
             assertThat(p.getNumberType()).isEqualTo(JsonParser.NumberType.LONG);
-            int v = p.getIntValue();
-            assertThat(v).isEqualTo((int) Long.MAX_VALUE);
+            assertThatThrownBy(p::getIntValue).isInstanceOf(InputCoercionException.class);
         }
     }
 
@@ -285,8 +285,7 @@ public class VPackCoverageBoostTest extends BaseTestForVPack
         VPackMapper m = new VPackMapper();
         try (JsonParser p = m.createParser(bytes)) {
             p.nextToken();
-            int v = p.getIntValue();
-            assertThat(v).isEqualTo(-1);
+            assertThatThrownBy(p::getIntValue).isInstanceOf(InputCoercionException.class);
         }
     }
 

@@ -259,14 +259,23 @@ public class JDKNumberDeserTest
     @Test
     public void testBigArrayOfFloatPrimitives() throws Exception {
         try (InputStream stream = getClass().getResourceAsStream("/data/float-array-755.txt")) {
-            float[] floats = MAPPER.readValue(VPackUtils.toVPack(
-                    new String(stream.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)), float[].class);
-            assertEquals(1004, floats.length);
-            assertEquals(7.0385313e-26f, floats[0]);
-            assertEquals(1.2f, floats[1]);
-            assertEquals(3.4028235e38f, floats[2]);
-            assertEquals(7.006492321624086e-46f, floats[3]); //this assertion fails unless toString is used
+            String input = new String(stream.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            assertThrows(InputCoercionException.class,
+                    () -> MAPPER.readValue(VPackUtils.toVPack(input), float[].class));
         }
+    }
+
+    @Test
+    public void testFloatRangeValidation() throws Exception {
+        assertFloatOutOfRange("3.4028235677973366e38");
+        assertFloatOutOfRange("-3.4028235677973366e38");
+        assertFloatOutOfRange("1e-46");
+        assertFloatOutOfRange("-1e-46");
+    }
+
+    private void assertFloatOutOfRange(String value) {
+        assertThrows(InputCoercionException.class,
+                () -> MAPPER.readValue(VPackUtils.toVPack(value), float.class));
     }
 
     @Test

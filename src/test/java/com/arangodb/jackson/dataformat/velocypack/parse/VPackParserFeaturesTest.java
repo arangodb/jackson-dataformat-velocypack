@@ -105,7 +105,7 @@ public class VPackParserFeaturesTest extends BaseTestForVPack
         try (JsonParser p = parserFor(bytes)) {
             assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_NUMBER_INT);
             assertThat(p.getLongValue()).isEqualTo(Long.MAX_VALUE);
-            assertThat(p.getIntValue()).isEqualTo((int) Long.MAX_VALUE); // truncated
+            assertThatThrownBy(p::getIntValue).isInstanceOf(InputCoercionException.class);
             assertThat(p.getBigIntegerValue()).isEqualTo(BigInteger.valueOf(Long.MAX_VALUE));
         }
     }

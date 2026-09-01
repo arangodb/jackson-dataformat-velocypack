@@ -5,7 +5,7 @@ import tools.jackson.core.*;
 import tools.jackson.databind.*;
 import tools.jackson.databind.module.SimpleModule;
 
-import java.io.StringWriter;
+import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -61,7 +61,7 @@ public class TestExceptionsDuringWriting
                 .addModule(module)
                 .build();
         try {
-            StringWriter sw = new StringWriter();
+            ByteArrayOutputStream sw = new ByteArrayOutputStream();
             // And just to make things more interesting, let's create a nested data struct...
             Bean[] b = { new Bean() };
             List<Bean[]> l = new ArrayList<Bean[]>();
@@ -81,4 +81,3 @@ public class TestExceptionsDuringWriting
     }
 
 }
-
