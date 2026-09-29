@@ -9,6 +9,20 @@ This project contains a [Jackson](https://github.com/FasterXML/jackson) extensio
 It is compatible with Jackson 3.
 It has no separate VelocyPack runtime dependency. 
 
+## VelocyPack specification coverage
+
+This library implements only a subset of the [complete VelocyPack specification](https://github.com/arangodb/velocypack/blob/main/VelocyPack.md). 
+Its supported wire format is described in [the local format document](docs/velocypack.md) and the [wire profile](docs/wire-profile.md).
+
+The following features in the complete specification are unsupported:
+
+- **Tagged values (`0xee`–`0xef`):** The upstream specification defines one-byte and eight-byte logical type tags. The local format document omits tagging and treats these markers as reserved. This library rejects tagged values and does not write them.
+- **Custom types (`0xf0`–`0xff`):** The upstream specification defines custom payloads with fixed or encoded lengths. The local format document does not define these types, and this library rejects their markers and does not write them.
+- **External values (`0x1d`):** These are in-memory pointers in the upstream specification, not portable serialized data. This library rejects them and does not write them.
+
+The local wire profile also fixes ambiguities in the shared part of the format, including short-string lengths and some container widths, counts, and padding. 
+Consult [the wire profile](docs/wire-profile.md) for those choices and for Java-specific limits on representing packed BCD decimals.
+
 ## Maven
 
 To add the dependency to your project with maven, add the following code to your pom.xml:
