@@ -54,7 +54,7 @@ class VPackModuleMetadataTest {
                     "tools/jackson/dataformat/velocypack/PackageVersion.java") != null);
             assertEquals("5.0.0", archive.getManifest().getMainAttributes()
                     .getValue("Implementation-Version"));
-            assertEquals(65, classMajorVersion(archive,
+            assertEquals(61, classMajorVersion(archive,
                     "tools/jackson/dataformat/velocypack/VPackFactory.class"));
         }
     }
@@ -74,7 +74,7 @@ class VPackModuleMetadataTest {
                     codeSource(tools.jackson.databind.ObjectMapper.class),
                     codeSource(Class.forName("com.fasterxml.jackson.annotation.JsonProperty")));
             String modulePathValue = pathList(modulePath);
-            runJavaTool("javac", "--release", "21", "--module-path", modulePathValue,
+            runJavaTool("javac", "--release", "17", "--module-path", modulePathValue,
                     "-d", classes.toString(), sources.resolve("module-info.java").toString(),
                     packageDir.resolve("Consumer.java").toString());
             List<Path> runtimePath = new ArrayList<>();
@@ -127,7 +127,7 @@ class VPackModuleMetadataTest {
         Path javaHome = Path.of(System.getProperty("java.home"));
         Path executable = javaHome.resolve("bin").resolve(tool);
         if (!Files.isExecutable(executable)) {
-            throw new AssertionError("JDK 21 tool is unavailable: " + executable);
+            throw new AssertionError("JDK tool is unavailable: " + executable);
         }
         List<String> command = new ArrayList<>();
         command.add(executable.toString());

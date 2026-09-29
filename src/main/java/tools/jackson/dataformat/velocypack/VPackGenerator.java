@@ -249,20 +249,24 @@ public class VPackGenerator extends GeneratorBase {
 
     @Override
     public JsonGenerator writeEmbeddedObject(Object object) throws JacksonException {
-        return switch (object) {
-            case null -> writeNull();
-            case byte[] bytes -> writeBinary(null, bytes, 0, bytes.length);
-            case VPackDate(long epochMillis) -> writeVPackDate(epochMillis);
-            case VPackSpecialValue special -> writeVPackSpecial(special);
-            default -> {
-                try {
-                    throw VPackErrors.write("embedded object",
-                            "unsupported native value type " + object.getClass().getName());
-                } catch (RuntimeException e) {
-                    throw fail(e);
-                }
-            }
-        };
+        if (object == null) {
+            return writeNull();
+        }
+        if (object instanceof byte[] bytes) {
+            return writeBinary(null, bytes, 0, bytes.length);
+        }
+        if (object instanceof VPackDate date) {
+            return writeVPackDate(date.epochMillis());
+        }
+        if (object instanceof VPackSpecialValue special) {
+            return writeVPackSpecial(special);
+        }
+        try {
+            throw VPackErrors.write("embedded object",
+                    "unsupported native value type " + object.getClass().getName());
+        } catch (RuntimeException e) {
+            throw fail(e);
+        }
     }
 
     /**
@@ -323,14 +327,20 @@ public class VPackGenerator extends GeneratorBase {
      */
     private void _copyVPackNumber(JsonParser parser) throws JacksonException {
         Number value = parser.getNumberValue();
-        switch (value) {
-            case Integer integer -> writeNumber(integer);
-            case Long longValue -> writeNumber(longValue);
-            case BigInteger bigInteger -> writeNumber(bigInteger);
-            case BigDecimal bigDecimal -> writeNumber(bigDecimal);
-            case Float floatValue -> writeNumber(floatValue);
-            case Double doubleValue -> writeNumber(doubleValue);
-            default -> throw _constructWriteException("Unsupported numeric value type %s",
+        if (value instanceof Integer integer) {
+            writeNumber(integer);
+        } else if (value instanceof Long longValue) {
+            writeNumber(longValue);
+        } else if (value instanceof BigInteger bigInteger) {
+            writeNumber(bigInteger);
+        } else if (value instanceof BigDecimal bigDecimal) {
+            writeNumber(bigDecimal);
+        } else if (value instanceof Float floatValue) {
+            writeNumber(floatValue);
+        } else if (value instanceof Double doubleValue) {
+            writeNumber(doubleValue);
+        } else {
+            throw _constructWriteException("Unsupported numeric value type %s",
                     value == null ? "null" : value.getClass().getName());
         }
     }
@@ -1494,15 +1504,19 @@ public class VPackGenerator extends GeneratorBase {
     }
 
     private RuntimeException closeFailure() {
-        return switch (_failure) {
-            case null -> null;
-            case StreamConstraintsException ignored ->
-                    new StreamConstraintsException("generator: generator has failed");
-            case StreamWriteException ignored -> new StreamWriteException(this, "generator has failed", _failure);
-            case JacksonIOException ioFailure when ioFailure.getCause() != null ->
-                    JacksonIOException.construct(ioFailure.getCause(), this);
-            default -> new StreamWriteException(this, "generator has failed", _failure);
-        };
+        if (_failure == null) {
+            return null;
+        }
+        if (_failure instanceof StreamConstraintsException) {
+            return new StreamConstraintsException("generator: generator has failed");
+        }
+        if (_failure instanceof StreamWriteException) {
+            return new StreamWriteException(this, "generator has failed", _failure);
+        }
+        if (_failure instanceof JacksonIOException ioFailure && ioFailure.getCause() != null) {
+            return JacksonIOException.construct(ioFailure.getCause(), this);
+        }
+        return new StreamWriteException(this, "generator has failed", _failure);
     }
 
     private void releaseOwnedBuffers() {
