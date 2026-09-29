@@ -5,8 +5,73 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class VPackByteStoreTest {
+    @Test
+    void readsLittleEndianWidthsFromBorrowedAndOwnedStores() {
+        byte[] input = new byte[16];
+        for (int i = 0; i < input.length; ++i) input[i] = (byte) (i + 1);
+        VPackByteStore borrowed = VPackByteStore.borrowed(input, 2, 12);
+        VPackByteStore owned = VPackByteStore.owned();
+        owned.append(input, 2, 12);
+        for (int width = 1; width <= 8; ++width) {
+            long expected = 0L;
+            for (int i = 0; i < width; ++i) {
+                expected |= (long) (input[2 + i] & 0xFF) << (8 * i);
+            }
+            assertEquals(expected, borrowed.readLE(0L, width));
+            assertEquals(expected, owned.readLE(0L, width));
+        }
+        assertEquals(36L, borrowed.scannedBytes());
+        assertEquals(36L, owned.scannedBytes());
+        byte[] ascii = "345678".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        assertEquals("345678", VPackByteStore.borrowed(ascii, 0, ascii.length)
+                .decodeUtf8(0L, ascii.length));
+        VPackByteStore asciiOwned = VPackByteStore.owned();
+        asciiOwned.append(ascii, 0, ascii.length);
+        assertEquals("345678", asciiOwned.decodeUtf8(0L, ascii.length));
+        assertEquals("", VPackByteStore.owned().decodeUtf8(0L, 0));
+    }
+
+    @Test
+    void readsAndDecodesValuesAcrossOwnedPageBoundary() {
+        int start = VPackByteStore.PAGE_SIZE - 3;
+        byte[] bytes = new byte[VPackByteStore.PAGE_SIZE + 8];
+        byte[] expected = "abcdefgh".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        System.arraycopy(expected, 0, bytes, start, expected.length);
+        VPackByteStore store = VPackByteStore.owned();
+        store.append(bytes, 0, bytes.length);
+        VPackByteStore.Range range = store.range(start, expected.length);
+        for (int width = 1; width <= 8; ++width) {
+            long bits = 0L;
+            for (int i = 0; i < width; ++i) bits |= (long) expected[i] << (8 * i);
+            assertEquals(bits, range.readLE(0L, width));
+        }
+        assertEquals("abcdefgh", range.decodeUtf8(0L, expected.length));
+        assertEquals(expected.length, store.copiedBytes());
+        assertTrue(store.scannedBytes() >= 36L);
+    }
+
+    @Test
+    void rangeReadersCheckBoundsAndRelease() {
+        VPackByteStore store = VPackByteStore.borrowed(new byte[] { 1, 2, 3 }, 0, 3);
+        VPackByteStore.Range range = store.range(1L, 2L);
+        assertThrows(tools.jackson.core.exc.StreamReadException.class,
+                () -> range.readLE(1L, 2));
+        assertThrows(tools.jackson.core.exc.StreamReadException.class,
+                () -> range.decodeUtf8(2L, 1));
+        assertThrows(tools.jackson.core.exc.StreamReadException.class,
+                () -> store.readLE(2L, 2));
+        assertThrows(tools.jackson.core.exc.StreamReadException.class,
+                () -> store.decodeUtf8(2L, 2));
+        store.release();
+        assertThrows(tools.jackson.core.exc.StreamReadException.class,
+                () -> range.readLE(0L, 1));
+        assertThrows(tools.jackson.core.exc.StreamReadException.class,
+                () -> range.decodeUtf8(0L, 1));
+    }
+
     @Test
     void borrowedSliceUsesCheckedStableCoordinates() {
         byte[] input = { 9, 10, 11, 12, 13 };

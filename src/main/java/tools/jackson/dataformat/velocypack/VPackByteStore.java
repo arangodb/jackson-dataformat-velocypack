@@ -1,5 +1,9 @@
 package tools.jackson.dataformat.velocypack;
 
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
+import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -9,6 +13,8 @@ import java.util.List;
  */
 final class VPackByteStore implements AutoCloseable {
     static final int PAGE_SIZE = 16 * 1024;
+    private static final VarHandle LONG_LE = MethodHandles.byteArrayViewVarHandle(
+            long[].class, ByteOrder.LITTLE_ENDIAN);
 
     private final byte[] borrowed;
     private final int borrowedOffset;
@@ -74,6 +80,76 @@ final class VPackByteStore implements AutoCloseable {
         }
         int page = (int) (index / PAGE_SIZE);
         return pages.get(page)[(int) (index % PAGE_SIZE)];
+    }
+
+    long readLE(long index, int width) {
+        VPackBounds.requireNumericWidth(width, "little-endian field");
+        ensureRange(index, width, "little-endian field");
+        scannedBytes = VPackBounds.checkedAdd(scannedBytes, width,
+                "byte store scan instrumentation");
+        byte[] data;
+        int offset;
+        if (borrowed != null) {
+            data = borrowed;
+            offset = borrowedOffset + (int) index;
+        } else {
+            int inPage = (int) (index % PAGE_SIZE);
+            if (width <= PAGE_SIZE - inPage) {
+                data = pages.get((int) (index / PAGE_SIZE));
+                offset = inPage;
+            } else {
+                return readLESlow(index, width);
+            }
+        }
+        if (width == 8) {
+            return (long) LONG_LE.get(data, offset);
+        }
+        long result = 0L;
+        for (int i = 0; i < width; ++i) {
+            result |= (long) (data[offset + i] & 0xFF) << (8 * i);
+        }
+        return result;
+    }
+
+    private long readLESlow(long index, int width) {
+        long result = 0L;
+        for (int i = 0; i < width; ++i) {
+            int page = (int) ((index + i) / PAGE_SIZE);
+            int inPage = (int) ((index + i) % PAGE_SIZE);
+            result |= (long) (pages.get(page)[inPage] & 0xFF) << (8 * i);
+        }
+        return result;
+    }
+
+    String decodeUtf8(long index, int length) {
+        ensureRange(index, length, "UTF-8 value");
+        copiedBytes = VPackBounds.checkedAdd(copiedBytes, length,
+                "byte store copy instrumentation");
+        if (length == 0) {
+            return "";
+        }
+        if (borrowed != null) {
+            return new String(borrowed, borrowedOffset + (int) index, length,
+                    StandardCharsets.UTF_8);
+        }
+        int inPage = (int) (index % PAGE_SIZE);
+        if (length <= PAGE_SIZE - inPage) {
+            return new String(pages.get((int) (index / PAGE_SIZE)), inPage, length,
+                    StandardCharsets.UTF_8);
+        }
+        byte[] bytes = new byte[length];
+        int destination = 0;
+        long source = index;
+        int remaining = length;
+        while (remaining != 0) {
+            int count = Math.min(remaining, PAGE_SIZE - (int) (source % PAGE_SIZE));
+            System.arraycopy(pages.get((int) (source / PAGE_SIZE)),
+                    (int) (source % PAGE_SIZE), bytes, destination, count);
+            source += count;
+            destination += count;
+            remaining -= count;
+        }
+        return new String(bytes, StandardCharsets.UTF_8);
     }
 
     void append(byte value) {
@@ -193,6 +269,28 @@ final class VPackByteStore implements AutoCloseable {
         long scannedBytes() { return owner.scannedBytes(); }
 
         long copiedBytes() { return owner.copiedBytes(); }
+
+        long readLE(long relativeOffset, int width) {
+            owner.ensureOpen();
+            if (relativeOffset < 0L || relativeOffset > length || width < 0
+                    || width > length - relativeOffset) {
+                throw VPackErrors.malformed("byte range", relativeOffset,
+                        "copy range is outside the range");
+            }
+            return owner.readLE(VPackBounds.checkedAdd(offset, relativeOffset,
+                    "byte range read offset"), width);
+        }
+
+        String decodeUtf8(long relativeOffset, int decodeLength) {
+            owner.ensureOpen();
+            if (relativeOffset < 0L || relativeOffset > length || decodeLength < 0
+                    || decodeLength > length - relativeOffset) {
+                throw VPackErrors.malformed("byte range", relativeOffset,
+                        "copy range is outside the range");
+            }
+            return owner.decodeUtf8(VPackBounds.checkedAdd(offset, relativeOffset,
+                    "byte range decode offset"), decodeLength);
+        }
 
         byte byteAt(long relativeOffset) {
             if (relativeOffset < 0L || relativeOffset >= length) {

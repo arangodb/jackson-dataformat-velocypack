@@ -32,6 +32,7 @@ public class VPackParser extends ParserBase {
     private final VPackAttributeNameCodec _attributeNameCodec;
     private final ByteQuadsCanonicalizer _symbols;
     private final int _formatReadFeatures;
+    private final byte[] _compactScratch = new byte[VPackVarInts.MAX_GROUPS];
     private SimpleStreamReadContext _streamReadContext;
     private VPackRootReader.Root _root;
     private VPackType _currentVPackType;
@@ -288,8 +289,7 @@ public class VPackParser extends ParserBase {
             return _updateToken(JsonToken.VALUE_EMBEDDED_OBJECT);
         }
         case DOUBLE -> {
-            byte[] payload = _readFixedPayload(value, 8);
-            _doubleBits = VPackBounds.readBits(payload, 0, 8);
+            _doubleBits = _readFixedPayload(value, 8);
             _numberDouble = Double.longBitsToDouble(_doubleBits);
             _canonicalNumber = _numberDouble;
             _numberIsNaN = !Double.isFinite(_numberDouble);
@@ -298,8 +298,7 @@ public class VPackParser extends ParserBase {
             return _updateToken(JsonToken.VALUE_NUMBER_FLOAT);
         }
         case UTC_DATE -> {
-            byte[] payload = _readFixedPayload(value, 8);
-            _numberLong = VPackBounds.readSigned(payload, 0, 8);
+            _numberLong = VPackBounds.readSigned(_readFixedPayload(value, 8), 8);
             _canonicalNumber = _numberLong;
             _numTypesValid = NR_LONG;
             _currentVPackType = VPackType.DATE;
@@ -321,8 +320,7 @@ public class VPackParser extends ParserBase {
         }
         case SIGNED_INTEGER -> {
             int width = VPackMarker.width(marker);
-            byte[] payload = _readFixedPayload(value, width);
-            long numericValue = VPackBounds.readSigned(payload, 0, width);
+            long numericValue = VPackBounds.readSigned(_readFixedPayload(value, width), width);
             if (numericValue >= Integer.MIN_VALUE && numericValue <= Integer.MAX_VALUE) {
                 _numberInt = (int) numericValue;
                 _canonicalNumber = _numberInt;
@@ -337,8 +335,7 @@ public class VPackParser extends ParserBase {
         }
         case UNSIGNED_INTEGER -> {
             int width = VPackMarker.width(marker);
-            byte[] payload = _readFixedPayload(value, width);
-            BigInteger numericValue = VPackBounds.readUnsigned(payload, 0, width);
+            BigInteger numericValue = VPackBounds.readUnsigned(_readFixedPayload(value, width), width);
             if (numericValue.bitLength() <= 31) {
                 _numberInt = numericValue.intValue();
                 _canonicalNumber = _numberInt;
@@ -358,11 +355,10 @@ public class VPackParser extends ParserBase {
         case POSITIVE_BCD, NEGATIVE_BCD -> {
             int width = VPackMarker.width(marker);
             long mantissaLength = _readLength(value, width, "BCD mantissa length");
-            byte[] exponentBytes = new byte[4];
             long exponentOffset = VPackBounds.checkedAdd(1L + width, 0L,
                     "BCD exponent offset");
-            _root.range().copyTo(value.relativeStart() + exponentOffset, exponentBytes, 0, 4);
-            int exponent = (int) VPackBounds.readSigned(exponentBytes, 0, 4);
+            int exponent = (int) VPackBounds.readSigned(_root.range().readLE(
+                    value.relativeStart() + exponentOffset, 4), 4);
             long mantissaOffset = VPackBounds.checkedAdd(exponentOffset, 4L,
                     "BCD mantissa offset");
             VPackNumbers.validateBcdInput(mantissaLength, exponent,
@@ -707,9 +703,10 @@ public class VPackParser extends ParserBase {
                     "missing length or count framing");
         }
         int forwardBytes = (int) Math.min(VPackVarInts.MAX_GROUPS, available - 1L);
-        byte[] forward = new byte[forwardBytes];
-        _root.range().copyTo(start - _root.startOffset() + 1L, forward, 0, forwardBytes);
-        VPackVarInts.Decoded lengthValue = VPackVarInts.readForward(forward, 0, forward.length);
+        _root.range().copyTo(start - _root.startOffset() + 1L,
+                _compactScratch, 0, forwardBytes);
+        VPackVarInts.Decoded lengthValue = VPackVarInts.readForward(
+                _compactScratch, 0, forwardBytes);
         long length = lengthValue.value();
         long headerLength = 1L + lengthValue.length();
         if (length < headerLength) {
@@ -728,9 +725,11 @@ public class VPackParser extends ParserBase {
                     "missing reverse count");
         }
         long suffixBase = end - suffixLength;
-        byte[] suffix = new byte[(int) suffixLength];
-        _root.range().copyTo(suffixBase - _root.startOffset(), suffix, 0, suffix.length);
-        VPackVarInts.Decoded countValue = VPackVarInts.readReverse(suffix, 0, suffix.length);
+        int suffixBytes = (int) suffixLength;
+        _root.range().copyTo(suffixBase - _root.startOffset(),
+                _compactScratch, 0, suffixBytes);
+        VPackVarInts.Decoded countValue = VPackVarInts.readReverse(
+                _compactScratch, 0, suffixBytes);
         long bodyStart = start + headerLength;
         long bodyEnd = suffixBase + countValue.start();
         if (bodyEnd < bodyStart) {
@@ -757,10 +756,9 @@ public class VPackParser extends ParserBase {
     }
 
     private long _readLengthAt(long start, int width) {
-        byte[] encoded = new byte[width];
         long relative = start - _root.startOffset() + 1L;
-        _root.range().copyTo(relative, encoded, 0, width);
-        return VPackBounds.readScalarLength(encoded, 0, width, start + 1L);
+        return VPackBounds.readScalarLength(_root.range().readLE(relative, width),
+                width, start + 1L);
     }
 
     private void _recordStart(ArrayFrame frame, long start) {
@@ -954,16 +952,10 @@ public class VPackParser extends ParserBase {
 
     private BigInteger _readUnsignedKeyId(long start, int marker) {
         int width = VPackMarker.width(marker);
-        byte[] payload = _readBytes(start - _root.startOffset() + 1L, width);
-        return VPackBounds.readUnsigned(payload, 0, width);
-    }
-
-    private byte[] _readBytes(long relativeOffset, int length) {
-        VPackBounds.checkedRange(relativeOffset, length, _root.range().length(),
+        long relative = start - _root.startOffset() + 1L;
+        VPackBounds.checkedRange(relative, width, _root.range().length(),
                 "compressed attribute ID");
-        byte[] bytes = new byte[length];
-        _root.range().copyTo(relativeOffset, bytes, 0, length);
-        return bytes;
+        return VPackBounds.readUnsigned(_root.range().readLE(relative, width), width);
     }
 
     private byte[] _encodeResolvedName(String text) {
@@ -974,9 +966,8 @@ public class VPackParser extends ParserBase {
     }
 
     private long _readStructural(long logicalOffset, int width) {
-        byte[] encoded = new byte[width];
-        _root.range().copyTo(logicalOffset - _root.startOffset(), encoded, 0, width);
-        return VPackBounds.readStructural(encoded, 0, width, logicalOffset);
+        return VPackBounds.readStructural(_root.range().readLE(
+                logicalOffset - _root.startOffset(), width), width, logicalOffset);
     }
 
     private int _byteAt(long logicalOffset) {
@@ -1071,10 +1062,8 @@ public class VPackParser extends ParserBase {
         }
     }
 
-    private byte[] _readFixedPayload(ValueView value, int length) {
-        byte[] payload = new byte[length];
-        _root.range().copyTo(value.relativeStart() + 1L, payload, 0, length);
-        return payload;
+    private long _readFixedPayload(ValueView value, int length) {
+        return _root.range().readLE(value.relativeStart() + 1L, length);
     }
 
     private void _decodeString(ValueView value) {
@@ -1088,9 +1077,7 @@ public class VPackParser extends ParserBase {
             byteLength = _readLength(value, 8, "long string length");
         }
         int length = VPackBounds.checkedInt(byteLength, "string byte length");
-        byte[] utf8 = new byte[length];
-        _root.range().copyTo(value.relativeStart() + payloadOffset, utf8, 0, length);
-        _stringValue = new String(utf8, StandardCharsets.UTF_8);
+        _stringValue = _root.range().decodeUtf8(value.relativeStart() + payloadOffset, length);
         _streamReadConstraints.validateStringLengthLong(_stringValue.length());
     }
 
@@ -1105,9 +1092,8 @@ public class VPackParser extends ParserBase {
     }
 
     private long _readLength(ValueView value, int width, String context) {
-        byte[] encoded = new byte[width];
-        _root.range().copyTo(value.relativeStart() + 1L, encoded, 0, width);
-        return VPackBounds.readScalarLength(encoded, 0, width,
+        return VPackBounds.readScalarLength(_root.range().readLE(
+                value.relativeStart() + 1L, width), width,
                 VPackBounds.checkedAdd(value.logicalStart(), 1L, context));
     }
 

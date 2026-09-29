@@ -20,6 +20,11 @@ final class VPackLayout {
     private interface Bytes {
         long length();
         int get(long offset);
+        default long readLE(long offset, int width) {
+            long value = 0L;
+            for (int i = 0; i < width; ++i) value |= (long) get(offset + i) << (8 * i);
+            return value;
+        }
     }
 
     /**
@@ -84,6 +89,7 @@ final class VPackLayout {
         return analyzeFixed(new Bytes() {
             @Override public long length() { return input.length(); }
             @Override public int get(long index) { return input.byteAt(index) & 0xFF; }
+            @Override public long readLE(long index, int width) { return input.readLE(index, width); }
         }, offset, limit, address, enclosingEnd);
     }
 
@@ -468,14 +474,10 @@ final class VPackLayout {
         if (offset < 0L || offset > input.length() - width) {
             throw VPackErrors.malformed("structural field", errorOffset, "field is truncated");
         }
-        long value = 0L;
-        for (int i = 0; i < width; ++i) {
-            int b = input.get(offset + i);
-            if (i == 7 && (b & 0x80) != 0) {
-                throw VPackErrors.malformed("structural field", errorOffset,
-                        "unsigned field does not fit in a signed long");
-            }
-            value |= (long) b << (8 * i);
+        long value = input.readLE(offset, width);
+        if (width == 8 && value < 0L) {
+            throw VPackErrors.malformed("structural field", errorOffset,
+                    "unsigned field does not fit in a signed long");
         }
         return value;
     }

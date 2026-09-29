@@ -163,13 +163,23 @@ final class VPackBounds {
     static BigInteger readUnsigned(byte[] input, int offset, int width) {
         requireNumericWidth(width, "unsigned field");
         long bits = readNumericBits(input, offset, width);
-        return unsignedLong(bits);
+        return readUnsigned(bits, width);
+    }
+
+    static BigInteger readUnsigned(long bits, int width) {
+        requireNumericWidth(width, "unsigned field");
+        return width == 8 && bits < 0L ? unsignedLong(bits) : BigInteger.valueOf(bits);
     }
 
     /** Read a signed two's-complement field, sign-extending widths below eight. */
     static long readSigned(byte[] input, int offset, int width) {
         requireNumericWidth(width, "signed field");
         long bits = readNumericBits(input, offset, width);
+        return readSigned(bits, width);
+    }
+
+    static long readSigned(long bits, int width) {
+        requireNumericWidth(width, "signed field");
         if (width < 8 && (bits & (1L << ((width * 8) - 1))) != 0L) {
             bits |= -1L << (width * 8);
         }
@@ -183,8 +193,13 @@ final class VPackBounds {
     static long readStructural(byte[] input, int offset, int width) {
         requireStructuralWidth(width, "structural field");
         long bits = readBits(input, offset, width);
+        return readStructural(bits, width, offset);
+    }
+
+    static long readStructural(long bits, int width, long errorOffset) {
+        requireStructuralWidth(width, "structural field");
         if (width == 8 && bits < 0L) {
-            throw VPackErrors.malformed("structural field", offset,
+            throw VPackErrors.malformed("structural field", errorOffset,
                     "uint64 value has its high bit set");
         }
         return bits;
@@ -192,7 +207,8 @@ final class VPackBounds {
 
     static long readStructural(byte[] input, int offset, int width, long errorOffset) {
         requireStructuralWidth(width, "structural field");
-        return readLengthBits(input, offset, width, errorOffset, "structural field");
+        return readStructural(readLengthBits(input, offset, width, errorOffset,
+                "structural field"), width, errorOffset);
     }
 
     /**
@@ -201,7 +217,17 @@ final class VPackBounds {
      */
     static long readScalarLength(byte[] input, int offset, int width, long errorOffset) {
         requireNumericWidth(width, "scalar length");
-        return readLengthBits(input, offset, width, errorOffset, "scalar length");
+        return readScalarLength(readLengthBits(input, offset, width, errorOffset,
+                "scalar length"), width, errorOffset);
+    }
+
+    static long readScalarLength(long bits, int width, long errorOffset) {
+        requireNumericWidth(width, "scalar length");
+        if (width == 8 && bits < 0L) {
+            throw VPackErrors.malformed("scalar length", errorOffset,
+                    "uint64 value has its high bit set");
+        }
+        return bits;
     }
 
     private static long readLengthBits(byte[] input, int offset, int width, long errorOffset,
