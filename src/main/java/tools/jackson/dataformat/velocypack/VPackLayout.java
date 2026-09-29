@@ -223,18 +223,29 @@ final class VPackLayout {
         long bodyStart = writeAdd(1L, width, "equal-array body start");
         long length = writeAdd(bodyStart, bodyLength, "equal-array length");
         requireFits(length, width, "equal-array length");
+        return buildEqualCandidate(width, bodyStart, length);
+    }
+
+    private static FixedCandidate buildEqualCandidate(int width, long bodyStart, long length) {
         int marker = 0x02 + widthIndex(width);
         return new FixedCandidate(marker, width, length, bodyStart, length,
                 length, length, -1L, -1L, false, true);
     }
 
+    private static FixedCandidate tryEqualCandidate(int width, long bodyLength) {
+        if (!isStructuralWidth(width) || bodyLength < 0L || bodyLength == 0L) return null;
+        long bodyStart = tryWriteAdd(1L, width);
+        if (bodyStart < 0L) return null;
+        long length = tryWriteAdd(bodyStart, bodyLength);
+        if (length < 0L || !fits(length, width)) return null;
+        return buildEqualCandidate(width, bodyStart, length);
+    }
+
     static FixedCandidate selectEqualWidth(long bodyLength) {
+        // Keep width probing allocation-free and exception-free on ordinary misses.
         for (int width : STRUCTURAL_WIDTHS) {
-            try {
-                return equalCandidate(width, bodyLength);
-            } catch (RuntimeException e) {
-                if (!(e instanceof tools.jackson.core.exc.StreamWriteException)) throw e;
-            }
+            FixedCandidate candidate = tryEqualCandidate(width, bodyLength);
+            if (candidate != null) return candidate;
         }
         throw VPackErrors.write("equal-array width", "body does not fit any structural width");
     }
@@ -288,24 +299,77 @@ final class VPackLayout {
         requireFits(length, width, "indexed length");
         requireFits(entryCount, width, "indexed count");
         validateOffsets(bodyOffsets, bodyStart, bodyLength, width);
+        return buildIndexedCandidate(object, width, length, bodyStart, indexStart,
+                indexEnd, countStart, countEnd, trailing);
+    }
+
+    private static FixedCandidate buildIndexedCandidate(boolean object, int width,
+            long length, long bodyStart, long indexStart, long indexEnd,
+            long countStart, long countEnd, boolean trailing) {
         int marker = object ? 0x0B + widthIndex(width) : 0x06 + widthIndex(width);
         return new FixedCandidate(marker, width, length, bodyStart, indexStart,
                 indexStart, indexEnd, countStart, countEnd, trailing, false);
     }
 
+    private static FixedCandidate tryIndexedCandidate(boolean object, int width,
+            long bodyLength, long entryCount, long[] bodyOffsets) {
+        if (!isStructuralWidth(width) || bodyLength < 0L || entryCount < 0L
+                || entryCount == 0L) return null;
+        if (bodyOffsets != null && bodyOffsets.length != entryCount) return null;
+
+        long minimumBody = tryWriteMultiply(entryCount, object ? 2L : 1L);
+        if (minimumBody < 0L || bodyLength < minimumBody) return null;
+        long indexBytes = tryWriteMultiply(entryCount, width);
+        if (indexBytes < 0L) return null;
+
+        long header;
+        long bodyStart;
+        long indexStart;
+        long indexEnd;
+        long countStart;
+        long countEnd;
+        boolean trailing = !object && width == 8;
+        if (trailing) {
+            header = tryWriteAdd(1L, width);
+            if (header < 0L) return null;
+            bodyStart = header;
+            indexStart = tryWriteAdd(bodyStart, bodyLength);
+            if (indexStart < 0L) return null;
+            indexEnd = tryWriteAdd(indexStart, indexBytes);
+            if (indexEnd < 0L) return null;
+            countStart = indexEnd;
+            countEnd = tryWriteAdd(countStart, width);
+            if (countEnd < 0L) return null;
+        } else {
+            long twiceWidth = tryWriteMultiply(2L, width);
+            if (twiceWidth < 0L) return null;
+            header = tryWriteAdd(1L, twiceWidth);
+            if (header < 0L) return null;
+            countStart = 1L + width;
+            countEnd = header;
+            bodyStart = header;
+            indexStart = tryWriteAdd(bodyStart, bodyLength);
+            if (indexStart < 0L) return null;
+            indexEnd = tryWriteAdd(indexStart, indexBytes);
+            if (indexEnd < 0L) return null;
+        }
+        long length = trailing ? countEnd : indexEnd;
+        if (!fits(length, width) || !fits(entryCount, width)) return null;
+        if (!tryValidateOffsets(bodyOffsets, bodyStart, bodyLength, width)) return null;
+        return buildIndexedCandidate(object, width, length, bodyStart, indexStart,
+                indexEnd, countStart, countEnd, trailing);
+    }
+
     /** Select the smallest complete indexed candidate, including its index bytes. */
     static FixedCandidate selectIndexedWidth(boolean object, long bodyLength,
             long entryCount, long[] bodyOffsets) {
-        RuntimeException last = VPackErrors.write("indexed width", "no width available");
-        for (int width : STRUCTURAL_WIDTHS) {
-            try {
-                return indexedCandidate(object, width, bodyLength, entryCount, bodyOffsets);
-            } catch (RuntimeException e) {
-                if (!(e instanceof tools.jackson.core.exc.StreamWriteException)) throw e;
-                last = e;
-            }
+        for (int i = 0; i < STRUCTURAL_WIDTHS.length - 1; ++i) {
+            int width = STRUCTURAL_WIDTHS[i];
+            FixedCandidate candidate = tryIndexedCandidate(object, width, bodyLength,
+                    entryCount, bodyOffsets);
+            if (candidate != null) return candidate;
         }
-        throw last;
+        return indexedCandidate(object, 8, bodyLength, entryCount, bodyOffsets);
     }
 
     /**
@@ -487,6 +551,26 @@ final class VPackLayout {
         }
     }
 
+    private static boolean fits(long value, int width) {
+        return value >= 0L && value <= widthMaximum(width);
+    }
+
+    private static boolean isStructuralWidth(int width) {
+        return width == 1 || width == 2 || width == 4 || width == 8;
+    }
+
+    // A negative result marks invalid nonnegative arithmetic; valid layout values are nonnegative.
+    private static long tryWriteAdd(long left, long right) {
+        if (left < 0L || right < 0L || right > Long.MAX_VALUE - left) return -1L;
+        return left + right;
+    }
+
+    private static long tryWriteMultiply(long left, long right) {
+        if (left < 0L || right < 0L
+                || (left != 0L && right > Long.MAX_VALUE / left)) return -1L;
+        return left * right;
+    }
+
     private static void validateOffsets(long[] bodyOffsets, long bodyStart,
             long bodyLength, int width) {
         if (bodyOffsets == null) return;
@@ -497,6 +581,17 @@ final class VPackLayout {
             requireFits(writeAdd(bodyStart, bodyOffset, "indexed offset"), width,
                     "indexed offset");
         }
+    }
+
+    private static boolean tryValidateOffsets(long[] bodyOffsets, long bodyStart,
+            long bodyLength, int width) {
+        if (bodyOffsets == null) return true;
+        for (long bodyOffset : bodyOffsets) {
+            if (bodyOffset < 0L || bodyOffset >= bodyLength) return false;
+            long offset = tryWriteAdd(bodyStart, bodyOffset);
+            if (offset < 0L || !fits(offset, width)) return false;
+        }
+        return true;
     }
 
     private static int compactWidth(long value) {
