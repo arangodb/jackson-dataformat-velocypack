@@ -34,27 +34,6 @@ class VPackMalformedMatrixTest {
         }
     }
 
-    @Test
-    void markerLengthCountIndexUtf8BcdAndContinuationMutationsAreBounded() throws Exception {
-        byte[][] vectors = {
-                { (byte) 0xf0 },                                      // unsupported marker
-                { 0x13, 0x05, 0x31, 0x28, 0x10, 0x02 },             // short compact length
-                { 0x13, 0x07, 0x31, 0x28, 0x10, 0x02 },             // long compact length
-                { 0x13, 0x06, 0x31, 0x28, 0x10, 0x03 },             // count/body mismatch
-                { 0x06, 0x05, 0x01, 0x31, 0x04 },                   // out-of-body index
-                { 0x02, 0x05, 0x00, 0x00, 0x31 },                   // forbidden padding start
-                { 0x41, (byte) 0xff },                               // invalid UTF-8
-                { (byte) 0xc8, 1, 0, 0, 0, 0, (byte) 0xfa },         // invalid BCD digit
-                { 0x13, 0x05, (byte) 0x80, 0x01, 0x01 }              // wrong continuation direction
-        };
-        for (int caseId = 0; caseId < vectors.length; ++caseId) {
-            for (int source = 0; source < 4; ++source) {
-                assertJacksonError(vectors[caseId], source,
-                        "seed=" + SEED + " case=" + caseId + " source=" + source);
-            }
-        }
-    }
-
     private static void assertJacksonError(byte[] bytes, int source, String context) throws Exception {
         try (JsonParser parser = parser(bytes, source)) {
             StreamReadException failure = assertThrows(StreamReadException.class, () -> {

@@ -240,7 +240,7 @@ class VPackParserRetentionRegressionTest {
         assertNull(parser.currentValue());
         for (String name : new String[] { "_root", "_rootBudget", "_currentVPackType",
                 "_currentAttributeId", "_embeddedValue", "_canonicalNumber", "_numberBigInt",
-                "_numberBigDecimal", "_numberString", "_stringValue", "_stringChars",
+                "_numberBigDecimal", "_numberString", "_stringValue",
                 "_binaryValue", "_byteArrayBuilder" }) {
             assertNull(field(parser, name), name);
         }

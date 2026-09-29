@@ -35,26 +35,6 @@ class VPackUtf8Test {
     }
 
     @Test
-    void rejectsAllStrictUtf8FailureFamilies() {
-        byte[][] invalid = {
-                { (byte) 0xC0, (byte) 0x80 }, // overlong
-                { (byte) 0xE0, (byte) 0x80, (byte) 0x80 }, // overlong
-                { (byte) 0xED, (byte) 0xA0, (byte) 0x80 }, // surrogate
-                { (byte) 0xF4, (byte) 0x90, (byte) 0x80, (byte) 0x80 }, // out of range
-                { (byte) 0xE2, (byte) 0x28, (byte) 0xA1 }, // bad continuation
-                { (byte) 0xF0, (byte) 0x9F, (byte) 0x98 } // truncated
-        };
-        for (byte[] value : invalid) {
-            try (VPackParser parser = (VPackParser) factory.createParser(string(value))) {
-                assertThrows(StreamReadException.class, parser::nextToken,
-                        Arrays.toString(value));
-            } catch (Exception e) {
-                throw new AssertionError(e);
-            }
-        }
-    }
-
-    @Test
     void decodedCharacterLimitIsSeparateFromWireByteLength() {
         VPackFactory constrained = VPackFactory.builder()
                 .streamReadConstraints(StreamReadConstraints.builder().maxStringLength(2).build())

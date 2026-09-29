@@ -41,7 +41,6 @@ public class VPackParser extends ParserBase {
     private BigInteger _currentAttributeId;
     private Object _embeddedValue;
     private String _stringValue;
-    private char[] _stringChars;
     private long _binaryPayloadOffset;
     private int _binaryLength;
     private Number _canonicalNumber;
@@ -202,7 +201,6 @@ public class VPackParser extends ParserBase {
         _currentAttributeId = null;
         _embeddedValue = null;
         _stringValue = null;
-        _stringChars = null;
         _binaryPayloadOffset = 0L;
         _binaryLength = 0;
 
@@ -919,14 +917,14 @@ public class VPackParser extends ParserBase {
                     "key payload exceeds its encoded string boundary");
         }
         _rootBudget.chargeName(byteLength);
-        VPackUtf8.Decoded decoded = VPackUtf8.decodeName(_root.range(),
+        String decoded = VPackUtf8.decodeName(_root.range(),
                 start - _root.startOffset() + payloadOffset, byteLength,
                 VPackBounds.checkedAdd(start, payloadOffset, "object key location"),
                 _streamReadConstraints);
         int length = VPackBounds.checkedInt(byteLength, "object key byte length");
         byte[] utf8 = new byte[length];
         _root.range().copyTo(start - _root.startOffset() + payloadOffset, utf8, 0, length);
-        return new NameValue(_canonicalizeName(new String(decoded.chars()), utf8), utf8);
+        return new NameValue(_canonicalizeName(decoded, utf8), utf8);
     }
 
     /** Feed only validated UTF-8 to the bounded core canonicalizer. */
@@ -1137,12 +1135,10 @@ public class VPackParser extends ParserBase {
             payloadOffset = 9L;
             byteLength = _readLength(value, 8, "long string length");
         }
-        VPackUtf8.Decoded decoded = VPackUtf8.decode(_root.range(),
+        _stringValue = VPackUtf8.decode(_root.range(),
                 value.relativeStart() + payloadOffset, byteLength,
                 VPackBounds.checkedAdd(value.logicalStart(), payloadOffset,
                         "string payload location"), _streamReadConstraints);
-        _stringChars = decoded.chars();
-        _stringValue = new String(_stringChars);
     }
 
     private void _decodeBinary(ValueView value) {
@@ -1218,24 +1214,23 @@ public class VPackParser extends ParserBase {
                 throw _wrapIOFailure(e);
             }
             _stringValue = "";
-            _stringChars = new char[0];
             return value.length();
         }
         return getString(writer);
     }
 
     @Override public char[] getStringCharacters() throws JacksonException {
-        if (_currToken == JsonToken.VALUE_STRING) return _stringChars;
+        if (_currToken == JsonToken.VALUE_STRING) return _stringValue.toCharArray();
         String value = getString(); return value == null ? null : value.toCharArray();
     }
     @Override public int getStringLength() throws JacksonException {
-        if (_currToken == JsonToken.VALUE_STRING) return _stringChars.length;
+        if (_currToken == JsonToken.VALUE_STRING) return _stringValue.length();
         String value = getString(); return value == null ? 0 : value.length();
     }
     @Override public int getStringOffset() { return 0; }
 
     @Override public boolean hasStringCharacters() {
-        return _currToken == JsonToken.VALUE_STRING && _stringChars != null;
+        return _currToken == JsonToken.VALUE_STRING && _stringValue != null;
     }
 
     @Override public Number getNumberValue() throws InputCoercionException {
@@ -1593,7 +1588,6 @@ public class VPackParser extends ParserBase {
         _canonicalNumber = null;
         _doubleBits = 0L;
         _stringValue = null;
-        _stringChars = null;
         _binaryPayloadOffset = 0L;
         _binaryLength = 0;
     }

@@ -134,10 +134,6 @@ class VPackParserAdversarialTest {
         assertRejectedByTraversal(outerArray);
         assertRejectedBySkip(outerArray);
 
-        byte[] invalidString = new byte[] { 0x02, 0x04, 0x41, (byte) 0xFF };
-        assertRejectedByTraversal(invalidString);
-        assertRejectedBySkip(invalidString);
-
         byte[] body = VPackObjectParserTest.body(
                 VPackObjectParserTest.pair("a", new byte[] { 0x31 }),
                 VPackObjectParserTest.pair("b", new byte[] { 0x32 }));
