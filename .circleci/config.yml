@@ -14,18 +14,6 @@ commands:
             sleep <<parameters.duration>>
             echo "Cancelling job as <<parameters.duration>> has elapsed"
             curl --fail -X POST -H "Circle-Token: ${CIRCLE_TOKEN}" "https://circleci.com/api/v1.1/project/github/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}/${CIRCLE_BUILD_NUM}/cancel"
-  report:
-    parameters:
-      working_directory:
-        type: 'string'
-        default: '.'
-    steps:
-      - run:
-          name: Create reports
-          command: mvn surefire-report:report-only
-          working_directory: <<parameters.working_directory>>
-      - store_artifacts:
-          path: <<parameters.working_directory>>/target/site
   load_cache:
     steps:
       - run:
@@ -83,7 +71,6 @@ jobs:
       - run:
           name: Test
           command: mvn test
-      - report
       - store_cache
 
   deploy:
