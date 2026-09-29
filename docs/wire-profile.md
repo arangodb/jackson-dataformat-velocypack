@@ -47,8 +47,8 @@ Hexadecimal intervals are inclusive; together they cover all 256 bytes.
 | `28-2f`    | Unsigned 1-8-byte integer                   | Accept exactly                   | Nonnegative non-small values        |
 | `30-39`    | Integers 0..9                               | Accept                           | Same marker                         |
 | `3a-3f`    | Integers -6..-1                             | Accept                           | Same marker                         |
-| `40-be`    | UTF-8 byte length marker-0x40               | Strict UTF-8                     | <=126 bytes                         |
-| `bf`       | uint64 byte length then UTF-8               | Strict UTF-8, even if short      | >=127 bytes                         |
+| `40-be`    | UTF-8 byte length marker-0x40               | Assumed valid UTF-8 on read, valid UTF-16 on write; not validated; JDK UTF-8 charset replaces invalid input | <=126 bytes |
+| `bf`       | uint64 byte length then UTF-8               | Assumed valid UTF-8 on read, valid UTF-16 on write; not validated; JDK UTF-8 charset replaces invalid input | >=127 bytes |
 | `c0-c7`    | 1-8-byte unsigned length then binary        | Accept                           | Smallest length width               |
 | `c8-cf`    | Positive BCD; length width marker-0xc7      | Exact                            | Positive/zero BCD                   |
 | `d0-d7`    | Negative BCD; length width marker-0xcf      | Exact                            | Negative BCD                        |
@@ -150,10 +150,10 @@ read exactly as Java values (Java BigDecimal has no negative-zero sign).
 Validate declared lengths, digit constraints, and exponent before materialization.
 Do not expand a huge exponent to plain text or a huge BigInteger during tokenization.
 
-Strings are strict UTF-8; reject overlong encodings, encoded surrogates, >U+10FFFF,
-invalid continuation bytes, and truncation. Embedded NUL is valid. Output rejects
-unpaired UTF-16 surrogates rather than silently substituting a character. Float input
-widens to double; use raw double bits, preserving signed zero and finite values.
+Strings are assumed to be valid UTF-8 on read and valid UTF-16 on write, and are not
+validated. Decode and encode with the JDK UTF-8 charset; invalid input is replaced
+(U+FFFD on read and `?` for lone surrogates on write), not rejected. Embedded NUL is
+valid. Float input widens to double; use raw double bits, preserving signed zero and finite values.
 NaN/infinity are native doubles, not JSON strings; decimal/integer coercions reject
 nonfinite values. NaN payload identity is not a Java-wide round-trip guarantee.
 

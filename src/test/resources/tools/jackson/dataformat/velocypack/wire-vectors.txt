@@ -32,7 +32,6 @@ no-value|false|00|1|error no value marker
 external-pointer|false|1d|1|error external pointer rejected
 undefined-marker|false|f0|1|error undefined marker
 truncated-short-string|false|42 61|2|error root truncation
-overlong-utf8|false|42 c0 af|3|error strict UTF-8
 bad-bcd-nibble|false|c8 01 00 00 00 00 1a|7|error invalid BCD digit
 bcd-unrepresentable-scale|false|c8 01 00 00 00 80 01|7|error Java scale overflow
 zero-byte-bcd-mantissa|false|c8 00 00 00 00 00|6|error zero mantissa

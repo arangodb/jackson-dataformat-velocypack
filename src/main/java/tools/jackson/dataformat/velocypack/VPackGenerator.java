@@ -5,6 +5,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.Reader;
+import java.nio.charset.StandardCharsets;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayDeque;
@@ -561,8 +562,8 @@ public class VPackGenerator extends GeneratorBase {
             return writeNull();
         }
         try {
-            long payloadLength = VPackUtf8.encodedLength(value, "string");
-            return _writeScalar(encodeString(value, payloadLength, "string"),
+            byte[] utf8 = value.getBytes(StandardCharsets.UTF_8);
+            return _writeScalar(encodeString(utf8, 0, utf8.length, "string"),
                     "write string");
         } catch (RuntimeException e) {
             throw fail(e);
@@ -582,7 +583,6 @@ public class VPackGenerator extends GeneratorBase {
             }
             StringBuilder value = new StringBuilder(Math.min(len >= 0 ? len : 1024, 4096));
             char[] buffer = new char[4096];
-            TextReadState textState = new TextReadState(0L, false);
             long remaining = len;
             while (len < 0 || remaining > 0L) {
                 int requested = len < 0
@@ -615,7 +615,6 @@ public class VPackGenerator extends GeneratorBase {
                         }
                         break;
                     }
-                    textState = accountStringChar(textState, (char) one);
                     value.append((char) one);
                     checkStringCharacters(value.length());
                     if (len >= 0) {
@@ -626,15 +625,11 @@ public class VPackGenerator extends GeneratorBase {
                 if (count > requested) {
                     throw VPackErrors.write("string reader", "reader returned too many characters");
                 }
-                textState = accountStringChars(textState, buffer, count);
                 value.append(buffer, 0, count);
                 checkStringCharacters(value.length());
                 if (len >= 0) {
                     remaining -= count;
                 }
-            }
-            if (textState.pendingHigh()) {
-                throw VPackErrors.write("string reader", "unpaired high UTF-16 surrogate");
             }
             return writeString(value.toString());
         } catch (RuntimeException e) {
@@ -645,9 +640,10 @@ public class VPackGenerator extends GeneratorBase {
     @Override
     public JsonGenerator writeString(char[] buffer, int offset, int len) throws JacksonException {
         try {
-            long payloadLength = VPackUtf8.encodedLength(buffer, offset, len, "string");
-            return _writeScalar(encodeString(buffer, offset, len, payloadLength, "string"),
-                    "write string");
+            if (buffer == null || offset < 0 || len < 0 || offset > buffer.length - len) {
+                throw VPackErrors.write("string", "character range is invalid");
+            }
+            return writeString(new String(buffer, offset, len));
         } catch (RuntimeException e) {
             throw fail(e);
         }
@@ -663,7 +659,7 @@ public class VPackGenerator extends GeneratorBase {
     public JsonGenerator writeUTF8String(byte[] buffer, int offset, int len)
             throws JacksonException {
         try {
-            VPackUtf8.validate(buffer, offset, len, "UTF-8 string");
+            VPackBounds.checkedWriteArrayRange(buffer, offset, len, "UTF-8 string");
             return _writeScalar(encodeString(buffer, offset, len, "UTF-8 string"),
                     "write UTF-8 string");
         } catch (RuntimeException e) {
@@ -1157,12 +1153,11 @@ public class VPackGenerator extends GeneratorBase {
                         "decode(encode(name)) did not return the original name");
             }
         }
-        long resolvedLength = VPackUtf8.encodedLength(name, "object name");
-        _rootBudget.checkName(resolvedLength);
-        byte[] resolvedUtf8 = VPackUtf8.encode(name, "object name");
+        byte[] resolvedUtf8 = name.getBytes(StandardCharsets.UTF_8);
+        _rootBudget.checkName(resolvedUtf8.length);
         byte[] wireBytes;
         if (id == null) {
-            wireBytes = encodeString(name, resolvedLength, "object name");
+            wireBytes = encodeString(resolvedUtf8, 0, resolvedUtf8.length, "object name");
         } else {
             wireBytes = encodeInteger(id);
         }
@@ -1185,7 +1180,7 @@ public class VPackGenerator extends GeneratorBase {
         }
         ObjectEntry[] sorted = Arrays.copyOf(frame.entries, count);
         Arrays.sort(sorted, Comparator.comparing(ObjectEntry::resolvedUtf8,
-                VPackUtf8::compareUnsigned));
+                Arrays::compareUnsigned));
         long[] offsets = new long[count];
         for (int i = 0; i < count; ++i) {
             offsets[i] = sorted[i].keyOffset();
@@ -1214,24 +1209,6 @@ public class VPackGenerator extends GeneratorBase {
 
     private JsonGenerator _unsupportedRaw(String operation) {
         return _staged(operation + " is unsupported for binary VPack output");
-    }
-
-    private byte[] encodeString(String value, long payloadLength, String context) {
-        checkScalarSize(payloadLength, payloadLength <= 126L ? 1L : 9L, context);
-        int payload = VPackBounds.checkedInt(payloadLength, context + " UTF-8 length");
-        byte[] result = allocateStringFrame(payload, context);
-        VPackUtf8.encodeInto(value, result, result.length - payload);
-        return result;
-    }
-
-    @SuppressWarnings("SameParameterValue") // Keep context-specific failure messages at callers.
-    private byte[] encodeString(char[] value, int offset, int length,
-        long payloadLength, String context) {
-        checkScalarSize(payloadLength, payloadLength <= 126L ? 1L : 9L, context);
-        int payload = VPackBounds.checkedInt(payloadLength, context + " UTF-8 length");
-        byte[] result = allocateStringFrame(payload, context);
-        VPackUtf8.encodeInto(value, offset, length, result, result.length - payload);
-        return result;
     }
 
     @SuppressWarnings("SameParameterValue") // Keep context-specific failure messages at callers.
@@ -1389,37 +1366,6 @@ public class VPackGenerator extends GeneratorBase {
         }
     }
 
-    private TextReadState accountStringChars(TextReadState state, char[] chars, int length) {
-        for (int i = 0; i < length; ++i) {
-            state = accountStringChar(state, chars[i]);
-        }
-        return state;
-    }
-
-    private TextReadState accountStringChar(TextReadState state, char value) {
-        if (state.pendingHigh()) {
-            if (!Character.isLowSurrogate(value)) {
-                throw VPackErrors.write("string reader", "unpaired high UTF-16 surrogate");
-            }
-            long length = addStringUtf8Bytes(state.utf8Length(), 4L);
-            return new TextReadState(length, false);
-        }
-        if (Character.isHighSurrogate(value)) {
-            return new TextReadState(state.utf8Length(), true);
-        }
-        if (Character.isLowSurrogate(value)) {
-            throw VPackErrors.write("string reader", "unpaired low UTF-16 surrogate");
-        }
-        long addition = value <= 0x7F ? 1L : (value <= 0x7FF ? 2L : 3L);
-        return new TextReadState(addStringUtf8Bytes(state.utf8Length(), addition), false);
-    }
-
-    private long addStringUtf8Bytes(long current, long addition) {
-        long result = VPackBounds.checkedAdd(current, addition, "string UTF-8 length");
-        checkScalarSize(result, result <= 126L ? 1L : 9L, "string reader");
-        return result;
-    }
-
     private void checkScalarSize(long payloadLength, long headerLength, String context) {
         ensureActive();
         if (payloadLength < 0L || headerLength < 0L
@@ -1432,8 +1378,6 @@ public class VPackGenerator extends GeneratorBase {
                     "encoded scalar exceeds the configured root byte budget");
         }
     }
-
-    private record TextReadState(long utf8Length, boolean pendingHigh) { }
 
     /**
      * The shared simple write context reports an object name only while its

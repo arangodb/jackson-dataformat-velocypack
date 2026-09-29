@@ -82,16 +82,9 @@ class VPackAttributeNameParserTest {
     }
 
     @Test
-    void validatesResolvedNamesAndWrapsCodecFailures() {
+    void wrapsCodecFailures() {
         byte[] input = VPackObjectParserTest.object(1, true,
                 concat(key(0x30), new byte[] { 0x30 }), new long[] { 3 });
-        assertMessage("invalid UTF-16", () -> {
-            try (VPackParser parser = (VPackParser) VPackFactory.builder()
-                    .attributeNameCodec(decoder(id -> "\uD800")).build().createParser(input)) {
-                parser.nextToken();
-                parser.nextToken();
-            }
-        });
         assertMessage("compressed attribute name", () -> {
             try (VPackParser parser = (VPackParser) VPackFactory.builder()
                     .attributeNameCodec(decoder(id -> { throw new IllegalStateException("boom"); }))

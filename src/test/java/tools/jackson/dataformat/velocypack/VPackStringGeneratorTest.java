@@ -52,12 +52,7 @@ class VPackStringGeneratorTest {
     }
 
     @Test
-    void rejectsMalformedUtf16AndUtf8AndRawOutput() {
-        assertStringFailure("\uD800");
-        assertStringFailure("\uDC00");
-        assertUtf8Failure(new byte[] { (byte) 0xC0, (byte) 0x80 });
-        assertUtf8Failure(new byte[] { (byte) 0xED, (byte) 0xA0, (byte) 0x80 });
-
+    void rawOutputRemainsUnsupported() {
         JsonGenerator generator = factory.createGenerator(new ByteArrayOutputStream());
         try {
             assertThrows(UnsupportedOperationException.class, () -> generator.writeRaw("raw"));
@@ -120,31 +115,6 @@ class VPackStringGeneratorTest {
         } finally {
             try {
                 limited.close();
-            } catch (RuntimeException ignored) {
-            }
-        }
-    }
-
-    private void assertStringFailure(String value) {
-        JsonGenerator generator = factory.createGenerator(new ByteArrayOutputStream());
-        try {
-            assertThrows(StreamWriteException.class, () -> generator.writeString(value));
-        } finally {
-            try {
-                generator.close();
-            } catch (RuntimeException ignored) {
-            }
-        }
-    }
-
-    private void assertUtf8Failure(byte[] value) {
-        JsonGenerator generator = factory.createGenerator(new ByteArrayOutputStream());
-        try {
-            assertThrows(StreamWriteException.class, () -> generator.writeUTF8String(value, 0,
-                    value.length));
-        } finally {
-            try {
-                generator.close();
             } catch (RuntimeException ignored) {
             }
         }

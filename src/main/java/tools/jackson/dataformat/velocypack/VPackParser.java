@@ -5,12 +5,9 @@ import java.io.OutputStream;
 import java.io.Writer;
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.nio.ByteBuffer;
-import java.nio.CharBuffer;
-import java.nio.charset.CharacterCodingException;
-import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -857,7 +854,7 @@ public class VPackParser extends ParserBase {
             seen[key] = true;
             if (frame.sorted) {
                 byte[] currentName = frame.nameBytes[key];
-                if (previousName != null && VPackUtf8.compareUnsigned(previousName, currentName) > 0) {
+                if (previousName != null && Arrays.compareUnsigned(previousName, currentName) > 0) {
                     throw VPackErrors.malformed("object index", frame.indexStart,
                             "sorted object index is not in unsigned UTF-8 name order");
                 }
@@ -895,7 +892,7 @@ public class VPackParser extends ParserBase {
                 throw VPackErrors.malformed("compressed attribute name", start,
                         "codec could not resolve ID " + id);
             }
-            byte[] utf8 = _encodeResolvedName(text, start);
+            byte[] utf8 = _encodeResolvedName(text);
             _rootBudget.chargeName(utf8.length);
             _currentAttributeId = id;
             return new NameValue(_canonicalizeName(text, utf8), utf8, id);
@@ -917,17 +914,15 @@ public class VPackParser extends ParserBase {
                     "key payload exceeds its encoded string boundary");
         }
         _rootBudget.chargeName(byteLength);
-        String decoded = VPackUtf8.decodeName(_root.range(),
-                start - _root.startOffset() + payloadOffset, byteLength,
-                VPackBounds.checkedAdd(start, payloadOffset, "object key location"),
-                _streamReadConstraints);
         int length = VPackBounds.checkedInt(byteLength, "object key byte length");
         byte[] utf8 = new byte[length];
         _root.range().copyTo(start - _root.startOffset() + payloadOffset, utf8, 0, length);
+        String decoded = new String(utf8, StandardCharsets.UTF_8);
+        _streamReadConstraints.validateNameLength(decoded.length());
         return new NameValue(_canonicalizeName(decoded, utf8), utf8);
     }
 
-    /** Feed only validated UTF-8 to the bounded core canonicalizer. */
+    /** Feed the UTF-8 bytes to the bounded core canonicalizer. */
     private String _canonicalizeName(String text, byte[] utf8) {
         if (!_symbols.isCanonicalizing()) {
             return text;
@@ -957,34 +952,6 @@ public class VPackParser extends ParserBase {
         return existing == null ? _symbols.addName(text, quads, quadLength) : existing;
     }
 
-    private long _resolvedNameUtf8Length(String text, long errorOffset) {
-        long length = 0L;
-        for (int i = 0; i < text.length(); ++i) {
-            char ch = text.charAt(i);
-            int bytes;
-            if (ch <= 0x7F) {
-                bytes = 1;
-            } else if (ch <= 0x7FF) {
-                bytes = 2;
-            } else if (Character.isHighSurrogate(ch)) {
-                if (i + 1 >= text.length() || !Character.isLowSurrogate(text.charAt(i + 1))) {
-                    throw VPackErrors.malformed("compressed attribute name", errorOffset,
-                            "codec returned invalid UTF-16");
-                }
-                bytes = 4;
-                ++i;
-            } else if (Character.isLowSurrogate(ch)) {
-                throw VPackErrors.malformed("compressed attribute name", errorOffset,
-                        "codec returned invalid UTF-16");
-            } else {
-                bytes = 3;
-            }
-            length = VPackBounds.checkedAdd(length, bytes,
-                    "compressed attribute UTF-8 length", errorOffset);
-        }
-        return length;
-    }
-
     private BigInteger _readUnsignedKeyId(long start, int marker) {
         int width = VPackMarker.width(marker);
         byte[] payload = _readBytes(start - _root.startOffset() + 1L, width);
@@ -999,26 +966,11 @@ public class VPackParser extends ParserBase {
         return bytes;
     }
 
-    private byte[] _encodeResolvedName(String text, long errorOffset) {
-        try {
-            _streamReadConstraints.validateNameLength(text.length());
-            long byteLength = _resolvedNameUtf8Length(text, errorOffset);
-            _rootBudget.checkName(byteLength);
-            ByteBuffer encoded = StandardCharsets.UTF_8.newEncoder()
-                    .onMalformedInput(CodingErrorAction.REPORT)
-                    .onUnmappableCharacter(CodingErrorAction.REPORT)
-                    .encode(CharBuffer.wrap(text));
-            if (encoded.remaining() != byteLength) {
-                throw VPackErrors.malformed("compressed attribute name", errorOffset,
-                        "UTF-8 length changed during encoding");
-            }
-            byte[] utf8 = new byte[encoded.remaining()];
-            encoded.get(utf8);
-            return utf8;
-        } catch (CharacterCodingException e) {
-            throw VPackErrors.malformed("compressed attribute name", errorOffset,
-                    "codec returned invalid UTF-16");
-        }
+    private byte[] _encodeResolvedName(String text) {
+        _streamReadConstraints.validateNameLength(text.length());
+        byte[] utf8 = text.getBytes(StandardCharsets.UTF_8);
+        _rootBudget.checkName(utf8.length);
+        return utf8;
     }
 
     private long _readStructural(long logicalOffset, int width) {
@@ -1135,10 +1087,11 @@ public class VPackParser extends ParserBase {
             payloadOffset = 9L;
             byteLength = _readLength(value, 8, "long string length");
         }
-        _stringValue = VPackUtf8.decode(_root.range(),
-                value.relativeStart() + payloadOffset, byteLength,
-                VPackBounds.checkedAdd(value.logicalStart(), payloadOffset,
-                        "string payload location"), _streamReadConstraints);
+        int length = VPackBounds.checkedInt(byteLength, "string byte length");
+        byte[] utf8 = new byte[length];
+        _root.range().copyTo(value.relativeStart() + payloadOffset, utf8, 0, length);
+        _stringValue = new String(utf8, StandardCharsets.UTF_8);
+        _streamReadConstraints.validateStringLengthLong(_stringValue.length());
     }
 
     private void _decodeBinary(ValueView value) {

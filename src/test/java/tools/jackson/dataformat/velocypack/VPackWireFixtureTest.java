@@ -17,7 +17,7 @@ public class VPackWireFixtureTest {
     @Test
     void allDeclaredRootsHaveLiteralLengthAndInterpretation() throws IOException {
         List<String> rows = fixtureRows();
-        assertEquals(40, rows.size(), "all doc/wire-vectors.json roots are installed");
+        assertEquals(39, rows.size(), "all doc/wire-vectors.json roots are installed");
         for (String row : rows) {
             String[] fields = row.split("\\|", -1);
             byte[] bytes = hex(fields[2]);
