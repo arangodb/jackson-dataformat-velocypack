@@ -1,0 +1,181 @@
+package tools.jackson.databind.records;
+
+import com.fasterxml.jackson.annotation.*;
+import org.junit.jupiter.api.Test;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.VPackUtils;
+import tools.jackson.databind.exc.InvalidDefinitionException;
+import tools.jackson.databind.testutil.DatabindTestUtil;
+
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+// [databind#4729] Object ID handling tries (unnecessarily) to set id value on a record
+// [databind#5238] immutable classes with @JsonIdentityInfo can be deserialized; records cannot
+public class RecordWithVPackIdentityTest extends DatabindTestUtil
+{
+    // [databind#4729]
+    @JsonIdentityInfo(property = "id", generator = ObjectIdGenerators.PropertyGenerator.class)
+    record Device(String id) { }
+
+    record Activity(String id,
+            @JsonIdentityReference(alwaysAsId = true) List<Device> participants) { }
+
+    record Configuration(List<Device> devices, List<Activity> activities) { }
+
+    // [databind#5238]
+    record ExampleRecord(List<ThingRecord> allThings, ThingRecord selected) { }
+
+    @JsonIdentityInfo(generator = ObjectIdGenerators.PropertyGenerator.class, property = "id")
+    record ThingRecord(int id, String name) { }
+
+    static class ExamplePojo {
+        public List<ThingPojo> allThings;
+        public ThingPojo selected;
+
+        @JsonCreator
+        public ExamplePojo(
+                @JsonProperty("allThings") List<ThingPojo> allThings,
+                @JsonProperty("selected") ThingPojo selected) {
+            this.allThings = allThings;
+            this.selected = selected;
+        }
+    }
+
+    @JsonIdentityInfo(generator = ObjectIdGenerators.PropertyGenerator.class, property = "id")
+    static class ThingPojo {
+        public final int id;
+        public final String name;
+
+        @JsonCreator
+        public ThingPojo(@JsonProperty("id") int id, @JsonProperty("name") String name) {
+            this.id = id;
+            this.name = name;
+        }
+    }
+
+    // [databind#5188]
+    record Child5188(@JsonBackReference Parent5188 parent) {}
+
+    record Parent5188(@JsonManagedReference List<Child5188> children) {}
+
+    private final ObjectMapper MAPPER = newVPackMapper();
+
+    /*
+    /**********************************************************************
+    /* Test methods, @JsonIdentityReference [databind#4729]
+    /**********************************************************************
+     */
+
+    // [databind#4729]
+    @Test
+    void testRecordWithPropertyGeneratorAndIdentityReference() throws Exception
+    {
+        String input = a2q("{"
+                + "'devices': [{'id': 'Arris'}],"
+                + "'activities': [{'id': 'TV', 'participants': ['Arris']}]"
+                + "}");
+
+        Configuration result = MAPPER.readValue(VPackUtils.toVPack(input), Configuration.class);
+
+        assertEquals(1, result.devices().size());
+        assertEquals("Arris", result.devices().get(0).id());
+        assertEquals(1, result.activities().size());
+        assertEquals("TV", result.activities().get(0).id());
+        assertEquals(1, result.activities().get(0).participants().size());
+        assertSame(result.devices().get(0), result.activities().get(0).participants().get(0));
+    }
+
+    @Test
+    void testRecordWithPropertyGeneratorRoundTrip() throws Exception
+    {
+        Device arris = new Device("Arris");
+        Device roku = new Device("Roku");
+        Activity tv = new Activity("TV", List.of(arris, roku));
+        Configuration input = new Configuration(List.of(arris, roku), List.of(tv));
+
+        String json = VPackUtils.toJson(MAPPER.writeValueAsBytes(input));
+        Configuration result = MAPPER.readValue(VPackUtils.toVPack(json), Configuration.class);
+
+        assertEquals(2, result.devices().size());
+        assertEquals("Arris", result.devices().get(0).id());
+        assertEquals("Roku", result.devices().get(1).id());
+        assertEquals(1, result.activities().size());
+        assertEquals(2, result.activities().get(0).participants().size());
+        // Verify identity: participants should be same instances as devices
+        assertSame(result.devices().get(0), result.activities().get(0).participants().get(0));
+        assertSame(result.devices().get(1), result.activities().get(0).participants().get(1));
+    }
+
+    /*
+    /**********************************************************************
+    /* Test methods, records vs POJOs [databind#5238]
+    /**********************************************************************
+     */
+
+    // [databind#5238]
+    @Test
+    void testIdentityWithPojo() throws Exception {
+        ThingPojo t1 = new ThingPojo(1, "a");
+        ThingPojo t2 = new ThingPojo(2, "b");
+        ExamplePojo input = new ExamplePojo(List.of(t1, t2), t2);
+
+        String json = VPackUtils.toJson(MAPPER.writeValueAsBytes(input));
+
+        ExamplePojo result = MAPPER.readValue(VPackUtils.toVPack(json), ExamplePojo.class);
+        assertEquals(input.allThings.size(), result.allThings.size());
+        assertEquals(input.selected.id, result.selected.id);
+        assertEquals(input.selected.name, result.selected.name);
+    }
+
+    @Test
+    void testIdentityWithRecord() throws Exception {
+        ThingRecord t1 = new ThingRecord(1, "a");
+        ThingRecord t2 = new ThingRecord(2, "b");
+        ExampleRecord input = new ExampleRecord(List.of(t1, t2), t2);
+
+        String json = VPackUtils.toJson(MAPPER.writeValueAsBytes(input));
+        ExampleRecord result = MAPPER.readValue(VPackUtils.toVPack(json), ExampleRecord.class);
+
+        assertEquals(input.allThings.size(), result.allThings.size());
+        assertEquals(input.selected.id, result.selected.id);
+        assertEquals(input.selected.name, result.selected.name);
+    }
+
+    /*
+    /**********************************************************************
+    /* Test methods, @JsonManagedReference/@JsonBackReference cannot work [databind#5188]
+    /**********************************************************************
+     */
+
+    // [databind#5188] JsonManagedReference/JsonBackReference exception for records (cannot work)
+    @Test
+    public void testRecordDeserializationFail5188() throws Exception
+    {
+        try {
+            MAPPER.readValue(VPackUtils.toVPack("{\"children\":[{}]}"), Parent5188.class);
+            fail("Should not pass");
+        } catch (InvalidDefinitionException e) {
+            verifyException(e, "Cannot add back-reference to a `java.lang.Record` type");
+            verifyException(e, "Invalid type definition for ");
+            verifyException(e, "(property 'parent')");
+        }
+    }
+
+    // [databind#5188]: serialization also fails for records with managed/back references
+    @Test
+    public void testRecordSerializationFail5188() throws Exception
+    {
+        Parent5188 parent = new Parent5188(List.of(new Child5188(null)));
+
+        try {
+            VPackUtils.toJson(MAPPER.writeValueAsBytes(parent));
+            fail("Should not pass");
+        } catch (InvalidDefinitionException e) {
+            verifyException(e, "Cannot use `@JsonManagedReference`/`@JsonBackReference`");
+            verifyException(e, "java.lang.Record");
+            verifyException(e, "(property 'children')");
+        }
+    }
+}

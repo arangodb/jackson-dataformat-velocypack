@@ -1,0 +1,251 @@
+package tools.jackson.databind.ser.filter;
+
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonIncludeProperties;
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
+import com.fasterxml.jackson.annotation.OptBoolean;
+import org.junit.jupiter.api.Test;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.VPackUtils;
+import tools.jackson.databind.testutil.DatabindTestUtil;
+
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+public class IncludePropsForSerTest extends DatabindTestUtil
+{
+    @JsonIncludeProperties({"a", "d"})
+    static class IncludeSome
+    {
+        public int a = 3;
+        public String b = "x";
+
+        public int getC()
+        {
+            return -6;
+        }
+
+        public String getD()
+        {
+            return "abc";
+        }
+    }
+
+    @SuppressWarnings("serial")
+    @JsonIncludeProperties({"@class", "a"})
+    static class MyMap extends HashMap<String, String> { }
+
+    //allow use of @JsonIncludeProperties for properties
+    static class WrapperWithPropInclude
+    {
+        @JsonIncludeProperties({"y"})
+        public XY value = new XY();
+    }
+
+    static class XY
+    {
+        public int x = 1;
+        public int y = 2;
+    }
+
+    static class WrapperWithPropInclude2
+    {
+        @JsonIncludeProperties("x")
+        public XYZ value = new XYZ();
+    }
+
+    static class WrapperWithPropIgnore
+    {
+        @JsonIgnoreProperties("y")
+        public XYZ value = new XYZ();
+    }
+
+    @JsonIncludeProperties({"x", "y"})
+    static class XYZ
+    {
+        public int x = 1;
+        public int y = 2;
+        public int z = 3;
+    }
+
+    // also ought to work without full typing?
+    static class WrapperWithPropIncludeUntyped
+    {
+        @JsonIncludeProperties({"x"})
+        public Object value = new XYZ();
+    }
+
+    static class MapWrapper
+    {
+        @JsonIncludeProperties({"a"})
+        public final HashMap<String, Integer> value = new HashMap<String, Integer>();
+
+        {
+            value.put("a", 1);
+            value.put("b", 2);
+        }
+    }
+
+    // [databind#3083]: @JsonIncludeProperties with order=true defines serialization order
+    @JsonIncludeProperties(value = {"c", "a", "b"}, order = OptBoolean.TRUE)
+    static class IncludeWithOrder {
+        public int a = 1;
+        public int b = 2;
+        public int c = 3;
+    }
+
+    // [databind#3083]: @JsonPropertyOrder should take precedence over @JsonIncludeProperties order
+    @JsonPropertyOrder({"b", "a", "c"})
+    @JsonIncludeProperties(value = {"c", "a", "b"}, order = OptBoolean.TRUE)
+    static class IncludeWithOrderAndPropertyOrder {
+        public int a = 1;
+        public int b = 2;
+        public int c = 3;
+    }
+
+    // [databind#3083]: order=FALSE should NOT use value() as property order
+    @JsonIncludeProperties(value = {"c", "a", "b"}, order = OptBoolean.FALSE)
+    static class IncludeWithOrderFalse {
+        public int a = 1;
+        public int b = 2;
+        public int c = 3;
+    }
+
+    // for [databind#1060]
+    static class IncludeForListValuesXY
+    {
+        @JsonIncludeProperties({"x"})
+        public List<XY> coordinates;
+
+        public IncludeForListValuesXY()
+        {
+            coordinates = Arrays.asList(new XY());
+        }
+    }
+
+    static class IncludeForListValuesXYZ
+    {
+        @JsonIncludeProperties({"x"})
+        public List<XYZ> coordinates;
+
+        public IncludeForListValuesXYZ()
+        {
+            coordinates = Arrays.asList(new XYZ());
+        }
+    }
+
+    /*
+    /****************************************************************
+    /* Unit tests
+    /****************************************************************
+     */
+
+    private final ObjectMapper MAPPER = newVPackMapper();
+
+    @Test
+    public void testExplicitIncludeWithBean() throws Exception
+    {
+        IncludeSome value = new IncludeSome();
+        Map<String, Object> result = writeAndMap(MAPPER, value);
+        assertEquals(2, result.size());
+        // verify that specified fields are ignored
+        assertFalse(result.containsKey("b"));
+        assertFalse(result.containsKey("c"));
+        // and that others are not
+        assertEquals(Integer.valueOf(value.a), result.get("a"));
+        assertEquals(value.getD(), result.get("d"));
+    }
+
+    @Test
+    public void testExplicitIncludeWithMap() throws Exception
+    {
+        // test simulating need to filter out metadata like class name
+        MyMap value = new MyMap();
+        value.put("a", "b");
+        value.put("c", "d");
+        value.put("@class", MyMap.class.getName());
+        Map<String, Object> result = writeAndMap(MAPPER, value);
+        assertEquals(2, result.size());
+        assertEquals(MyMap.class.getName(), result.get("@class"));
+        assertEquals(value.get("a"), result.get("a"));
+    }
+
+    @Test
+    public void testIncludeViaOnlyProps() throws Exception
+    {
+        assertEquals("{\"value\":{\"y\":2}}",
+                VPackUtils.toJson(MAPPER.writeValueAsBytes(new WrapperWithPropInclude())));
+    }
+
+    // Also: should be fine even if nominal type is `java.lang.Object`
+    @Test
+    public void testIncludeViaPropForUntyped() throws Exception
+    {
+        assertEquals("{\"value\":{\"x\":1}}",
+                VPackUtils.toJson(MAPPER.writeValueAsBytes(new WrapperWithPropIncludeUntyped())));
+    }
+
+    @Test
+    public void testIncludeWithMapProperty() throws Exception
+    {
+        assertEquals("{\"value\":{\"a\":1}}", VPackUtils.toJson(MAPPER.writeValueAsBytes(new MapWrapper())));
+    }
+
+    @Test
+    public void testIncludeViaPropsAndClass() throws Exception
+    {
+        assertEquals("{\"value\":{\"x\":1}}",
+                VPackUtils.toJson(MAPPER.writeValueAsBytes(new WrapperWithPropInclude2())));
+    }
+
+    // for [databind#1060]
+    // Ensure that `@JsonIncludeProperties` applies to POJOs within lists, too
+    @Test
+    public void testIncludeForListValues() throws Exception
+    {
+        // should apply to elements
+        assertEquals(a2q("{'coordinates':[{'x':1}]}"),
+                VPackUtils.toJson(MAPPER.writeValueAsBytes(new IncludeForListValuesXY())));
+
+        // and combine values too
+        assertEquals(a2q("{'coordinates':[{'x':1}]}"),
+                VPackUtils.toJson(MAPPER.writeValueAsBytes(new IncludeForListValuesXYZ())));
+    }
+
+    @Test
+    public void testIgnoreWithInclude() throws Exception
+    {
+        assertEquals("{\"value\":{\"x\":1}}", VPackUtils.toJson(MAPPER.writeValueAsBytes(new WrapperWithPropIgnore())));
+    }
+
+    // [databind#3083]
+    @Test
+    public void testIncludePropertiesOrder() throws Exception
+    {
+        // Order should follow @JsonIncludeProperties value array: c, a, b
+        assertEquals(a2q("{'c':3,'a':1,'b':2}"),
+                VPackUtils.toJson(MAPPER.writeValueAsBytes(new IncludeWithOrder())));
+    }
+
+    // [databind#3083]
+    @Test
+    public void testJsonPropertyOrderTakesPrecedence() throws Exception
+    {
+        // @JsonPropertyOrder should win over @JsonIncludeProperties order: b, a, c
+        assertEquals(a2q("{'b':2,'a':1,'c':3}"),
+                VPackUtils.toJson(MAPPER.writeValueAsBytes(new IncludeWithOrderAndPropertyOrder())));
+    }
+
+    // [databind#3083]
+    @Test
+    public void testIncludePropertiesOrderFalse() throws Exception
+    {
+        // order=FALSE should NOT impose ordering from value(); default order used
+        assertEquals(a2q("{'a':1,'b':2,'c':3}"),
+                VPackUtils.toJson(MAPPER.writeValueAsBytes(new IncludeWithOrderFalse())));
+    }
+}

@@ -1,0 +1,181 @@
+package tools.jackson.databind.ser.filter;
+
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import org.junit.jupiter.api.Test;
+import tools.jackson.databind.*;
+import tools.jackson.databind.VPackUtils;
+import tools.jackson.databind.testutil.DatabindTestUtil;
+
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+public class IgnorePropsForSerTest
+    extends DatabindTestUtil
+{
+    @JsonIgnoreProperties({"b", "c"})
+    static class IgnoreSome
+    {
+        public int a = 3;
+        public String b = "x";
+
+        public int getC() { return -6; }
+        public String getD() { return "abc"; }
+    }
+
+    @SuppressWarnings("serial")
+    @JsonIgnoreProperties({"@class"})
+    static class MyMap extends HashMap<String,String> { }
+
+    //allow use of @JsonIgnoreProperties for properties
+    static class WrapperWithPropIgnore
+    {
+        @JsonIgnoreProperties("y")
+        public XY value = new XY();
+    }
+
+    static class XY {
+        public int x = 1;
+        public int y = 2;
+    }
+
+    static class WrapperWithPropIgnore2
+    {
+        @JsonIgnoreProperties("z")
+        public XYZ value = new XYZ();
+    }
+
+    @JsonIgnoreProperties({"x"})
+    static class XYZ {
+        public int x = 1;
+        public int y = 2;
+        public int z = 3;
+    }
+
+    // also ought to work without full typing?
+    static class WrapperWithPropIgnoreUntyped
+    {
+        @JsonIgnoreProperties("y")
+        public Object value = new XYZ();
+    }
+
+    static class MapWrapper {
+        @JsonIgnoreProperties({"a"})
+        public final HashMap<String,Integer> value = new HashMap<String,Integer>();
+        {
+            value.put("a", 1);
+            value.put("b", 2);
+        }
+    }
+
+    // for [databind#1060]
+    static class IgnoreForListValuesXY {
+        @JsonIgnoreProperties({ "x" })
+        public List<XY> coordinates;
+
+        public IgnoreForListValuesXY() {
+            coordinates = Arrays.asList(new XY());
+        }
+    }
+
+    static class IgnoreForListValuesXYZ {
+        @JsonIgnoreProperties({ "y" })
+        public List<XYZ> coordinates;
+
+        public IgnoreForListValuesXYZ() {
+            coordinates = Arrays.asList(new XYZ());
+        }
+    }
+
+    /*
+    /****************************************************************
+    /* Unit tests
+    /****************************************************************
+     */
+
+    private final ObjectMapper MAPPER = newVPackMapper();
+
+    @Test
+    public void testExplicitIgnoralWithBean() throws Exception
+    {
+        IgnoreSome value = new IgnoreSome();
+        Map<String,Object> result = writeAndMap(MAPPER, value);
+        assertEquals(2, result.size());
+        // verify that specified fields are ignored
+        assertFalse(result.containsKey("b"));
+        assertFalse(result.containsKey("c"));
+        // and that others are not
+        assertEquals(Integer.valueOf(value.a), result.get("a"));
+        assertEquals(value.getD(), result.get("d"));
+    }
+
+    @Test
+    public void testExplicitIgnoralWithMap() throws Exception
+    {
+        // test simulating need to filter out metadata like class name
+        MyMap value = new MyMap();
+        value.put("a", "b");
+        value.put("@class", MyMap.class.getName());
+        Map<String,Object> result = writeAndMap(MAPPER, value);
+        assertEquals(1, result.size());
+        // verify that specified field is ignored
+        assertFalse(result.containsKey("@class"));
+        // and that others are not
+        assertEquals(value.get("a"), result.get("a"));
+    }
+
+    @Test
+    public void testIgnoreViaOnlyProps() throws Exception
+    {
+        assertEquals("{\"value\":{\"x\":1}}",
+                VPackUtils.toJson(MAPPER.writeValueAsBytes(new WrapperWithPropIgnore())));
+    }
+
+    // Also: should be fine even if nominal type is `java.lang.Object`
+    @Test
+    public void testIgnoreViaPropForUntyped() throws Exception
+    {
+        assertEquals("{\"value\":{\"z\":3}}",
+                VPackUtils.toJson(MAPPER.writeValueAsBytes(new WrapperWithPropIgnoreUntyped())));
+    }
+
+    @Test
+    public void testIgnoreWithMapProperty() throws Exception
+    {
+        assertEquals("{\"value\":{\"b\":2}}", VPackUtils.toJson(MAPPER.writeValueAsBytes(new MapWrapper())));
+    }
+
+    @Test
+    public void testIgnoreViaPropsAndClass() throws Exception
+    {
+        assertEquals("{\"value\":{\"y\":2}}",
+                VPackUtils.toJson(MAPPER.writeValueAsBytes(new WrapperWithPropIgnore2())));
+    }
+
+    @Test
+    public void testIgnoreViaConfigOverride() throws Exception
+    {
+        ObjectMapper mapper = vpackMapperBuilder()
+                .withConfigOverride(Point.class,
+                        o -> o.setIgnorals(JsonIgnoreProperties.Value.forIgnoredProperties("x")))
+                .build();
+        assertEquals("{\"y\":3}", VPackUtils.toJson(mapper.writeValueAsBytes(new Point(2, 3))));
+    }
+
+    // for [databind#1060]
+    // Ensure that `@JsonIgnoreProperties` applies to POJOs within lists, too
+    @Test
+    public void testIgnoreForListValues() throws Exception
+    {
+        // should apply to elements
+        assertEquals(a2q("{'coordinates':[{'y':2}]}"),
+                VPackUtils.toJson(MAPPER.writeValueAsBytes(new IgnoreForListValuesXY())));
+
+        // and combine values too
+        assertEquals(a2q("{'coordinates':[{'z':3}]}"),
+                VPackUtils.toJson(MAPPER.writeValueAsBytes(new IgnoreForListValuesXYZ())));
+    }
+}

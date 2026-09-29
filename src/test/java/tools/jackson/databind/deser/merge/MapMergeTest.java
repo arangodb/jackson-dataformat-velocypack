@@ -1,0 +1,257 @@
+package tools.jackson.databind.deser.merge;
+
+import com.fasterxml.jackson.annotation.JsonMerge;
+import com.fasterxml.jackson.annotation.Nulls;
+import org.junit.jupiter.api.Test;
+import tools.jackson.databind.*;
+import tools.jackson.databind.VPackUtils;
+
+import java.util.*;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static tools.jackson.databind.testutil.DatabindTestUtil.*;
+
+public class MapMergeTest
+{
+    static class MergedMap
+    {
+        @JsonMerge
+        public Map<String,Object> values;
+
+        protected MergedMap() {
+            values = new LinkedHashMap<>();
+            values.put("a", "x");
+        }
+
+        public MergedMap(String a, String b) {
+            values = new LinkedHashMap<>();
+            values.put(a, b);
+        }
+
+        public MergedMap(Map<String,Object> src) {
+            values = src;
+        }
+    }
+
+    static class MergedIntMap
+    {
+        @JsonMerge
+        public Map<Integer,Object> values;
+
+        protected MergedIntMap() {
+            values = new LinkedHashMap<>();
+            values.put(Integer.valueOf(13), "a");
+        }
+    }
+
+    /*
+    /********************************************************
+    /* Test methods, Map merging
+    /********************************************************
+     */
+
+    private final ObjectMapper MAPPER = vpackMapperBuilder()
+            // 26-Oct-2016, tatu: Make sure we'll report merge problems by default
+            .disable(MapperFeature.IGNORE_MERGE_FOR_UNMERGEABLE)
+            .build();
+
+    private final ObjectMapper MAPPER_SKIP_NULLS = vpackMapperBuilder()
+            .changeDefaultNullHandling(n -> n.withContentNulls(Nulls.SKIP))
+            .build();
+
+    @Test
+    public void testShallowMapMerging() throws Exception
+    {
+        final String JSON = a2q("{'values':{'c':'y','d':null}}");
+        MergedMap v = MAPPER.readValue(VPackUtils.toVPack(JSON), MergedMap.class);
+        assertEquals(3, v.values.size());
+        assertEquals("y", v.values.get("c"));
+        assertEquals("x", v.values.get("a"));
+        assertNull(v.values.get("d"));
+
+        // but also, skip nulls
+        v = MAPPER_SKIP_NULLS.readValue(VPackUtils.toVPack(JSON), MergedMap.class);
+        assertEquals(2, v.values.size());
+        assertEquals("y", v.values.get("c"));
+        assertEquals("x", v.values.get("a"));
+    }
+
+    @Test
+    public void testShallowNonStringMerging() throws Exception
+    {
+        final String JSON = a2q("{'values':{'72':'b','666':null}}");
+        MergedIntMap v = MAPPER.readValue(VPackUtils.toVPack(JSON) , MergedIntMap.class);
+        assertEquals(3, v.values.size());
+        assertEquals("a", v.values.get(Integer.valueOf(13)));
+        assertEquals("b", v.values.get(Integer.valueOf(72)));
+        assertNull(v.values.get(Integer.valueOf(666)));
+
+        v = MAPPER_SKIP_NULLS.readValue(VPackUtils.toVPack(JSON) , MergedIntMap.class);
+        assertEquals(2, v.values.size());
+        assertEquals("a", v.values.get(Integer.valueOf(13)));
+        assertEquals("b", v.values.get(Integer.valueOf(72)));
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    public void testDeeperMapMerging() throws Exception
+    {
+        // first, create base Map
+        MergedMap base = new MergedMap("name", "foobar");
+        Map<String,Object> props = new LinkedHashMap<>();
+        props.put("default", "yes");
+        props.put("x", "abc");
+        Map<String,Object> innerProps = new LinkedHashMap<>();
+        innerProps.put("z", Integer.valueOf(13));
+        props.put("extra", innerProps);
+        base.values.put("props", props);
+
+        // to be update
+        MergedMap v = MAPPER.readerForUpdating(base)
+                .readValue(VPackUtils.toVPack(a2q("{'values':{'props':{'x':'xyz','y' : '...','extra':{ 'ab' : true}}}}")));
+        assertEquals(2, v.values.size());
+        assertEquals("foobar", v.values.get("name"));
+        assertNotNull(v.values.get("props"));
+        props = (Map<String,Object>) v.values.get("props");
+        assertEquals(4, props.size());
+        assertEquals("yes", props.get("default"));
+        assertEquals("xyz", props.get("x"));
+        assertEquals("...", props.get("y"));
+        assertNotNull(props.get("extra"));
+        innerProps = (Map<String,Object>) props.get("extra");
+        assertEquals(2, innerProps.size());
+        assertEquals(Integer.valueOf(13), innerProps.get("z"));
+        assertEquals(Boolean.TRUE, innerProps.get("ab"));
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    public void testMapMergingWithArray() throws Exception
+    {
+        // first, create base Map
+        MergedMap base = new MergedMap("name", "foobar");
+        Map<String,Object> props = new LinkedHashMap<>();
+        List<String> names = new ArrayList<>();
+        names.add("foo");
+        props.put("names", names);
+        base.values.put("props", props);
+        props.put("extra", "misc");
+
+        // to be update
+        MergedMap v = MAPPER.readerForUpdating(base)
+                .readValue(VPackUtils.toVPack(a2q("{'values':{'props':{'names': [ 'bar' ] }}}")));
+        assertEquals(2, v.values.size());
+        assertEquals("foobar", v.values.get("name"));
+        assertNotNull(v.values.get("props"));
+        props = (Map<String,Object>) v.values.get("props");
+        assertEquals(2, props.size());
+        assertEquals("misc", props.get("extra"));
+        assertNotNull(props.get("names"));
+        names = (List<String>) props.get("names");
+        assertEquals(2, names.size());
+        assertEquals("foo", names.get(0));
+        assertEquals("bar", names.get(1));
+    }
+
+    /*
+    /********************************************************
+    /* Forcing shallow merge of root Maps:
+    /********************************************************
+     */
+
+    @Test
+    public void testDefaultDeepMapMerge() throws Exception
+    {
+        // First: deep merge should be enabled by default
+        HashMap<String,Object> input = new HashMap<>();
+        input.put("list", new ArrayList<>(Arrays.asList("a")));
+
+        Map<?,?> resultMap = MAPPER.readerForUpdating(input)
+                .readValue(VPackUtils.toVPack(a2q("{'list':['b']}")));
+
+        List<?> resultList = (List<?>) resultMap.get("list");
+        assertEquals(Arrays.asList("a", "b"), resultList);
+    }
+
+    @Test
+    public void testDisabledMergeViaGlobal() throws Exception
+    {
+        // disable merging, globally; does not affect main level
+        ObjectMapper mapper = vpackMapperBuilder()
+                .defaultMergeable(false)
+                .build();
+
+        HashMap<String,Object> input = new HashMap<>();
+        input.put("list", new ArrayList<>(Arrays.asList("a")));
+
+        Map<?,?> resultMap = mapper.readerForUpdating(input)
+                .readValue(VPackUtils.toVPack(a2q("{'list':['b']}")));
+
+        List<?> resultList = (List<?>) resultMap.get("list");
+
+        assertEquals(Arrays.asList("b"), resultList);
+    }
+
+    @Test
+    public void testDisabledMergeByType() throws Exception
+    {
+        // disable merging for "untyped", that is, `Object.class`
+        ObjectMapper mapper = vpackMapperBuilder()
+                .withConfigOverride(Object.class,
+                        o -> o.setMergeable(false))
+                .build();
+
+        HashMap<String,Object> input = new HashMap<>();
+        input.put("list", new ArrayList<>(Arrays.asList("a")));
+
+        Map<?,?> resultMap = mapper.readerForUpdating(input)
+                .readValue(VPackUtils.toVPack(a2q("{'list':['b']}")));
+        List<?> resultList = (List<?>) resultMap.get("list");
+        assertEquals(Arrays.asList("b"), resultList);
+
+        // and for extra points, disable by default but ENABLE for type,
+        // which should once again allow merging
+
+        mapper = vpackMapperBuilder()
+                .withConfigOverride(Object.class,
+                        o -> o.setMergeable(true))
+                .defaultMergeable(Boolean.FALSE)
+                .build();
+        input = new HashMap<>();
+        input.put("list", new ArrayList<>(Arrays.asList("x")));
+
+        resultMap = mapper.readerForUpdating(input)
+                .readValue(VPackUtils.toVPack(a2q("{'list':['y']}")));
+        resultList = (List<?>) resultMap.get("list");
+        assertEquals(Arrays.asList("x", "y"), resultList);
+    }
+
+    // [databind#3205]: ConfigOverrides for merging not applied for items inside containers
+    static class MapWithListValues3205 {
+        public Map<String, List<Integer>> data;
+
+        public MapWithListValues3205() {
+            data = new LinkedHashMap<>();
+            data.put("nums", new ArrayList<>(Arrays.asList(1, 2, 3)));
+        }
+    }
+
+    @Test
+    public void testDisabledContentMergeByType() throws Exception
+    {
+        // Map itself should merge (entries added/updated), but List values should NOT merge (replace)
+        ObjectMapper mapper = vpackMapperBuilder()
+                .withConfigOverride(Map.class,
+                        o -> o.setMergeable(true))
+                .withConfigOverride(List.class,
+                        o -> o.setMergeable(false))
+                .build();
+
+        MapWithListValues3205 input = new MapWithListValues3205();
+        MapWithListValues3205 result = mapper.readerForUpdating(input)
+                .readValue(VPackUtils.toVPack(a2q("{'data':{'nums':[4,5,6]}}")));
+
+        // List should be replaced, not appended
+        assertEquals(Arrays.asList(4, 5, 6), result.data.get("nums"));
+    }
+}

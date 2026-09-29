@@ -1,0 +1,279 @@
+package tools.jackson.databind.introspect;
+
+import com.fasterxml.jackson.annotation.JsonIgnoreType;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import org.junit.jupiter.api.Test;
+import tools.jackson.core.*;
+import tools.jackson.databind.*;
+import tools.jackson.databind.VPackUtils;
+import tools.jackson.databind.annotation.*;
+import tools.jackson.databind.cfg.MapperConfig;
+import tools.jackson.databind.deser.std.StdDeserializer;
+import tools.jackson.databind.testutil.DatabindTestUtil;
+
+import javax.xml.namespace.QName;
+import java.io.ByteArrayOutputStream;
+import java.util.Arrays;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+public class JacksonAnnotationIntrospectorTest
+    extends DatabindTestUtil
+{
+    public static enum EnumExample {
+        VALUE1;
+    }
+
+    public static class JacksonExample
+    {
+        protected String attributeProperty;
+        protected String elementProperty;
+        protected List<String> wrappedElementProperty;
+        protected EnumExample enumProperty;
+        protected QName qname;
+
+        @JsonSerialize(using=QNameSerializer.class)
+        public QName getQname()
+        {
+            return qname;
+        }
+
+        @JsonDeserialize(using=QNameDeserializer.class)
+        public void setQname(QName qname)
+        {
+            this.qname = qname;
+        }
+
+        @JsonProperty("myattribute")
+        public String getAttributeProperty()
+        {
+            return attributeProperty;
+        }
+
+        @JsonProperty("myattribute")
+        public void setAttributeProperty(String attributeProperty)
+        {
+            this.attributeProperty = attributeProperty;
+        }
+
+        @JsonProperty("myelement")
+        public String getElementProperty()
+        {
+            return elementProperty;
+        }
+
+        @JsonProperty("myelement")
+        public void setElementProperty(String elementProperty)
+        {
+            this.elementProperty = elementProperty;
+        }
+
+        @JsonProperty("mywrapped")
+        public List<String> getWrappedElementProperty()
+        {
+            return wrappedElementProperty;
+        }
+
+        @JsonProperty("mywrapped")
+        public void setWrappedElementProperty(List<String> wrappedElementProperty)
+        {
+            this.wrappedElementProperty = wrappedElementProperty;
+        }
+
+        public EnumExample getEnumProperty()
+        {
+            return enumProperty;
+        }
+
+        public void setEnumProperty(EnumExample enumProperty)
+        {
+            this.enumProperty = enumProperty;
+        }
+    }
+
+    public static class QNameSerializer extends ValueSerializer<QName> {
+
+        @Override
+        public void serialize(QName value, JsonGenerator g, SerializationContext ctxt)
+        {
+            g.writeString(value.toString());
+        }
+    }
+
+    public static class QNameDeserializer extends StdDeserializer<QName>
+    {
+        public QNameDeserializer() { super(QName.class); }
+        @Override
+        public QName deserialize(JsonParser p, DeserializationContext ctxt)
+        {
+            if (!p.hasToken(JsonToken.VALUE_STRING)) {
+                 throw new IllegalArgumentException("Unexpected token "+p.currentToken());
+            }
+            return QName.valueOf(p.getString());
+        }
+    }
+
+    @JsonIgnoreType
+    static class IgnoredType { }
+
+    static class IgnoredSubType extends IgnoredType { }
+
+    // Test to ensure we can override enum settings
+    static class LcEnumIntrospector extends JacksonAnnotationIntrospector
+    {
+        private static final long serialVersionUID = 1L;
+
+        @Override
+        public String[] findEnumValues(MapperConfig<?> config, AnnotatedClass annotatedClass,
+                Enum<?>[] enumValues, String[] names) {
+            // kinda sorta wrong, but for testing's sake...
+            for (int i = 0, len = enumValues.length; i < len; ++i) {
+                names[i] = enumValues[i].name().toLowerCase();
+            }
+            return names;
+        }
+    }
+
+    /*
+    /**********************************************************************
+    /* Test methods
+    /**********************************************************************
+     */
+
+    /**
+     * tests getting serializer/deserializer instances.
+     */
+    @Test
+    public void testSerializeDeserializeWithJaxbAnnotations() throws Exception
+    {
+        ObjectMapper mapper = vpackMapperBuilder()
+                .enable(SerializationFeature.INDENT_OUTPUT)
+                .build();
+        JacksonExample ex = new JacksonExample();
+        QName qname = new QName("urn:hi", "hello");
+        ex.setQname(qname);
+        ex.setAttributeProperty("attributeValue");
+        ex.setElementProperty("elementValue");
+        ex.setWrappedElementProperty(Arrays.asList("wrappedElementValue"));
+        ex.setEnumProperty(EnumExample.VALUE1);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        mapper.writeValue(out, ex);
+        JacksonExample readEx = mapper.readValue(out.toByteArray(), JacksonExample.class);
+
+        assertEquals(ex.qname, readEx.qname);
+        assertEquals(ex.attributeProperty, readEx.attributeProperty);
+        assertEquals(ex.elementProperty, readEx.elementProperty);
+        assertEquals(ex.wrappedElementProperty, readEx.wrappedElementProperty);
+        assertEquals(ex.enumProperty, readEx.enumProperty);
+    }
+
+    @Test
+    public void testEnumHandling() throws Exception
+    {
+        ObjectMapper mapper = vpackMapperBuilder()
+                .annotationIntrospector(new LcEnumIntrospector())
+                .build();
+        assertEquals("\"value1\"", VPackUtils.toJson(mapper.writeValueAsBytes(EnumExample.VALUE1)));
+        EnumExample result = mapper.readValue(VPackUtils.toVPack(q("value1")), EnumExample.class);
+        assertEquals(EnumExample.VALUE1, result);
+    }
+
+    /*
+    /**********************************************************************
+    /* Test methods, findPolymorphicBaseType
+    /**********************************************************************
+     */
+
+    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME)
+    static class AnnotatedBase { }
+
+    static class AnnotatedSub extends AnnotatedBase { }
+
+    static class AnnotatedSubSub extends AnnotatedSub { }
+
+    static class UnannotatedBase { }
+
+    static class UnannotatedSub extends UnannotatedBase { }
+
+    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME)
+    interface AnnotatedIface { }
+
+    static class ImplOfAnnotatedIface implements AnnotatedIface { }
+
+    // [databind#4983]: findPolymorphicBaseType walks supertypes to find @JsonTypeInfo
+    @Test
+    public void testFindPolymorphicBaseTypeWithAnnotatedParent() throws Exception
+    {
+        ObjectMapper mapper = newVPackMapper();
+        JacksonAnnotationIntrospector intr = new JacksonAnnotationIntrospector();
+        SerializationConfig config = mapper.serializationConfig();
+
+        // For a direct subclass of an annotated base, should find the base type
+        JavaType subType = mapper.constructType(AnnotatedSub.class);
+        AnnotatedClass ac = AnnotatedClassResolver.resolve(config, subType, config);
+        JavaType result = intr.findPolymorphicBaseType(config, ac, null, subType);
+        assertNotNull(result);
+        assertEquals(AnnotatedBase.class, result.getRawClass());
+    }
+
+    @Test
+    public void testFindPolymorphicBaseTypeWithDeepHierarchy() throws Exception
+    {
+        ObjectMapper mapper = newVPackMapper();
+        JacksonAnnotationIntrospector intr = new JacksonAnnotationIntrospector();
+        SerializationConfig config = mapper.serializationConfig();
+
+        // For a sub-sub-class, should still find the annotated ancestor
+        JavaType subSubType = mapper.constructType(AnnotatedSubSub.class);
+        AnnotatedClass ac = AnnotatedClassResolver.resolve(config, subSubType, config);
+        JavaType result = intr.findPolymorphicBaseType(config, ac, null, subSubType);
+        assertNotNull(result);
+        // Should find first annotated supertype (AnnotatedBase)
+        assertEquals(AnnotatedBase.class, result.getRawClass());
+    }
+
+    @Test
+    public void testFindPolymorphicBaseTypeNoAnnotation() throws Exception
+    {
+        ObjectMapper mapper = newVPackMapper();
+        JacksonAnnotationIntrospector intr = new JacksonAnnotationIntrospector();
+        SerializationConfig config = mapper.serializationConfig();
+
+        // No @JsonTypeInfo anywhere in the hierarchy -> null
+        JavaType type = mapper.constructType(UnannotatedSub.class);
+        AnnotatedClass ac = AnnotatedClassResolver.resolve(config, type, config);
+        JavaType result = intr.findPolymorphicBaseType(config, ac, null, type);
+        assertNull(result);
+    }
+
+    @Test
+    public void testFindPolymorphicBaseTypeWithAnnotatedInterface() throws Exception
+    {
+        ObjectMapper mapper = newVPackMapper();
+        JacksonAnnotationIntrospector intr = new JacksonAnnotationIntrospector();
+        SerializationConfig config = mapper.serializationConfig();
+
+        // Class implementing an annotated interface -> should find the interface
+        JavaType implType = mapper.constructType(ImplOfAnnotatedIface.class);
+        AnnotatedClass ac = AnnotatedClassResolver.resolve(config, implType, config);
+        JavaType result = intr.findPolymorphicBaseType(config, ac, null, implType);
+        assertNotNull(result);
+        assertEquals(AnnotatedIface.class, result.getRawClass());
+    }
+
+    @Test
+    public void testFindPolymorphicBaseTypeOnAnnotatedClassItself() throws Exception
+    {
+        ObjectMapper mapper = newVPackMapper();
+        JacksonAnnotationIntrospector intr = new JacksonAnnotationIntrospector();
+        SerializationConfig config = mapper.serializationConfig();
+
+        // The annotated class itself has no supertypes with @JsonTypeInfo -> null
+        JavaType baseType = mapper.constructType(AnnotatedBase.class);
+        AnnotatedClass ac = AnnotatedClassResolver.resolve(config, baseType, config);
+        JavaType result = intr.findPolymorphicBaseType(config, ac, null, baseType);
+        assertNull(result);
+    }
+}

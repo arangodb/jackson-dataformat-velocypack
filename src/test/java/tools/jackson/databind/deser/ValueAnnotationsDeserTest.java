@@ -1,0 +1,638 @@
+package tools.jackson.databind.deser;
+
+import com.fasterxml.jackson.annotation.JsonDeserializeAs;
+import org.junit.jupiter.api.Test;
+import tools.jackson.core.*;
+import tools.jackson.databind.*;
+import tools.jackson.databind.VPackUtils;
+import tools.jackson.databind.annotation.JsonDeserialize;
+import tools.jackson.databind.deser.std.StdDeserializer;
+
+import java.util.*;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static tools.jackson.databind.testutil.DatabindTestUtil.newVPackMapper;
+import static tools.jackson.databind.testutil.DatabindTestUtil.verifyException;
+
+/**
+ * This unit test suite tests use of "value" Annotations;
+ * annotations that define actual type (Class) to use for
+ * deserialization.
+ */
+@SuppressWarnings("serial")
+public class ValueAnnotationsDeserTest
+{
+    /*
+    /**********************************************************
+    /* Annotated root classes for @JsonDeserialize#as / #using
+    /**********************************************************
+     */
+
+    @JsonDeserialize(using=RootStringDeserializer.class)
+    interface RootString {
+        public String contents();
+    }
+
+    static class RootStringImpl implements RootString
+    {
+        final String _contents;
+
+        public RootStringImpl(String x) { _contents = x; }
+
+        @Override
+        public String contents() { return _contents; }
+        public String contents2() { return _contents; }
+    }
+
+    @JsonDeserialize(as=RootInterfaceImpl.class)
+    interface RootInterface {
+        public String getA();
+    }
+
+    @JsonDeserializeAs(value=RootInterfaceImpl.class)
+    interface RootInterface2 {
+        public String getA();
+    }
+
+    static class RootInterfaceImpl implements RootInterface, RootInterface2 {
+        public String a;
+
+        public RootInterfaceImpl() { }
+
+        @Override
+        public String getA() { return a; }
+    }
+
+    @JsonDeserialize(contentAs=RootStringImpl.class)
+    static class RootMap extends HashMap<String,RootStringImpl> { }
+
+    @JsonDeserializeAs(content=RootStringImpl.class)
+    static class RootMap2 extends HashMap<String,RootStringImpl> { }
+
+    @JsonDeserialize(contentAs=RootStringImpl.class)
+    static class RootList extends LinkedList<RootStringImpl> { }
+
+    @JsonDeserializeAs(content=RootStringImpl.class)
+    static class RootList2 extends LinkedList<RootStringImpl> { }
+
+    static class RootStringDeserializer
+        extends StdDeserializer<RootString>
+    {
+        public RootStringDeserializer() { super(RootString.class); }
+
+        @Override
+        public RootString deserialize(JsonParser p, DeserializationContext ctxt)
+        {
+            if (p.hasToken(JsonToken.VALUE_STRING)) {
+                return new RootStringImpl(p.getString());
+            }
+            return (RootString) ctxt.handleUnexpectedToken(getValueType(ctxt), p);
+        }
+    }
+
+    /*
+    /**********************************************************
+    /* Annotated helper classes for @JsonDeserialize#as
+    /**********************************************************
+     */
+
+    /* Class for testing valid {@link JsonDeserialize} annotation
+     * with 'as' parameter to define concrete class to deserialize to
+     */
+    final static class CollectionHolder
+    {
+        Collection<String> _strings;
+
+        /* Default for 'Collection' would probably be ArrayList or so;
+         * let's try to make it a TreeSet instead.
+         */
+        @JsonDeserialize(as=TreeSet.class)
+        public void setStrings(Collection<String> s)
+        {
+            _strings = s;
+        }
+    }
+
+    /* Another class for testing valid {@link JsonDeserialize} annotation
+     * with 'as' parameter to define concrete class to deserialize to
+     */
+    final static class MapHolder
+    {
+        // Let's also coerce numbers into Strings here
+        Map<String,String> _data;
+
+        /* Default for 'Collection' would be HashMap,
+         * let's try to make it a TreeMap instead.
+         */
+        @JsonDeserialize(as=TreeMap.class)
+        public void setStrings(Map<String,String> s)
+        {
+            _data = s;
+        }
+    }
+
+    // @JsonDeserializeAs variants of CollectionHolder/MapHolder
+
+    static class CollectionHolder2
+    {
+        Collection<String> _strings;
+
+        @JsonDeserializeAs(TreeSet.class)
+        public void setStrings(Collection<String> s)
+        {
+            _strings = s;
+        }
+    }
+
+    static class MapHolder2
+    {
+        Map<String,String> _data;
+
+        @JsonDeserializeAs(TreeMap.class)
+        public void setStrings(Map<String,String> s)
+        {
+            _data = s;
+        }
+    }
+
+    /* Another class for testing valid {@link JsonDeserialize} annotation
+     * with 'as' parameter, but with array
+     */
+    final static class ArrayHolder
+    {
+        String[] _strings;
+
+        @JsonDeserialize(as=String[].class)
+        public void setStrings(Object[] o)
+        {
+            // should be passed instances of proper type, as per annotation
+            _strings = (String[]) o;
+        }
+    }
+
+    static class ArrayHolder2
+    {
+        String[] _strings;
+
+        @JsonDeserializeAs(String[].class)
+        public void setStrings(Object[] o)
+        {
+            _strings = (String[]) o;
+        }
+    }
+
+    /* Another class for testing broken {@link JsonDeserialize} annotation
+     * with 'as' parameter; one with incompatible type
+     */
+    final static class BrokenCollectionHolder
+    {
+        @JsonDeserialize(as=String.class) // not assignable to Collection
+        public void setStrings(Collection<String> s) { }
+    }
+
+    /*
+    /**********************************************************
+    /* Annotated helper classes for @JsonDeserialize.keyAs
+    /**********************************************************
+     */
+
+    final static class StringWrapper
+    {
+        final String _string;
+
+        public StringWrapper(String s) { _string = s; }
+    }
+
+    final static class MapKeyHolder
+    {
+        Map<Object, String> _map;
+
+        @JsonDeserialize(keyAs=StringWrapper.class)
+        public void setMap(Map<Object,String> m)
+        {
+            // type should be ok, but no need to cast here (won't matter)
+            _map = m;
+        }
+    }
+
+    final static class MapKeyHolder2
+    {
+        Map<Object, String> _map;
+
+        @JsonDeserializeAs(keys=StringWrapper.class)
+        public void setMap(Map<Object,String> m)
+        {
+            // type should be ok, but no need to cast here (won't matter)
+            _map = m;
+        }
+    }
+
+    final static class BrokenMapKeyHolder
+    {
+        // Invalid: Integer not a sub-class of String
+        @JsonDeserialize(keyAs=Integer.class)
+        public void setStrings(Map<String,String> m) { }
+    }
+
+    /*
+    /**********************************************************
+    /* Annotated helper classes for @JsonDeserialize#contentAs
+    /**********************************************************
+     */
+
+    final static class ListContentHolder
+    {
+        List<?> _list;
+
+        @JsonDeserialize(contentAs=StringWrapper.class)
+        public void setList(List<?> l) {
+            _list = l;
+        }
+    }
+
+    // for [databind#2553]
+    @SuppressWarnings("rawtypes")
+    static class List2553 {
+        @JsonDeserialize(contentAs = Item2553.class)
+        public List items;
+    }
+
+    static class Item2553 {
+        public String name;
+    }
+
+    final static class InvalidContentClass
+    {
+        /* Such annotation not allowed, since it makes no sense;
+         * non-container classes have no contents to annotate (but
+         * note that it is possible to first use @JsonDesiarialize.as
+         * to mark Object as, say, a List, and THEN use
+         * @JsonDeserialize.contentAs!)
+         */
+        @JsonDeserialize(contentAs=String.class)
+            public void setValue(Object x) { }
+    }
+
+    final static class ArrayContentHolder
+    {
+        Object[] _data;
+
+        @JsonDeserialize(contentAs=Long.class)
+        public void setData(Object[] o)
+        { // should have proper type, but no need to coerce here
+            _data = o;
+        }
+    }
+
+    final static class MapContentHolder
+    {
+        Map<Object,Object> _map;
+
+        @JsonDeserialize(contentAs=Integer.class)
+        public void setMap(Map<Object,Object> m)
+        {
+            _map = m;
+        }
+    }
+
+    // @JsonDeserializeAs variants of content classes
+
+    final static class ListContentHolder2
+    {
+        List<?> _list;
+
+        @JsonDeserializeAs(content=StringWrapper.class)
+        public void setList(List<?> l) {
+            _list = l;
+        }
+    }
+
+    final static class ArrayContentHolder2
+    {
+        Object[] _data;
+
+        @JsonDeserializeAs(content=Long.class)
+        public void setData(Object[] o)
+        {
+            _data = o;
+        }
+    }
+
+    final static class MapContentHolder2
+    {
+        Map<Object,Object> _map;
+
+        @JsonDeserializeAs(content=Integer.class)
+        public void setMap(Map<Object,Object> m)
+        {
+            _map = m;
+        }
+    }
+
+    /*
+    /**********************************************************
+    /* Test methods for @JsonDeserialize#as
+    /**********************************************************
+     */
+
+    private final ObjectMapper MAPPER = newVPackMapper();
+
+    @Test
+    public void testOverrideClassValid() throws Exception
+    {
+        CollectionHolder result = MAPPER.readValue
+            (VPackUtils.toVPack("{ \"strings\" : [ \"test\" ] }"), CollectionHolder.class);
+
+        Collection<String> strs = result._strings;
+        assertEquals(1, strs.size());
+        assertEquals(TreeSet.class, strs.getClass());
+        assertEquals("test", strs.iterator().next());
+    }
+
+    @Test
+    public void testOverrideMapValid() throws Exception
+    {
+        // note: expecting conversion from number to String, as well
+        MapHolder result = MAPPER.readValue
+            (VPackUtils.toVPack("{ \"strings\" :  { \"a\" : 3 } }"), MapHolder.class);
+
+        Map<String,String> strs = result._data;
+        assertEquals(1, strs.size());
+        assertEquals(TreeMap.class, strs.getClass());
+        String value = strs.get("a");
+        assertEquals("3", value);
+    }
+
+    @Test
+    public void testOverrideArrayClass() throws Exception
+    {
+        ArrayHolder result = MAPPER.readValue
+            (VPackUtils.toVPack("{ \"strings\" : [ \"test\" ] }"), ArrayHolder.class);
+
+        String[] strs = result._strings;
+        assertEquals(1, strs.length);
+        assertEquals(String[].class, strs.getClass());
+        assertEquals("test", strs[0]);
+    }
+
+    @Test
+    public void testOverrideClassValidNew() throws Exception
+    {
+        CollectionHolder2 result = MAPPER.readValue
+            (VPackUtils.toVPack("{ \"strings\" : [ \"test\" ] }"), CollectionHolder2.class);
+
+        Collection<String> strs = result._strings;
+        assertEquals(1, strs.size());
+        assertEquals(TreeSet.class, strs.getClass());
+        assertEquals("test", strs.iterator().next());
+    }
+
+    @Test
+    public void testOverrideMapValidNew() throws Exception
+    {
+        MapHolder2 result = MAPPER.readValue
+            (VPackUtils.toVPack("{ \"strings\" :  { \"a\" : 3 } }"), MapHolder2.class);
+
+        Map<String,String> strs = result._data;
+        assertEquals(1, strs.size());
+        assertEquals(TreeMap.class, strs.getClass());
+        String value = strs.get("a");
+        assertEquals("3", value);
+    }
+
+    @Test
+    public void testOverrideArrayClassNew() throws Exception
+    {
+        ArrayHolder2 result = MAPPER.readValue
+            (VPackUtils.toVPack("{ \"strings\" : [ \"test\" ] }"), ArrayHolder2.class);
+
+        String[] strs = result._strings;
+        assertEquals(1, strs.length);
+        assertEquals(String[].class, strs.getClass());
+        assertEquals("test", strs[0]);
+    }
+
+    @Test
+    public void testOverrideClassInvalid() throws Exception
+    {
+        // should fail due to incompatible Annotation
+        try {
+            BrokenCollectionHolder result = MAPPER.readValue
+                (VPackUtils.toVPack("{ \"strings\" : [ ] }"), BrokenCollectionHolder.class);
+            fail("Expected a failure, but got results: "+result);
+        } catch (DatabindException jme) {
+            verifyException(jme, "not subtype of");
+        }
+    }
+
+    /*
+    /**********************************************************
+    /* Test methods for @JsonDeserialize#as used for root values
+    /**********************************************************
+     */
+
+    @Test
+    public void testRootInterfaceAsOld() throws Exception
+    {
+        RootInterface value = MAPPER.readValue(VPackUtils.toVPack("{\"a\":\"abc\" }"), RootInterface.class);
+        assertInstanceOf(RootInterfaceImpl.class, value);
+        assertEquals("abc", value.getA());
+    }
+
+    @Test
+    public void testRootInterfaceAsNew() throws Exception
+    {
+        RootInterface2 value = MAPPER.readValue(VPackUtils.toVPack("{\"a\":\"abc\" }"), RootInterface2.class);
+        assertInstanceOf(RootInterfaceImpl.class, value);
+        assertEquals("abc", value.getA());
+    }
+
+    @Test
+    public void testRootInterfaceUsing() throws Exception
+    {
+        RootString value = MAPPER.readValue(VPackUtils.toVPack("\"xxx\""), RootString.class);
+        assertInstanceOf(RootString.class, value);
+        assertEquals("xxx", value.contents());
+    }
+
+    @Test
+    public void testRootListAsOld() throws Exception
+    {
+        RootMap value = MAPPER.readValue(VPackUtils.toVPack("{\"a\":\"b\"}"), RootMap.class);
+        assertEquals(1, value.size());
+        Object v2 = value.get("a");
+        assertEquals(RootStringImpl.class, v2.getClass());
+        assertEquals("b", ((RootString) v2).contents());
+    }
+
+    @Test
+    public void testRootListAsNew() throws Exception
+    {
+        RootMap2 value = MAPPER.readValue(VPackUtils.toVPack("{\"a\":\"b\"}"), RootMap2.class);
+        assertEquals(1, value.size());
+        Object v2 = value.get("a");
+        assertEquals(RootStringImpl.class, v2.getClass());
+        assertEquals("b", ((RootString) v2).contents());
+    }
+
+    @Test
+    public void testRootMapAsOld() throws Exception
+    {
+        RootList value = MAPPER.readValue(VPackUtils.toVPack("[ \"c\" ]"), RootList.class);
+        assertEquals(1, value.size());
+        Object v2 = value.get(0);
+        assertEquals(RootStringImpl.class, v2.getClass());
+        assertEquals("c", ((RootString) v2).contents());
+    }
+
+    @Test
+    public void testRootMapAsNew() throws Exception
+    {
+        RootList2 value = MAPPER.readValue(VPackUtils.toVPack("[ \"c\" ]"), RootList2.class);
+        assertEquals(1, value.size());
+        Object v2 = value.get(0);
+        assertEquals(RootStringImpl.class, v2.getClass());
+        assertEquals("c", ((RootString) v2).contents());
+    }
+
+    /*
+    /**********************************************************
+    /* Test methods for @JsonDeserialize#keyAs
+    /**********************************************************
+     */
+
+    @SuppressWarnings("unchecked")
+    @Test
+	public void testOverrideKeyClassValidOld() throws Exception
+    {
+        MapKeyHolder result = MAPPER.readValue(VPackUtils.toVPack("{ \"map\" : { \"xxx\" : \"yyy\" } }"), MapKeyHolder.class);
+        Map<StringWrapper, String> map = (Map<StringWrapper,String>)(Map<?,?>)result._map;
+        assertEquals(1, map.size());
+        Map.Entry<StringWrapper, String> en = map.entrySet().iterator().next();
+
+        StringWrapper key = en.getKey();
+        assertEquals(StringWrapper.class, key.getClass());
+        assertEquals("xxx", key._string);
+        assertEquals("yyy", en.getValue());
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    public void testOverrideKeyClassValidNew() throws Exception
+    {
+        MapKeyHolder2 result = MAPPER.readValue(VPackUtils.toVPack("{ \"map\" : { \"xxx\" : \"yyy\" } }"),
+                MapKeyHolder2.class);
+        Map<StringWrapper, String> map = (Map<StringWrapper,String>)(Map<?,?>)result._map;
+        assertEquals(1, map.size());
+        Map.Entry<StringWrapper, String> en = map.entrySet().iterator().next();
+
+        StringWrapper key = en.getKey();
+        assertEquals(StringWrapper.class, key.getClass());
+        assertEquals("xxx", key._string);
+        assertEquals("yyy", en.getValue());
+    }
+
+    @Test
+    public void testOverrideKeyClassInvalid() throws Exception
+    {
+        // should fail due to incompatible Annotation
+        try {
+            BrokenMapKeyHolder result = MAPPER.readValue
+                (VPackUtils.toVPack("{ \"123\" : \"xxx\" }"), BrokenMapKeyHolder.class);
+            fail("Expected a failure, but got results: "+result);
+        } catch (DatabindException jme) {
+            verifyException(jme, "not subtype of");
+        }
+    }
+
+    /*
+    /**********************************************************
+    /* Test methods for @JsonDeserialize#contentAs
+    /**********************************************************
+     */
+
+    @SuppressWarnings("unchecked")
+    @Test
+    public void testOverrideContentClassValid() throws Exception
+    {
+        ListContentHolder result = MAPPER.readValue(VPackUtils.toVPack("{ \"list\" : [ \"abc\" ] }"), ListContentHolder.class);
+        List<StringWrapper> list = (List<StringWrapper>)result._list;
+        assertEquals(1, list.size());
+        Object value = list.get(0);
+        assertEquals(StringWrapper.class, value.getClass());
+        assertEquals("abc", ((StringWrapper) value)._string);
+    }
+
+    @Test
+    public void testOverrideArrayContents() throws Exception
+    {
+        ArrayContentHolder result = MAPPER.readValue(VPackUtils.toVPack("{ \"data\" : [ 1, 2, 3 ] }"),
+                                                ArrayContentHolder.class);
+        Object[] data = result._data;
+        assertEquals(3, data.length);
+        assertEquals(Long[].class, data.getClass());
+        assertEquals(1L, data[0]);
+        assertEquals(2L, data[1]);
+        assertEquals(3L, data[2]);
+    }
+
+    @Test
+    public void testOverrideMapContents() throws Exception
+    {
+        MapContentHolder result = MAPPER.readValue(VPackUtils.toVPack("{ \"map\" : { \"a\" : 9 } }"),
+                                                MapContentHolder.class);
+        Map<Object,Object> map = result._map;
+        assertEquals(1, map.size());
+        Object ob = map.values().iterator().next();
+        assertEquals(Integer.class, ob.getClass());
+        assertEquals(Integer.valueOf(9), ob);
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    public void testOverrideContentClassValidNew() throws Exception
+    {
+        ListContentHolder2 result = MAPPER.readValue(VPackUtils.toVPack("{ \"list\" : [ \"abc\" ] }"), ListContentHolder2.class);
+        List<StringWrapper> list = (List<StringWrapper>)result._list;
+        assertEquals(1, list.size());
+        Object value = list.get(0);
+        assertEquals(StringWrapper.class, value.getClass());
+        assertEquals("abc", ((StringWrapper) value)._string);
+    }
+
+    @Test
+    public void testOverrideArrayContentsNew() throws Exception
+    {
+        ArrayContentHolder2 result = MAPPER.readValue(VPackUtils.toVPack("{ \"data\" : [ 1, 2, 3 ] }"),
+                                                ArrayContentHolder2.class);
+        Object[] data = result._data;
+        assertEquals(3, data.length);
+        assertEquals(Long[].class, data.getClass());
+        assertEquals(1L, data[0]);
+        assertEquals(2L, data[1]);
+        assertEquals(3L, data[2]);
+    }
+
+    @Test
+    public void testOverrideMapContentsNew() throws Exception
+    {
+        MapContentHolder2 result = MAPPER.readValue(VPackUtils.toVPack("{ \"map\" : { \"a\" : 9 } }"),
+                                                MapContentHolder2.class);
+        Map<Object,Object> map = result._map;
+        assertEquals(1, map.size());
+        Object ob = map.values().iterator().next();
+        assertEquals(Integer.class, ob.getClass());
+        assertEquals(Integer.valueOf(9), ob);
+    }
+
+    // [databind#2553]
+    @Test
+    public void testRawListTypeContentAs() throws Exception
+    {
+        List2553 list =  MAPPER.readValue(VPackUtils.toVPack("{\"items\": [{\"name\":\"item1\"}]}"), List2553.class);
+        assertEquals(1, list.items.size());
+        Object value = list.items.get(0);
+        assertEquals(Item2553.class, value.getClass());
+        assertEquals("item1", ((Item2553) value).name);
+    }
+}

@@ -1,0 +1,138 @@
+package tools.jackson.databind.deser.merge;
+
+import org.junit.jupiter.api.Test;
+import tools.jackson.databind.*;
+import tools.jackson.databind.VPackUtils;
+import tools.jackson.databind.node.ArrayNode;
+import tools.jackson.databind.node.ObjectNode;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static tools.jackson.databind.testutil.DatabindTestUtil.*;
+
+// [databind#3338]
+public class ArrayNode3338MergeTest
+{
+    @Test
+    public void testEnabledArrayNodeMerge() throws Exception {
+        final ObjectMapper mapperWithMerge = sharedMapper();
+
+        JsonNode merged = _updateTreeWithArray(mapperWithMerge);
+
+        ObjectNode expected = mapperWithMerge.createObjectNode();
+        expected.put("number", 888);
+
+        // default behavior is to enable merge, so we get all elements
+        ArrayNode array = expected.putArray("array");
+        array.add("Mr.");
+        array.add("Ms.");
+        array.add("Mister");
+        array.add("Miss");
+
+        assertEquals(expected, merged);
+    }
+
+    @Test
+    public void testDisabledArrayNodeMerge() throws Exception {
+        ObjectMapper mapperNoArrayMerge = vpackMapperBuilder()
+                .withConfigOverride(ArrayNode.class,
+                        cfg -> cfg.setMergeable(false))
+                .build();
+
+        JsonNode merged = _updateTreeWithArray(mapperNoArrayMerge);
+
+        ObjectNode expected = mapperNoArrayMerge.createObjectNode();
+        ArrayNode array = expected.putArray("array");
+        array.add("Mister");
+        array.add("Miss");
+        expected.put("number", 888);
+
+        assertEquals(expected, merged);
+
+        // Also should work via JsonNode
+        ObjectMapper mapperNoJsonNodeMerge = vpackMapperBuilder()
+                .withConfigOverride(JsonNode.class,
+                        cfg -> cfg.setMergeable(false))
+                .build();
+
+        JsonNode merged2 = _updateTreeWithArray(mapperNoJsonNodeMerge);
+        assertEquals(expected, merged2);
+    }
+
+    private JsonNode _updateTreeWithArray(ObjectMapper mapper) throws Exception
+    {
+        JsonNode mergeTarget = mapper.readTree(VPackUtils.toVPack(a2q("{"
+                + "'array': ['Mr.', 'Ms.' ],"
+                + "'number': 888"
+                + "}")));
+        JsonNode updateNode = mapper.readTree(VPackUtils.toVPack(a2q("{"
+                + "'array': ['Mister', 'Miss' ]"
+                + "}")));
+       return mapper.readerForUpdating(mergeTarget).readValue(updateNode);
+    }
+
+    @Test
+    public void testEnabledObjectNodeMerge() throws Exception {
+        final ObjectMapper mapperWithMerge = sharedMapper();
+
+        JsonNode merged = _updateTreeWithObject(mapperWithMerge);
+
+        // default behavior is to enable merge:
+        ObjectNode expected = mapperWithMerge.createObjectNode();
+        ObjectNode obj = expected.putObject("object");
+        obj.put("a", "1");
+        obj.put("b", "xyz");
+
+        expected.put("number", 42);
+        ArrayNode array = expected.putArray("array");
+        array.add(1);
+        array.add(2);
+        array.add(3);
+
+        assertEquals(expected, merged);
+    }
+
+    @Test
+    public void testDisabledObjectNodeMerge() throws Exception {
+        ObjectMapper mapperNoObjectMerge = vpackMapperBuilder()
+                .withConfigOverride(ObjectNode.class,
+                        cfg -> cfg.setMergeable(false))
+                .build();
+
+        JsonNode merged = _updateTreeWithObject(mapperNoObjectMerge);
+
+        // but that can be disabled
+        ObjectNode expected = mapperNoObjectMerge.createObjectNode();
+        ObjectNode obj = expected.putObject("object");
+        obj.put("b", "xyz");
+
+        expected.put("number", 42);
+        ArrayNode array = expected.putArray("array");
+        array.add(1);
+        array.add(2);
+        array.add(3);
+
+        assertEquals(expected, merged);
+
+        // Also: verify that `JsonNode` target also works:
+        ObjectMapper mapperNoJsonNodeMerge = vpackMapperBuilder()
+                .withConfigOverride(JsonNode.class,
+                        cfg -> cfg.setMergeable(false))
+                .build();
+
+        JsonNode merged2 = _updateTreeWithObject(mapperNoJsonNodeMerge);
+        assertEquals(expected, merged2);
+    }
+
+    private JsonNode _updateTreeWithObject(ObjectMapper mapper) throws Exception
+    {
+        JsonNode mergeTarget = mapper.readTree(VPackUtils.toVPack(a2q("{"
+                + "'object': {'a':'1', 'b':'2' },"
+                + "'array': [1, 2, 3],"
+                + "'number': 42"
+                + "}")));
+        JsonNode updateNode = mapper.readTree(VPackUtils.toVPack(a2q("{"
+                + "'object': {'b':'xyz'}"
+                + "}")));
+       return mapper.readerForUpdating(mergeTarget).readValue(updateNode);
+    }
+}
