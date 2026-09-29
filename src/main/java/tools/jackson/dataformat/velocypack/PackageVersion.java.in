@@ -1,0 +1,16 @@
+package @package@;
+
+import tools.jackson.core.Version;
+import tools.jackson.core.Versioned;
+import tools.jackson.core.util.VersionUtil;
+
+/** Automatically generated from this template during the Maven build. */
+public final class PackageVersion implements Versioned {
+    public static final Version VERSION = VersionUtil.parseVersion(
+        "@projectversion@", "@projectgroupid@", "@projectartifactid@");
+
+    @Override
+    public Version version() {
+        return VERSION;
+    }
+}

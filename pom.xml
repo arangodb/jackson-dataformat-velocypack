@@ -1,0 +1,169 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion> <!-- do_not_remove: published-with-gradle-metadata -->
+
+    <parent>
+        <groupId>tools.jackson.dataformat</groupId>
+        <artifactId>jackson-dataformats-binary</artifactId>
+        <version>3.2.2</version>
+    </parent>
+
+    <groupId>com.arangodb</groupId>
+    <artifactId>jackson-dataformat-velocypack</artifactId>
+    <version>5.0.0</version>
+
+    <name>Jackson Dataformat: VelocyPack</name>
+    <packaging>jar</packaging>
+    <description>VelocyPack Dataformat for Jackson</description>
+    <url>https://github.com/arangodb/jackson-dataformat-velocypack</url>
+
+    <licenses>
+        <license>
+            <name>The Apache Software License, Version 2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <properties>
+        <javac.src.version>21</javac.src.version>
+        <javac.target.version>21</javac.target.version>
+        <maven.compiler.release>21</maven.compiler.release>
+        <packageVersion.dir>tools/jackson/dataformat/velocypack</packageVersion.dir>
+        <packageVersion.package>tools.jackson.dataformat.velocypack</packageVersion.package>
+    </properties>
+
+    <developers>
+        <developer>
+            <name>Michele Rastelli</name>
+            <url>https://github.com/rashtao</url>
+        </developer>
+    </developers>
+
+    <dependencies>
+        <dependency>
+            <groupId>tools.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>tools.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-annotations</artifactId>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+
+    <scm>
+        <url>https://github.com/arangodb/jackson-dataformat-velocypack</url>
+        <connection>scm:git:git://github.com/arangodb/jackson-dataformat-velocypack.git</connection>
+        <developerConnection>scm:git:git://github.com/arangodb/jackson-dataformat-velocypack.git</developerConnection>
+    </scm>
+
+    <organization>
+        <name>Arango</name>
+        <url>https://arango.ai</url>
+    </organization>
+
+    <build>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>false</filtering>
+            </resource>
+            <resource>
+                <directory>${project.basedir}</directory>
+                <includes>
+                    <include>README.md</include>
+                    <include>LICENSE</include>
+                    <include>NOTICE</include>
+                    <include>doc/velocypack.md</include>
+                    <include>doc/wire-profile.md</include>
+                </includes>
+                <filtering>false</filtering>
+            </resource>
+        </resources>
+        <plugins>
+            <plugin>
+                <groupId>com.google.code.maven-replacer-plugin</groupId>
+                <artifactId>replacer</artifactId>
+            </plugin>
+            <!-- Build a classified current JAR before tests that exercise classpath SPI. -->
+            <plugin>
+                <artifactId>maven-jar-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>package-for-provider-tests</id>
+                        <phase>process-test-classes</phase>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                        <configuration>
+                            <classifier>t28-test</classifier>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <!-- The classpath SPI test must have an unnamed-module caller. -->
+                    <useModulePath>false</useModulePath>
+                    <includes>
+                        <include>**/Test*.java</include>
+                        <include>**/*Test.java</include>
+                        <include>**/*Tests.java</include>
+                        <include>**/*TestCase.java</include>
+                        <include>**/*Test*.java</include>
+                        <include>**/*IT.java</include>
+                    </includes>
+                    <!-- Databind's EnumMap/EnumSet type probes inspect JDK fields on Java 21. -->
+                    <argLine>@{argLine} --add-opens=java.base/java.util=ALL-UNNAMED</argLine>
+                </configuration>
+            </plugin>
+            <plugin>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>default-testCompile</id>
+                        <configuration>
+                            <!-- Mirrored upstream test packages intentionally share Jackson package names. -->
+                            <useModulePath>false</useModulePath>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>enforce-jdk21-for-velocypack</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <requireJavaVersion>
+                                    <version>[21,)</version>
+                                    <message>VelocyPack requires JDK 21 or newer.</message>
+                                </requireJavaVersion>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <!-- SBOM must precede Gradle metadata, which is required to remain last. -->
+            <plugin>
+                <groupId>org.cyclonedx</groupId>
+                <artifactId>cyclonedx-maven-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.gradlex</groupId>
+                <artifactId>gradle-module-metadata-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>

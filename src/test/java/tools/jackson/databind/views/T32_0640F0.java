@@ -1,0 +1,145 @@
+package tools.jackson.databind.views;
+
+import java.util.Map;
+
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
+import com.fasterxml.jackson.annotation.JsonView;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.MapperFeature;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.annotation.JsonDeserialize;
+import tools.jackson.databind.annotation.JsonPOJOBuilder;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+import tools.jackson.dataformat.velocypack.*;
+
+class T32_0640F0 {
+private static final byte[] CONFIG_INPUT = VPackWireFixtureTest.hex(
+            "14 27 42 69 64 28 63 44 6e 61 6d 65 45 41 6c 69 63 65 "
+            + "4c 69 6e 74 65 72 6e 61 6c 44 61 74 61 46 68 61 63 6b 65 64 03");
+private static final byte[] DEFAULTING_INPUT = VPackWireFixtureTest.hex(
+            "14 09 41 61 31 41 62 32 02");
+private static final byte[] BUILDER_ARRAY_INPUT = VPackWireFixtureTest.hex(
+            "02 0e 45 61 6c 69 63 65 45 61 64 6d 69 6e");
+@SuppressWarnings("unchecked")
+    private static Map<String,Object> readMap(ObjectMapper mapper, byte[] bytes) throws Exception {
+        return (Map<String,Object>) mapper.readValue(bytes, Map.class);
+    }
+private static ObjectMapper configMapper() {
+        return VPackMapper.builder()
+                .disable(DeserializationFeature.FAIL_ON_UNEXPECTED_VIEW_PROPERTIES).build();
+    }
+ void testNoDefaultView() throws Exception {
+        ObjectMapper mapper = configMapper();
+        assertEquals(Map.of("id", 1, "name", "Bob", "internalData", "secret"),
+                readMap(mapper, mapper.writeValueAsBytes(new ConfigBean())));
+        ConfigBean result = mapper.readValue(CONFIG_INPUT, ConfigBean.class);
+        assertEquals(99, result.id); assertEquals("Alice", result.name);
+        assertEquals("hacked", result.internalData);
+    }
+ void testNullViewClearsPrevious() throws Exception {
+        ObjectMapper mapper = VPackMapper.builder().defaultView(ViewPublic.class)
+                .defaultView(null).build();
+        assertEquals(Map.of("id", 1, "name", "Bob", "internalData", "secret"),
+                readMap(configMapper(), mapper.writeValueAsBytes(new ConfigBean())));
+    }
+ void testRebuildPreservesDefaultViews() throws Exception {
+        ObjectMapper original = VPackMapper.builder().defaultSerializationView(ViewPublic.class)
+                .defaultDeserializationView(ViewInternal.class)
+                .disable(DeserializationFeature.FAIL_ON_UNEXPECTED_VIEW_PROPERTIES).build();
+        ObjectMapper rebuilt = original.rebuild().build();
+        assertEquals(Map.of("id", 1, "name", "Bob"),
+                readMap(configMapper(), rebuilt.writeValueAsBytes(new ConfigBean())));
+        ConfigBean result = rebuilt.readValue(CONFIG_INPUT, ConfigBean.class);
+        assertEquals(1, result.id); assertEquals("Bob", result.name);
+        assertEquals("hacked", result.internalData);
+    }
+ void testSeparateSerializationAndDeserializationViews() throws Exception {
+        ObjectMapper mapper = VPackMapper.builder().defaultSerializationView(ViewPublic.class)
+                .defaultDeserializationView(ViewInternal.class)
+                .disable(DeserializationFeature.FAIL_ON_UNEXPECTED_VIEW_PROPERTIES).build();
+        assertEquals(Map.of("id", 1, "name", "Bob"),
+                readMap(configMapper(), mapper.writeValueAsBytes(new ConfigBean())));
+        ConfigBean result = mapper.readValue(CONFIG_INPUT, ConfigBean.class);
+        assertEquals(1, result.id); assertEquals("Bob", result.name);
+        assertEquals("hacked", result.internalData);
+    }
+private static ObjectMapper arrayMapper(boolean failOnUnexpected) {
+        var builder = VPackMapper.builder().enable(MapperFeature.DEFAULT_VIEW_INCLUSION);
+        if (failOnUnexpected) builder.enable(DeserializationFeature.FAIL_ON_UNEXPECTED_VIEW_PROPERTIES);
+        else builder.disable(DeserializationFeature.FAIL_ON_UNEXPECTED_VIEW_PROPERTIES);
+        return builder.build();
+    }
+static class ViewA { }
+static class ViewB { }
+static class ViewBB extends ViewB { }
+static class ViewPublic { }
+static class ViewInternal { }
+static class Public { }
+static class Admin extends Public { }
+static class ConfigBean {
+        @JsonView(ViewPublic.class) public int id = 1;
+        @JsonView(ViewPublic.class) public String name = "Bob";
+        @JsonView(ViewInternal.class) public String internalData = "secret";
+    }
+@JsonView(ViewA.class)
+    @JsonPropertyOrder({ "a", "b" })
+    static class Defaulting {
+        public int a = 3;
+        @JsonView(ViewB.class) public int b = 5;
+    }
+@JsonDeserialize(builder = User.Builder.class)
+    static class User {
+        final String name;
+        final String role;
+        User(String name, String role) { this.name = name; this.role = role; }
+
+        @JsonPOJOBuilder(withPrefix = "")
+        @JsonFormat(shape = JsonFormat.Shape.ARRAY)
+        @JsonPropertyOrder({ "name", "role" })
+        static class Builder {
+            String name;
+            String role;
+            @JsonCreator
+            Builder(@JsonProperty("name") @JsonView(Public.class) String name) { this.name = name; }
+            @JsonView(Admin.class) Builder role(String value) { role = value; return this; }
+            User build() { return new User(name, role); }
+        }
+    }
+
+    void __invoke_testNoDefaultView() throws Exception {
+        try {
+            testNoDefaultView();
+        } finally {
+        }
+    }
+
+
+    void __invoke_testNullViewClearsPrevious() throws Exception {
+        try {
+            testNullViewClearsPrevious();
+        } finally {
+        }
+    }
+
+
+    void __invoke_testRebuildPreservesDefaultViews() throws Exception {
+        try {
+            testRebuildPreservesDefaultViews();
+        } finally {
+        }
+    }
+
+
+    void __invoke_testSeparateSerializationAndDeserializationViews() throws Exception {
+        try {
+            testSeparateSerializationAndDeserializationViews();
+        } finally {
+        }
+    }
+
+}
