@@ -75,6 +75,51 @@ class VPackSegmentChainTest {
     }
 
     @Test
+    void adjacentRangesCoalesceAcrossPageBoundaries() {
+        int firstLength = VPackByteStore.PAGE_SIZE - 3;
+        byte[] firstBytes = new byte[firstLength];
+        byte[] secondBytes = new byte[VPackByteStore.PAGE_SIZE + 11];
+        for (int i = 0; i < firstBytes.length; ++i) firstBytes[i] = (byte) (i * 13);
+        for (int i = 0; i < secondBytes.length; ++i) secondBytes[i] = (byte) (i * 29);
+        byte[] expected = new byte[firstBytes.length + secondBytes.length];
+        System.arraycopy(firstBytes, 0, expected, 0, firstBytes.length);
+        System.arraycopy(secondBytes, 0, expected, firstBytes.length, secondBytes.length);
+
+        VPackOutputArena arena = new VPackOutputArena(expected.length * 2L);
+        VPackByteStore.Range first = arena.append(firstBytes);
+        VPackByteStore.Range second = arena.append(secondBytes);
+
+        VPackSegmentChain appended = new VPackSegmentChain(arena);
+        appended.append(first);
+        appended.append(second);
+        assertEquals(1, appended.nodeCount());
+        assertArrayEquals(expected, appended.toByteArray());
+
+        VPackSegmentChain prepended = new VPackSegmentChain(arena);
+        prepended.append(second);
+        prepended.prepend(first);
+        assertEquals(1, prepended.nodeCount());
+        assertArrayEquals(expected, prepended.toByteArray());
+    }
+
+    @Test
+    void invalidRangeFailureLeavesExistingSegmentsUntouched() {
+        VPackOutputArena arena = new VPackOutputArena(20L);
+        VPackOutputArena otherArena = new VPackOutputArena(20L);
+        VPackSegmentChain chain = new VPackSegmentChain(arena);
+        chain.append(arena.append(new byte[] { 1, 2 }));
+        VPackByteStore.Range wrongStore = otherArena.append(new byte[] { 3 });
+
+        assertThrows(tools.jackson.core.exc.StreamWriteException.class,
+                () -> chain.append(wrongStore));
+        assertThrows(tools.jackson.core.exc.StreamWriteException.class,
+                () -> chain.prepend(wrongStore));
+        assertEquals(1, chain.nodeCount());
+        assertEquals(2L, chain.size());
+        assertArrayEquals(new byte[] { 1, 2 }, chain.toByteArray());
+    }
+
+    @Test
     void resetCannotAliasAnOldChainToReplacementRoot() throws Exception {
         VPackOutputArena arena = new VPackOutputArena(20L);
         VPackSegmentChain chain = new VPackSegmentChain(arena);

@@ -41,22 +41,24 @@ final class VPackSegmentChain implements AutoCloseable {
     }
 
     void append(VPackByteStore.Range range) {
-        addLast(newNode(range));
+        appendRange(range);
     }
 
     void prepend(VPackByteStore.Range range) {
-        Node node = newNode(range);
-        if (node == null) {
+        VPackByteStore currentStore = validateRange(range);
+        long length = range.length();
+        if (length == 0L) {
             return;
         }
-        ensureOpen();
-        long newSize = VPackBounds.checkedAdd(size, node.length, "segment chain size");
-        if (head != null && adjacent(node, head)) {
-            long mergedLength = VPackBounds.checkedAdd(node.length, head.length,
+        long offset = range.offset();
+        long newSize = VPackBounds.checkedAdd(size, length, "segment chain size");
+        if (head != null && adjacentBefore(currentStore, offset, length, head)) {
+            long mergedLength = VPackBounds.checkedAdd(length, head.length,
                     "segment chain node length");
-            head.offset = node.offset;
+            head.offset = offset;
             head.length = mergedLength;
         } else {
+            Node node = new Node(currentStore, offset, length);
             node.next = head;
             head = node;
             if (tail == null) {
@@ -167,7 +169,7 @@ final class VPackSegmentChain implements AutoCloseable {
         released = true;
     }
 
-    private Node newNode(VPackByteStore.Range range) {
+    private VPackByteStore validateRange(VPackByteStore.Range range) {
         if (range == null) {
             throw VPackErrors.write("segment chain", "range is null");
         }
@@ -175,20 +177,24 @@ final class VPackSegmentChain implements AutoCloseable {
         if (range.store() != currentStore) {
             throw VPackErrors.write("segment chain", "range belongs to another store");
         }
-        return range.length() == 0L ? null
-                : new Node(range.store(), range.offset(), range.length());
+        return currentStore;
     }
 
-    private void addLast(Node node) {
-        if (node == null) {
+    private void appendRange(VPackByteStore.Range range) {
+        VPackByteStore currentStore = validateRange(range);
+        long length = range.length();
+        if (length == 0L) {
             return;
         }
         ensureCurrentStore();
-        long newSize = VPackBounds.checkedAdd(size, node.length, "segment chain size");
-        if (tail != null && adjacent(tail, node)) {
-            tail.length = VPackBounds.checkedAdd(tail.length, node.length,
+        long offset = range.offset();
+        long newSize = VPackBounds.checkedAdd(size, length, "segment chain size");
+        if (tail != null && adjacent(tail.store, tail.offset, tail.length,
+                currentStore, offset, length)) {
+            tail.length = VPackBounds.checkedAdd(tail.length, length,
                     "segment chain node length");
         } else {
+            Node node = new Node(currentStore, offset, length);
             if (tail == null) {
                 head = node;
                 originStore = node.store;
@@ -219,10 +225,24 @@ final class VPackSegmentChain implements AutoCloseable {
         return currentStore;
     }
 
+    private static boolean adjacent(VPackByteStore firstStore, long firstOffset,
+            long firstLength, VPackByteStore secondStore, long secondOffset,
+            long secondLength) {
+        return firstStore == secondStore
+                && firstOffset <= Long.MAX_VALUE - firstLength
+                && firstOffset + firstLength == secondOffset;
+    }
+
     private static boolean adjacent(Node first, Node second) {
-        return first.store == second.store
-                && first.offset <= Long.MAX_VALUE - first.length
-                && first.offset + first.length == second.offset;
+        return adjacent(first.store, first.offset, first.length,
+                second.store, second.offset, second.length);
+    }
+
+    private static boolean adjacentBefore(VPackByteStore firstStore, long firstOffset,
+            long firstLength, Node second) {
+        return firstStore == second.store
+                && firstOffset <= Long.MAX_VALUE - firstLength
+                && firstOffset + firstLength == second.offset;
     }
 
     private static final class Node {
