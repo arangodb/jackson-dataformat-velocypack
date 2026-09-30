@@ -1,0 +1,4 @@
+interface:
+  display_name: "VelocyPack Benchmarking"
+  short_description: "Run JMH and analyze JSON, GC metrics and JFR recordings"
+  default_prompt: "Use $velocypack-benchmarking to investigate performance using this repository's JMH and JFR artifacts."

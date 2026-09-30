@@ -89,6 +89,12 @@ val mapper = new VPackMapper()
 mapper.registerModule(DefaultScalaModule)
 ```
 
+## Development
+
+See [AGENTS.md](AGENTS.md) for repository guidance and task-specific coding,
+testing and JMH/JFR skills. The [architecture overview](docs/architecture.md)
+maps implementation responsibilities and lifecycle boundaries.
+
 # Learn more
 
 - [Arango](https://arango.ai)

@@ -1,0 +1,4 @@
+interface:
+  display_name: "VelocyPack Testing"
+  short_description: "Select regression tests and reproduce the CircleCI matrix"
+  default_prompt: "Use $velocypack-testing to select and run tests for the current repository change."

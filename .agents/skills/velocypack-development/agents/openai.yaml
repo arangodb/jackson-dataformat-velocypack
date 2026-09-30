@@ -1,0 +1,4 @@
+interface:
+  display_name: "VelocyPack Development"
+  short_description: "Maintain and extend the Jackson VelocyPack dataformat"
+  default_prompt: "Use $velocypack-development to implement and validate a change in this repository."
