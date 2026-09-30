@@ -15,6 +15,7 @@ import tools.jackson.core.exc.StreamReadException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class VPackAttributeNameParserTest {
     private static final BigInteger UINT64_MAX = BigInteger.ONE.shiftLeft(64).subtract(BigInteger.ONE);
@@ -37,9 +38,12 @@ class VPackAttributeNameParserTest {
             assertEquals(JsonToken.PROPERTY_NAME, parser.nextToken());
             assertEquals("b", parser.currentName());
             assertEquals(BigInteger.ZERO, parser.currentAttributeId());
+            assertTrue(parser.hasCurrentAttributeId());
+            assertEquals(0L, parser.currentAttributeIdBits());
             assertEquals(VPackType.SMALL_INTEGER, parser.currentVPackType());
             assertEquals(JsonToken.VALUE_NUMBER_INT, parser.nextToken());
             assertNull(parser.currentAttributeId());
+            assertEquals(false, parser.hasCurrentAttributeId());
             assertEquals(JsonToken.PROPERTY_NAME, parser.nextToken());
             assertEquals("a", parser.currentName());
             assertEquals(high, parser.currentAttributeId());
@@ -49,6 +53,83 @@ class VPackAttributeNameParserTest {
             assertEquals(JsonToken.END_OBJECT, parser.nextToken());
             assertNull(parser.currentAttributeId());
         }
+    }
+
+    @Test
+    void rawLongCodecPathHandlesAllIdMarkerFormsAndClearsState() throws Exception {
+        VPackAttributeNameCodec codec = new VPackAttributeNameCodec() {
+            @Override public String decode(BigInteger id) {
+                throw new AssertionError("parser should use decode(long)");
+            }
+            @Override public String decode(long idBits) {
+                return "id-" + Long.toUnsignedString(idBits);
+            }
+            @Override public BigInteger encode(String name) { return null; }
+        };
+        byte[][] keys = {
+                { 0x30 }, { 0x39 }, { 0x28, 0x07 },
+                { 0x2F, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF,
+                        (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF }
+        };
+        long[] ids = { 0L, 9L, 7L, -1L };
+        VPackType[] physical = { VPackType.SMALL_INTEGER, VPackType.SMALL_INTEGER,
+                VPackType.UNSIGNED_INTEGER, VPackType.UNSIGNED_INTEGER };
+        for (int i = 0; i < keys.length; ++i) {
+            byte[] input = VPackObjectParserTest.object(1, true,
+                    concat(keys[i], new byte[] { 0x30 }), new long[] { 3 });
+            try (VPackParser parser = (VPackParser) VPackFactory.builder()
+                    .attributeNameCodec(codec).build().createParser(input)) {
+                assertEquals(JsonToken.START_OBJECT, parser.nextToken());
+                assertEquals(JsonToken.PROPERTY_NAME, parser.nextToken());
+                assertEquals("id-" + Long.toUnsignedString(ids[i]), parser.currentName());
+                assertTrue(parser.hasCurrentAttributeId());
+                assertEquals(ids[i], parser.currentAttributeIdBits());
+                assertEquals(new BigInteger(Long.toUnsignedString(ids[i])),
+                        parser.currentAttributeId());
+                assertEquals(physical[i], parser.currentVPackType());
+                if (i == 3) assertEquals("18446744073709551615",
+                        parser.currentAttributeId().toString());
+                assertEquals(JsonToken.VALUE_NUMBER_INT, parser.nextToken());
+                assertNull(parser.currentAttributeId());
+                assertEquals(false, parser.hasCurrentAttributeId());
+                assertEquals(JsonToken.END_OBJECT, parser.nextToken());
+                assertEquals(false, parser.hasCurrentAttributeId());
+            }
+        }
+    }
+
+    @Test
+    void defaultLongOverloadDelegatesToBigIntegerCodec() throws Exception {
+        VPackAttributeNameCodec codec = decoder(id -> id.equals(UINT64_MAX) ? "maximum" : null);
+        byte[] input = VPackObjectParserTest.object(1, true,
+                concat(key(UINT64_MAX), new byte[] { 0x30 }), new long[] { 3 });
+        try (VPackParser parser = (VPackParser) VPackFactory.builder()
+                .attributeNameCodec(codec).build().createParser(input)) {
+            parser.nextToken();
+            assertEquals(JsonToken.PROPERTY_NAME, parser.nextToken());
+            assertEquals("maximum", parser.currentName());
+            assertEquals(UINT64_MAX, parser.currentAttributeId());
+            assertEquals(-1L, parser.currentAttributeIdBits());
+            assertTrue(parser.hasCurrentAttributeId());
+            parser.clearCurrentToken();
+            assertNull(parser.currentAttributeId());
+            assertEquals(false, parser.hasCurrentAttributeId());
+        }
+    }
+
+    @Test
+    void sortedIndexChecksResolvedAttributeNamesInUnsignedUtf8Order() {
+        VPackAttributeNameCodec codec = decoder(id -> id.signum() == 0 ? "b"
+                : id.equals(BigInteger.ONE) ? "a" : null);
+        // Physical order is b then a; the deliberately physical-order index is invalid.
+        byte[] body = concat(new byte[] { 0x30, 0x18, 0x31, 0x18 });
+        byte[] input = VPackObjectParserTest.object(1, true, body, new long[] { 3, 5 });
+        assertMessage("sorted object index is not in unsigned UTF-8 name order", () -> {
+            try (VPackParser parser = (VPackParser) VPackFactory.builder()
+                    .attributeNameCodec(codec).build().createParser(input)) {
+                while (parser.nextToken() != null) { }
+            }
+        });
     }
 
     @Test

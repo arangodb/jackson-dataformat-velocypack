@@ -238,10 +238,12 @@ class VPackParserRetentionRegressionTest {
         assertEquals(0L, parser.retainedRootNameBytes());
         assertNull(parser.streamReadContext().getParent());
         assertNull(parser.currentValue());
+        assertEquals(false, parser.hasCurrentAttributeId());
         for (String name : new String[] { "_root", "_rootBudget", "_currentVPackType",
-                "_currentAttributeId", "_embeddedValue", "_canonicalNumber", "_numberBigInt",
+                "_embeddedValue", "_canonicalNumber", "_numberBigInt",
                 "_numberBigDecimal", "_numberString", "_stringValue",
-                "_binaryValue", "_byteArrayBuilder" }) {
+                "_binaryValue", "_byteArrayBuilder", "_nameCacheBytes", "_nameCacheText",
+                "_lastNameBytes" }) {
             assertNull(field(parser, name), name);
         }
     }

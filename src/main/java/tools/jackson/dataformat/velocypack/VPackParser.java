@@ -21,6 +21,8 @@ import tools.jackson.core.util.SimpleStreamReadContext;
  * Synchronous bounded-root VelocyPack parser with iterative container traversal.
  */
 public class VPackParser extends ParserBase {
+    private static final int NAME_CACHE_SIZE = 256;
+    private static final int NAME_CACHE_MAX_BYTES = 64;
     private static final JacksonFeatureSet<StreamReadCapability> CAPABILITIES =
             DEFAULT_READ_CAPABILITIES.with(StreamReadCapability.EXACT_FLOATS);
 
@@ -32,7 +34,8 @@ public class VPackParser extends ParserBase {
     private SimpleStreamReadContext _streamReadContext;
     private VPackRootReader.Root _root;
     private VPackType _currentVPackType;
-    private BigInteger _currentAttributeId;
+    private long _currentAttributeId;
+    private boolean _hasAttributeId;
     private Object _embeddedValue;
     private String _stringValue;
     private long _binaryPayloadOffset;
@@ -44,6 +47,10 @@ public class VPackParser extends ParserBase {
     private boolean _inputClosed;
     private boolean _releasedBuffered;
     private final ArrayDeque<Frame> _arrayFrames = new ArrayDeque<>();
+    private byte[][] _nameCacheBytes;
+    private String[] _nameCacheText;
+    private final byte[] _nameScratch = new byte[NAME_CACHE_MAX_BYTES];
+    private byte[] _lastNameBytes;
     private VPackRootBudget _rootBudget;
 
     @SuppressWarnings({"unused", "ClassEscapesItsScope"}) // Factory constructs the parser with its internal root source.
@@ -172,7 +179,8 @@ public class VPackParser extends ParserBase {
         }
         _clearRetainedValues();
         _currentVPackType = null;
-        _currentAttributeId = null;
+        _hasAttributeId = false;
+        _lastNameBytes = null;
         _embeddedValue = null;
         _stringValue = null;
         _binaryPayloadOffset = 0L;
@@ -311,18 +319,18 @@ public class VPackParser extends ParserBase {
         }
         case UNSIGNED_INTEGER -> {
             int width = VPackMarker.width(marker);
-            BigInteger numericValue = VPackBounds.readUnsigned(_readFixedPayload(value, width), width);
-            if (numericValue.bitLength() <= 31) {
-                _numberInt = numericValue.intValue();
+            long bits = _readFixedPayload(value, width);
+            if (bits >= 0L && bits <= Integer.MAX_VALUE) {
+                _numberInt = (int) bits;
                 _canonicalNumber = _numberInt;
                 _numTypesValid = NR_INT;
-            } else if (numericValue.bitLength() <= 63) {
-                _numberLong = numericValue.longValue();
+            } else if (bits >= 0L) {
+                _numberLong = bits;
                 _canonicalNumber = _numberLong;
                 _numTypesValid = NR_LONG;
             } else {
-                _numberBigInt = numericValue;
-                _canonicalNumber = numericValue;
+                _numberBigInt = VPackBounds.unsignedLong(bits);
+                _canonicalNumber = _numberBigInt;
                 _numTypesValid = NR_BIGINT;
             }
             _currentVPackType = VPackType.UNSIGNED_INTEGER;
@@ -365,11 +373,27 @@ public class VPackParser extends ParserBase {
     }
 
     private JsonToken _fixedIntegerToken() {
-        // At most 20 decimal digits (uint64); never stringify an unbounded BCD here.
-        String digits = _canonicalNumber.toString();
-        _streamReadConstraints.validateIntegerLength(
-                digits.length() - (digits.charAt(0) == '-' ? 1 : 0));
+        int digits;
+        if (_canonicalNumber instanceof Integer value) {
+            digits = _decimalDigits(value.longValue());
+        } else if (_canonicalNumber instanceof Long value) {
+            digits = _decimalDigits(value);
+        } else {
+            // Only uint64 values >= 2^63 reach this path; at most 20 digits.
+            String text = _canonicalNumber.toString();
+            digits = text.length() - (text.charAt(0) == '-' ? 1 : 0);
+        }
+        _streamReadConstraints.validateIntegerLength(digits);
         return _updateToken(JsonToken.VALUE_NUMBER_INT);
+    }
+
+    private static int _decimalDigits(long value) {
+        int digits = 0;
+        do {
+            ++digits;
+            value /= 10L;
+        } while (value != 0L);
+        return digits;
     }
 
     private JsonToken _enterArray(Frame parent, long start, long enclosingEnd) {
@@ -571,7 +595,7 @@ public class VPackParser extends ParserBase {
             }
             long end = _valueEnd(start, frame.bodyEnd, kind, marker);
             _rootBudget.chargeEntry();
-            NameValue name = _decodeName(start, end, marker, kind);
+            NameValue name = _decodeName(start, end, marker, kind, frame.sorted);
             if (frame.indexed) {
                 frame.recordName(start - frame.start, name.utf8());
             }
@@ -581,7 +605,7 @@ public class VPackParser extends ParserBase {
             frame.context.setCurrentName(name.text());
             _currentLocation = start;
             _nextLocation = end;
-            _currentVPackType = name.attributeId() == null
+            _currentVPackType = !name.attributeId()
                     ? VPackType.STRING : (kind == VPackMarker.SMALL_POSITIVE
                             ? VPackType.SMALL_INTEGER : VPackType.UNSIGNED_INTEGER);
             return _updateToken(JsonToken.PROPERTY_NAME);
@@ -852,18 +876,15 @@ public class VPackParser extends ParserBase {
         }
     }
 
-    private NameValue _decodeName(long start, long end, int marker, VPackMarker kind) {
+    private NameValue _decodeName(long start, long end, int marker, VPackMarker kind,
+            boolean retainBytes) {
         if (kind == VPackMarker.UNSIGNED_INTEGER || kind == VPackMarker.SMALL_POSITIVE) {
-            BigInteger id = kind == VPackMarker.SMALL_POSITIVE
-                    ? BigInteger.valueOf(marker - 0x30L)
-                    : _readUnsignedKeyId(start, marker);
-            if (id.signum() < 0 || id.compareTo(VPackBounds.UINT64_MAX) > 0) {
-                throw VPackErrors.malformed("compressed attribute name", start,
-                        "attribute ID is outside the uint64 domain");
-            }
+            long id = kind == VPackMarker.SMALL_POSITIVE
+                    ? marker - 0x30L : _readUnsignedKeyIdBits(start, marker);
             if (_attributeNameCodec == null) {
                 throw VPackErrors.malformed("compressed attribute name", start,
-                        "no attribute-name codec is configured for ID " + id);
+                        "no attribute-name codec is configured for ID "
+                                + Long.toUnsignedString(id));
             }
             final String text;
             try {
@@ -873,44 +894,62 @@ public class VPackParser extends ParserBase {
             }
             if (text == null) {
                 throw VPackErrors.malformed("compressed attribute name", start,
-                        "codec could not resolve ID " + id);
+                        "codec could not resolve ID " + Long.toUnsignedString(id));
             }
             byte[] utf8 = _encodeResolvedName(text);
             _rootBudget.chargeName(utf8.length);
             _currentAttributeId = id;
-            return new NameValue(text, utf8, id);
+            _hasAttributeId = true;
+            _lastNameBytes = retainBytes ? utf8 : null;
+            return new NameValue(text, retainBytes ? utf8 : null, true);
         }
-        long payloadOffset;
-        long byteLength;
-        if (kind == VPackMarker.SHORT_STRING) {
-            payloadOffset = 1L;
-            byteLength = marker - 0x40L;
-        } else {
-            payloadOffset = 9L;
-            byteLength = _readLengthAt(start, 8);
-        }
-        VPackBounds.checkedRange(start - _root.startOffset() + payloadOffset, byteLength,
-                _root.range().length(), "object key payload");
-        if (end < start || end - start < payloadOffset
-                || byteLength > end - start - payloadOffset) {
-            throw VPackErrors.malformed("object property name", start,
-                    "key payload exceeds its encoded string boundary");
-        }
+        long payloadOffset = kind == VPackMarker.SHORT_STRING ? 1L : 9L;
+        long byteLength = end - start - payloadOffset;
         _rootBudget.chargeName(byteLength);
         int length = VPackBounds.checkedInt(byteLength, "object key byte length");
-        byte[] utf8 = new byte[length];
-        _root.range().copyTo(start - _root.startOffset() + payloadOffset, utf8, 0, length);
-        String decoded = new String(utf8, StandardCharsets.UTF_8);
-        _streamReadConstraints.validateNameLength(decoded.length());
-        return new NameValue(decoded, utf8);
+        long relative = start - _root.startOffset() + payloadOffset;
+        byte[] utf8 = null;
+        String decoded;
+        if (length <= NAME_CACHE_MAX_BYTES) {
+            _root.range().copyTo(relative, _nameScratch, 0, length);
+            int hash = length;
+            for (int i = 0; i < length; ++i) hash = 31 * hash + _nameScratch[i];
+            int slot = (hash ^ (hash >>> 16)) & (NAME_CACHE_SIZE - 1);
+            if (_nameCacheBytes != null && _nameCacheBytes[slot] != null
+                    && Arrays.equals(_nameCacheBytes[slot], 0,
+                            _nameCacheBytes[slot].length, _nameScratch, 0, length)) {
+                utf8 = _nameCacheBytes[slot];
+                decoded = _nameCacheText[slot];
+            } else {
+                utf8 = Arrays.copyOf(_nameScratch, length);
+                decoded = new String(utf8, StandardCharsets.UTF_8);
+                if (_nameCacheBytes == null) {
+                    _nameCacheBytes = new byte[NAME_CACHE_SIZE][];
+                    _nameCacheText = new String[NAME_CACHE_SIZE];
+                }
+                _nameCacheBytes[slot] = utf8;
+                _nameCacheText[slot] = decoded;
+            }
+        } else if (retainBytes) {
+            utf8 = new byte[length];
+            _root.range().copyTo(relative, utf8, 0, length);
+            decoded = new String(utf8, StandardCharsets.UTF_8);
+        } else {
+            decoded = _root.range().decodeUtf8(relative, length);
+        }
+        if (length > _streamReadConstraints.getMaxNameLength()) {
+            _streamReadConstraints.validateNameLength(decoded.length());
+        }
+        _lastNameBytes = retainBytes ? utf8 : null;
+        return new NameValue(decoded, retainBytes ? utf8 : null, false);
     }
 
-    private BigInteger _readUnsignedKeyId(long start, int marker) {
+    private long _readUnsignedKeyIdBits(long start, int marker) {
         int width = VPackMarker.width(marker);
         long relative = start - _root.startOffset() + 1L;
         VPackBounds.checkedRange(relative, width, _root.range().length(),
                 "compressed attribute ID");
-        return VPackBounds.readUnsigned(_root.range().readLE(relative, width), width);
+        return _root.range().readLE(relative, width);
     }
 
     private byte[] _encodeResolvedName(String text) {
@@ -934,11 +973,7 @@ public class VPackParser extends ParserBase {
 
     private record CompactLayout(long end, long bodyStart, long bodyEnd, long count) { }
 
-    private record NameValue(String text, byte[] utf8, BigInteger attributeId) {
-        NameValue(String text, byte[] utf8) {
-            this(text, utf8, null);
-        }
-    }
+    private record NameValue(String text, byte[] utf8, boolean attributeId) { }
 
     private abstract static class Frame {
         final Frame parent;
@@ -1009,11 +1044,13 @@ public class VPackParser extends ParserBase {
                         Math.max(completed + 1, Math.max(16, oldLength * 2)));
                 keyStarts = keyStarts == null ? new long[newLength]
                         : java.util.Arrays.copyOf(keyStarts, newLength);
-                nameBytes = nameBytes == null ? new byte[newLength][]
-                        : java.util.Arrays.copyOf(nameBytes, newLength);
+                if (sorted) {
+                    nameBytes = nameBytes == null ? new byte[newLength][]
+                            : java.util.Arrays.copyOf(nameBytes, newLength);
+                }
             }
             keyStarts[completed] = keyStart;
-            nameBytes[completed] = utf8;
+            if (sorted) nameBytes[completed] = utf8;
         }
     }
 
@@ -1063,7 +1100,18 @@ public class VPackParser extends ParserBase {
                 ? _doubleBits : 0L;
     }
 
-    public BigInteger currentAttributeId() { return _currentAttributeId; }
+    public BigInteger currentAttributeId() {
+        return _hasAttributeId ? VPackBounds.unsignedLong(_currentAttributeId) : null;
+    }
+
+    /**
+     * Raw uint64 bit pattern for the current attribute ID; values >= 2^63 appear
+     * negative. Check {@link #hasCurrentAttributeId()} before using it.
+     */
+    public long currentAttributeIdBits() { return _currentAttributeId; }
+
+    /** Whether the current token is a property name encoded as an attribute ID. */
+    public boolean hasCurrentAttributeId() { return _currToken != null && _hasAttributeId; }
 
     @Override
     public String currentName() {
@@ -1346,7 +1394,7 @@ public class VPackParser extends ParserBase {
         // intervening token; clearing is not a terminal traversal operation.
         super.clearCurrentToken();
         _currentVPackType = null;
-        _currentAttributeId = null;
+        _hasAttributeId = false;
         _embeddedValue = null;
         _clearRetainedValues();
     }
@@ -1377,7 +1425,10 @@ public class VPackParser extends ParserBase {
         // duplicate-name tables and recyclable child contexts after early exit.
         _streamReadContext = SimpleStreamReadContext.createRootContext(null);
         _currentVPackType = null;
-        _currentAttributeId = null;
+        _hasAttributeId = false;
+        _nameCacheBytes = null;
+        _nameCacheText = null;
+        _lastNameBytes = null;
         _embeddedValue = null;
         _clearRetainedValues();
         if (_byteArrayBuilder != null) {
@@ -1429,7 +1480,7 @@ public class VPackParser extends ParserBase {
         _arrayFrames.clear();
         _currToken = null;
         _currentVPackType = null;
-        _currentAttributeId = null;
+        _hasAttributeId = false;
         _clearRetainedValues();
 
         try {

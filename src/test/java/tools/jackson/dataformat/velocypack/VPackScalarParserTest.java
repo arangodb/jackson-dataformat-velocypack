@@ -8,6 +8,8 @@ import org.junit.jupiter.api.Test;
 
 import tools.jackson.core.JsonParser;
 import tools.jackson.core.JsonToken;
+import tools.jackson.core.StreamReadConstraints;
+import tools.jackson.core.exc.StreamConstraintsException;
 import tools.jackson.core.io.SerializedString;
 import tools.jackson.core.sym.PropertyNameMatcher;
 import tools.jackson.core.sym.SimpleNameMatcher;
@@ -75,6 +77,67 @@ class VPackScalarParserTest {
         assertInteger(bytes(0x2F, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF),
                 BigInteger.ONE.shiftLeft(64).subtract(BigInteger.ONE),
                 JsonParser.NumberType.BIG_INTEGER, VPackType.UNSIGNED_INTEGER);
+    }
+
+    @Test
+    void unsignedBoundaryValuesKeepTheirNumberTypesAndBoxedClasses() throws Exception {
+        assertUnsigned(unsignedValue(10L, 1), Integer.valueOf(10), JsonParser.NumberType.INT);
+        assertUnsigned(unsignedValue(255L, 1), Integer.valueOf(255), JsonParser.NumberType.INT);
+        assertUnsigned(unsignedValue(Integer.MAX_VALUE, 4), Integer.valueOf(Integer.MAX_VALUE),
+                JsonParser.NumberType.INT);
+        assertUnsigned(unsignedValue(1L << 31, 4), Long.valueOf(1L << 31),
+                JsonParser.NumberType.LONG);
+        assertUnsigned(unsignedValue(Long.MAX_VALUE, 8), Long.valueOf(Long.MAX_VALUE),
+                JsonParser.NumberType.LONG);
+        assertUnsigned(unsignedValue(BigInteger.ONE.shiftLeft(63), 8),
+                BigInteger.ONE.shiftLeft(63), JsonParser.NumberType.BIG_INTEGER);
+        assertUnsigned(unsignedValue(BigInteger.ONE.shiftLeft(64).subtract(BigInteger.ONE), 8),
+                BigInteger.ONE.shiftLeft(64).subtract(BigInteger.ONE),
+                JsonParser.NumberType.BIG_INTEGER);
+    }
+
+    @Test
+    void unsignedDigitConstraintsStillApplyAtEveryCanonicalWidth() {
+        VPackFactory constrained = VPackFactory.builder()
+                .streamReadConstraints(StreamReadConstraints.builder().maxNumberLength(2).build())
+                .build();
+        for (byte[] input : new byte[][] {
+                unsignedValue(100L, 1), unsignedValue(1000L, 2),
+                unsignedValue(BigInteger.ONE.shiftLeft(63), 8) }) {
+            assertEquals(StreamConstraintsException.class, org.junit.jupiter.api.Assertions
+                    .assertThrows(StreamConstraintsException.class, () -> {
+                        try (JsonParser parser = constrained.createParser(input)) {
+                            parser.nextToken();
+                        }
+                    }).getClass());
+        }
+    }
+
+    private void assertUnsigned(byte[] input, Number expected,
+            JsonParser.NumberType numberType) throws Exception {
+        try (VPackParser parser = (VPackParser) factory.createParser(input)) {
+            assertEquals(JsonToken.VALUE_NUMBER_INT, parser.nextToken());
+            assertEquals(expected, parser.getNumberValue());
+            assertEquals(numberType, parser.getNumberType());
+            assertEquals(expected.getClass(), parser.getNumberValue().getClass());
+            assertEquals(VPackType.UNSIGNED_INTEGER, parser.currentVPackType());
+        }
+    }
+
+    // Independent little-endian wire fixture; no production integer encoder is used.
+    private static byte[] unsignedValue(long bits, int width) {
+        return unsignedValue(BigInteger.valueOf(bits), width);
+    }
+
+    private static byte[] unsignedValue(BigInteger value, int width) {
+        byte[] result = new byte[width + 1];
+        result[0] = (byte) (0x27 + width);
+        BigInteger remaining = value;
+        for (int i = 0; i < width; ++i) {
+            result[i + 1] = remaining.byteValue();
+            remaining = remaining.shiftRight(8);
+        }
+        return result;
     }
 
     private void assertInteger(byte[] literal, BigInteger expected,
