@@ -1,0 +1,6 @@
+model_reasoning_effort = "high"
+model = "gpt-6-luna"
+service_tier = "fast"
+
+[features]
+fast_mode = true
