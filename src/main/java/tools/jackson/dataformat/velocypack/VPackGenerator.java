@@ -106,13 +106,13 @@ public class VPackGenerator extends GeneratorBase {
 
     @Override
     public JsonGenerator writeBoolean(boolean value) throws JacksonException {
-        return _writeScalar(new byte[] { (byte) (value ? VPackConstants.TRUE : VPackConstants.FALSE) },
+        return _writeScalar((byte) (value ? VPackConstants.TRUE : VPackConstants.FALSE),
                 "write boolean value");
     }
 
     @Override
     public JsonGenerator writeNull() throws JacksonException {
-        return _writeScalar(new byte[] { (byte) VPackConstants.NULL }, "write null");
+        return _writeScalar((byte) VPackConstants.NULL, "write null");
     }
 
     @Override
@@ -127,6 +127,10 @@ public class VPackGenerator extends GeneratorBase {
 
     @Override
     public JsonGenerator writeNumber(long value) throws JacksonException {
+        if (value >= -6L && value <= 9L) {
+            return _writeScalar((byte) (value < 0L ? 0x3A + value + 6L : 0x30 + value),
+                    "write number");
+        }
         return _writeScalar(encodeInteger(value), "write number");
     }
 
@@ -137,7 +141,11 @@ public class VPackGenerator extends GeneratorBase {
         }
         try {
             byte[] encoded;
-            if (value.signum() < 0 && value.compareTo(BigInteger.valueOf(Long.MIN_VALUE)) < 0) {
+            if (value.compareTo(BigInteger.valueOf(-6L)) >= 0
+                    && value.compareTo(BigInteger.valueOf(9L)) <= 0) {
+                return _writeScalar((byte) (value.signum() < 0
+                        ? 0x3A + value.intValue() + 6 : 0x30 + value.intValue()), "write number");
+            } else if (value.signum() < 0 && value.compareTo(BigInteger.valueOf(Long.MIN_VALUE)) < 0) {
                 encoded = VPackNumbers.encodeBcd(value, 0,
                         _vpackWriteConstraints.getMaxNumberDigits(),
                         remainingRootBytes());
@@ -242,7 +250,7 @@ public class VPackGenerator extends GeneratorBase {
             }
             int marker = value == VPackSpecialValue.MIN_KEY
                     ? VPackConstants.MIN_KEY : VPackConstants.MAX_KEY;
-            _writeScalar(new byte[] { (byte) marker }, "write VPack special");
+            _writeScalar((byte) marker, "write VPack special");
             return this;
         } catch (RuntimeException e) {
             throw fail(e);
@@ -809,19 +817,47 @@ public class VPackGenerator extends GeneratorBase {
     private JsonGenerator _writeScalar(byte[] encoded, String typeMsg) {
         try {
             _verifyValueWrite(typeMsg);
-            VPackByteStore.Range range = _arena.append(encoded);
             ContainerFrame frame = _containerFrames.peek();
             if (frame != null) {
+                VPackByteStore.Range range = _arena.append(encoded);
                 frame.body.append(range);
                 recordValue(frame, range.length());
                 return this;
             }
+            _arena.checkCharge(encoded.length);
             try {
                 _out.write(encoded, 0, encoded.length);
             } catch (IOException e) {
                 throw fail(JacksonIOException.construct(e, this));
             } finally {
                 _bytesCopied += _arena.copiedBytes();
+                if (!_arena.isReleased()) {
+                    _arena.reset();
+                    _rootBudget.reset();
+                }
+            }
+            return this;
+        } catch (RuntimeException e) {
+            throw fail(e);
+        }
+    }
+
+    private JsonGenerator _writeScalar(byte encoded, String typeMsg) {
+        try {
+            _verifyValueWrite(typeMsg);
+            ContainerFrame frame = _containerFrames.peek();
+            if (frame != null) {
+                VPackByteStore.Range range = _arena.append(encoded);
+                frame.body.append(range);
+                recordValue(frame, range.length());
+                return this;
+            }
+            _arena.checkCharge(1L);
+            try {
+                _out.write(encoded & 0xFF);
+            } catch (IOException e) {
+                throw fail(JacksonIOException.construct(e, this));
+            } finally {
                 if (!_arena.isReleased()) {
                     _arena.reset();
                     _rootBudget.reset();

@@ -19,7 +19,7 @@ class VPackGeneratorFailureTest {
         PartialFailureOutput target = new PartialFailureOutput(false);
         VPackGenerator generator = (VPackGenerator) new VPackFactory().createGenerator(target);
 
-        assertThrows(JacksonIOException.class, () -> generator.writeNumber(1));
+        assertThrows(JacksonIOException.class, () -> generator.writeNumber(10));
         int bytesAfterWrite = target.bytes.size();
         assertEquals(0, generator.streamWriteOutputBuffered());
 
@@ -34,7 +34,7 @@ class VPackGeneratorFailureTest {
     void cleanupFailureIsSuppressedAfterThePrimaryFailure() {
         PartialFailureOutput target = new PartialFailureOutput(true);
         VPackGenerator generator = (VPackGenerator) new VPackFactory().createGenerator(target);
-        assertThrows(JacksonIOException.class, () -> generator.writeNumber(1));
+        assertThrows(JacksonIOException.class, () -> generator.writeNumber(10));
 
         RuntimeException closeFailure = assertThrows(RuntimeException.class, generator::close);
         assertEquals(1, target.closeCount);

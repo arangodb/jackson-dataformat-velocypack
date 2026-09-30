@@ -95,7 +95,8 @@ class VPackArrayGeneratorTest {
         generator.writeNumber(1);
         for (int i = 0; i < 32; ++i) generator.writeEndArray();
         assertEquals(31L, generator.segmentTransfers());
-        assertEquals(out.size(), generator.bytesCopied());
+        // The one-byte scalar is appended directly to the arena without copying an array.
+        assertEquals(out.size() - 1L, generator.bytesCopied());
         generator.close();
     }
 

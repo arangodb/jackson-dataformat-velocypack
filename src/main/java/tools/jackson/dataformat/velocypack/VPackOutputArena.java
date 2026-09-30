@@ -57,6 +57,11 @@ final class VPackOutputArena implements AutoCloseable {
         return bytes.range(start, 1L);
     }
 
+    void checkCharge(long amount) {
+        ensureOpen();
+        charge(amount);
+    }
+
     VPackByteStore.Range append(byte[] input) {
         if (input == null) {
             throw VPackErrors.write("output arena", "input is null");

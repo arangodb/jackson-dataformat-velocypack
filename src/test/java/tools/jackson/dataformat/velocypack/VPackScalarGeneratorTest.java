@@ -6,8 +6,10 @@ import java.math.BigInteger;
 import org.junit.jupiter.api.Test;
 
 import tools.jackson.core.JsonGenerator;
+import tools.jackson.core.exc.StreamConstraintsException;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class VPackScalarGeneratorTest {
     private final VPackFactory factory = new VPackFactory();
@@ -85,7 +87,55 @@ class VPackScalarGeneratorTest {
             generator.writeBoolean(true);
         }
         assertArrayEquals(bytes(0x31, 0x20, 0xF9, 0x1A), out.toByteArray());
+    }
 
+    @Test
+    void rootScalarsPreserveWireBytesAcrossScalarTypesAndRepeatedRoots() throws Exception {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        try (JsonGenerator generator = factory.createGenerator(out)) {
+            generator.writeNull();
+            generator.writeBoolean(false);
+            generator.writeBoolean(true);
+            for (int i = -6; i <= 9; ++i) generator.writeNumber(i);
+            generator.writeNumber(BigInteger.valueOf(-6));
+            generator.writeNumber(BigInteger.valueOf(9));
+            generator.writeNumber(10);
+            generator.writeNumber(-7);
+            generator.writeNumber(1.5d);
+            generator.writeString("x");
+            generator.writeBinary(null, new byte[] { 1, 2 }, 0, 2);
+            ((VPackGenerator) generator).writeVPackDate(1L);
+            ((VPackGenerator) generator).writeVPackSpecial(VPackSpecialValue.MIN_KEY);
+            ((VPackGenerator) generator).writeVPackSpecial(VPackSpecialValue.MAX_KEY);
+            // Root scalars go straight to the stream, so arena copy accounting stays at zero.
+            assertEquals(0L, ((VPackGenerator) generator).bytesCopied());
+        }
+        assertArrayEquals(bytes(0x18, 0x19, 0x1A,
+                0x3A, 0x3B, 0x3C, 0x3D, 0x3E, 0x3F,
+                0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39,
+                0x3A, 0x39, 0x28, 0x0A, 0x20, 0xF9,
+                0x1B, 0, 0, 0, 0, 0, 0, 0xF8, 0x3F,
+                0x41, 0x78, 0xC0, 0x02, 0x01, 0x02,
+                0x1C, 0x01, 0, 0, 0, 0, 0, 0, 0,
+                0x1E, 0x1F), out.toByteArray());
+    }
+
+    @Test
+    void directRootScalarBudgetFailureKeepsArenaConstraintDetails() {
+        VPackFactory limited = VPackFactory.builder()
+                .vpackWriteConstraints(VPackWriteConstraints.builder()
+                        .maxRootValueBytes(8).build())
+                .build();
+        VPackGenerator generator = (VPackGenerator) limited.createGenerator(new ByteArrayOutputStream());
+        StreamConstraintsException error = org.junit.jupiter.api.Assertions.assertThrows(
+                StreamConstraintsException.class, () -> generator.writeNumber(1.5d));
+        assertEquals("output arena: root byte budget exceeded (offset 0)\n"
+                + " at [Source: UNKNOWN; byte offset: #0]", error.getMessage());
+        try {
+            generator.close();
+        } catch (RuntimeException ignored) {
+            // The generator retains its failed state after a constraint violation.
+        }
     }
 
     private void assertScalar(WriterCall call, int... expected) throws Exception {

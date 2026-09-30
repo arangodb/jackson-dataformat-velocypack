@@ -102,14 +102,18 @@ class VPackGeneratorLifecycleTest {
         BufferRecycler recycler = new BufferRecycler();
         IOContext firstContext = ioContext(recycler);
         VPackGenerator first = generator(firstContext);
+        first.writeStartArray();
         first.writeNumber(42);
+        first.writeEndArray();
         byte[] firstPage = recyclerPage(first);
         assertTrue(firstPage.length >= VPackByteStore.PAGE_SIZE);
         first.close();
 
         IOContext secondContext = ioContext(recycler);
         VPackGenerator second = generator(secondContext);
+        second.writeStartArray();
         second.writeNumber(43);
+        second.writeEndArray();
         assertSame(firstPage, recyclerPage(second));
         second.close();
     }
@@ -118,6 +122,7 @@ class VPackGeneratorLifecycleTest {
     void failedGeneratorReturnsRecyclerPageOnceWhenClosed() throws Exception {
         IOContext context = ioContext(new BufferRecycler());
         VPackGenerator generator = generator(context);
+        generator.writeStartArray();
         generator.writeNumber(1);
         byte[] expectedPage = recyclerPage(generator);
         assertThrows(StreamWriteException.class, () -> generator.writeName("invalid"));
