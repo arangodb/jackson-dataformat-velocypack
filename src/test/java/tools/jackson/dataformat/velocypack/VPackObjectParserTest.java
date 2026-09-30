@@ -1,5 +1,6 @@
 package tools.jackson.dataformat.velocypack;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 
@@ -126,6 +127,62 @@ public class VPackObjectParserTest {
         byte[] body = body(pair("b", new byte[] { 0x31 }),
                 pair("a", new byte[] { 0x32 }));
         assertConsumesObject(object(1, true, body, new long[] { 6, 3 }));
+    }
+
+    @Test
+    void comparesNonAsciiNamesByUnsignedUtf8Bytes() throws Exception {
+        byte[] firstByUtf8 = pair("Größe", new byte[] { 0x31 });
+        byte[] secondByUtf8 = pair("データ", new byte[] { 0x32 });
+        byte[] body = body(secondByUtf8, firstByUtf8);
+        long firstStart = 3L + secondByUtf8.length;
+        assertConsumesObject(object(1, true, body, new long[] { firstStart, 3 }));
+        assertIndexFailure(object(1, true, body, new long[] { 3, firstStart }),
+                "sorted object index is not in unsigned UTF-8 name order");
+    }
+
+    @Test
+    void validatesSortedNameWhoseUtf8BytesCrossAnOwnedPage() throws Exception {
+        int payloadAt = VPackByteStore.PAGE_SIZE - 1;
+        int firstPairLength = payloadAt - 1 - 5;
+        int longValueLength = firstPairLength - 11;
+        byte[] longValue = new byte[9 + longValueLength];
+        longValue[0] = (byte) 0xBF;
+        for (int i = 0; i < 8; ++i) {
+            longValue[i + 1] = (byte) (((long) longValueLength >>> (8 * i)) & 0xFF);
+        }
+        byte[] firstPair = body(pair("a", longValue));
+        byte[] secondPair = pair("cross", new byte[] { 0x31 });
+        byte[] document = object(2, true, body(firstPair, secondPair),
+                new long[] { 5, payloadAt - 1L });
+        try (JsonParser parser = factory.createParser(new ByteArrayInputStream(document))) {
+            while (parser.nextToken() != null) { }
+        }
+    }
+
+    @Test
+    void invalidUtf8NamesKeepStringDecoderReplacementBehavior() throws Exception {
+        byte[] document = object(1, false,
+                new byte[] { 0x41, (byte) 0xFF, 0x31 }, new long[] { 3 });
+        try (JsonParser parser = factory.createParser(document)) {
+            assertEquals(JsonToken.START_OBJECT, parser.nextToken());
+            assertEquals(JsonToken.PROPERTY_NAME, parser.nextToken());
+            assertEquals("\uFFFD", parser.currentName());
+            while (parser.nextToken() != null) { }
+        }
+
+        byte[] distinctMalformedNames = object(1, false,
+                new byte[] { 0x41, (byte) 0xFF, 0x31,
+                        0x42, (byte) 0xFF, (byte) 0xFF, 0x32 },
+                new long[] { 3, 6 });
+        try (JsonParser parser = factory.createParser(distinctMalformedNames)) {
+            parser.nextToken();
+            assertEquals(JsonToken.PROPERTY_NAME, parser.nextToken());
+            assertEquals("\uFFFD", parser.currentName());
+            parser.nextToken();
+            assertEquals(JsonToken.PROPERTY_NAME, parser.nextToken());
+            assertEquals("\uFFFD\uFFFD", parser.currentName());
+            while (parser.nextToken() != null) { }
+        }
     }
 
     public static byte[] object(int width, boolean sorted, byte[] body, long[] indexes) {

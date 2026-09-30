@@ -133,6 +133,25 @@ class VPackAttributeNameParserTest {
     }
 
     @Test
+    void sortedIndexComparesStringAndResolvedAttributeNamesTogether() throws Exception {
+        VPackAttributeNameCodec codec = decoder(id -> id.signum() == 0 ? "b" : null);
+        byte[] body = concat(new byte[] { 0x30, 0x31 },
+                VPackObjectParserTest.pair("a", new byte[] { 0x32 }));
+        byte[] sorted = VPackObjectParserTest.object(1, true, body, new long[] { 5, 3 });
+        VPackFactory factory = VPackFactory.builder().attributeNameCodec(codec).build();
+        try (VPackParser parser = (VPackParser) factory.createParser(sorted)) {
+            while (parser.nextToken() != null) { }
+        }
+
+        byte[] misSorted = VPackObjectParserTest.object(1, true, body, new long[] { 3, 5 });
+        assertMessage("sorted object index is not in unsigned UTF-8 name order", () -> {
+            try (VPackParser parser = (VPackParser) factory.createParser(misSorted)) {
+                while (parser.nextToken() != null) { }
+            }
+        });
+    }
+
+    @Test
     void repeatedAndCodecNamesDecodeWithoutCanonicalization() throws Exception {
         byte[] body = concat(new byte[] { 0x44, 's', 'a', 'm', 'e', 0x1A },
                 key(0x30), new byte[] { 0x19 });

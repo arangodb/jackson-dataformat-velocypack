@@ -14,6 +14,7 @@ import tools.jackson.core.*;
 import tools.jackson.core.base.ParserBase;
 import tools.jackson.core.exc.InputCoercionException;
 import tools.jackson.core.io.IOContext;
+import tools.jackson.core.sym.ByteQuadsCanonicalizer;
 import tools.jackson.core.util.JacksonFeatureSet;
 import tools.jackson.core.util.SimpleStreamReadContext;
 
@@ -21,14 +22,14 @@ import tools.jackson.core.util.SimpleStreamReadContext;
  * Synchronous bounded-root VelocyPack parser with iterative container traversal.
  */
 public class VPackParser extends ParserBase {
-    private static final int NAME_CACHE_SIZE = 256;
-    private static final int NAME_CACHE_MAX_BYTES = 64;
     private static final JacksonFeatureSet<StreamReadCapability> CAPABILITIES =
             DEFAULT_READ_CAPABILITIES.with(StreamReadCapability.EXACT_FLOATS);
 
     private final VPackRootReader _roots;
     private final VPackReadConstraints _vpackConstraints;
     private final VPackAttributeNameCodec _attributeNameCodec;
+    private final ByteQuadsCanonicalizer _symbols;
+    private final boolean _symbolsCanonical;
     private final int _formatReadFeatures;
     private final byte[] _compactScratch = new byte[VPackVarInts.MAX_GROUPS];
     private SimpleStreamReadContext _streamReadContext;
@@ -46,22 +47,23 @@ public class VPackParser extends ParserBase {
     private long _nextLocation;
     private boolean _inputClosed;
     private boolean _releasedBuffered;
+    private boolean _symbolsReleased;
     private final ArrayDeque<Frame> _arrayFrames = new ArrayDeque<>();
-    private byte[][] _nameCacheBytes;
-    private String[] _nameCacheText;
-    private final byte[] _nameScratch = new byte[NAME_CACHE_MAX_BYTES];
-    private byte[] _lastNameBytes;
+    private int[] _quadBuffer = new int[16];
     private VPackRootBudget _rootBudget;
 
-    @SuppressWarnings({"unused", "ClassEscapesItsScope"}) // Factory constructs the parser with its internal root source.
+    @SuppressWarnings({"unused", "ClassEscapesItsScope"}) // Factory-only constructor; callers should use VPackFactory.
     public VPackParser(ObjectReadContext readCtxt, IOContext ioCtxt,
             int streamReadFeatures, int formatReadFeatures,
             VPackReadConstraints vpackConstraints,
-            VPackAttributeNameCodec attributeNameCodec, VPackRootReader roots) {
+            VPackAttributeNameCodec attributeNameCodec,
+            ByteQuadsCanonicalizer symbols, VPackRootReader roots) {
         super(readCtxt, ioCtxt, streamReadFeatures);
         _roots = roots;
         _vpackConstraints = Objects.requireNonNull(vpackConstraints, "vpackConstraints");
         _attributeNameCodec = attributeNameCodec;
+        _symbols = symbols;
+        _symbolsCanonical = symbols != null && symbols.isCanonicalizing();
         _formatReadFeatures = formatReadFeatures;
         _streamReadContext = SimpleStreamReadContext.createRootContext(
                 StreamReadFeature.STRICT_DUPLICATE_DETECTION.enabledIn(streamReadFeatures)
@@ -180,7 +182,6 @@ public class VPackParser extends ParserBase {
         _clearRetainedValues();
         _currentVPackType = null;
         _hasAttributeId = false;
-        _lastNameBytes = null;
         _embeddedValue = null;
         _stringValue = null;
         _binaryPayloadOffset = 0L;
@@ -595,9 +596,10 @@ public class VPackParser extends ParserBase {
             }
             long end = _valueEnd(start, frame.bodyEnd, kind, marker);
             _rootBudget.chargeEntry();
-            NameValue name = _decodeName(start, end, marker, kind, frame.sorted);
+            NameValue name = _decodeName(start, end, marker, kind);
             if (frame.indexed) {
-                frame.recordName(start - frame.start, name.utf8());
+                frame.recordName(start - frame.start, name.payloadRelative(),
+                        name.byteLength(), name.attributeId() ? name.attributeUtf8() : null);
             }
             frame.cursor = end;
             frame.expectingName = false;
@@ -834,7 +836,7 @@ public class VPackParser extends ParserBase {
             }
         }
         boolean[] seen = null;
-        byte[] previousName = null;
+        int previousKey = -1;
         for (int i = 0; i < frame.completed; ++i) {
             long index = _readStructural(frame.indexStart + (long) i * frame.width,
                     frame.width);
@@ -846,7 +848,8 @@ public class VPackParser extends ParserBase {
                     seen = new boolean[frame.completed];
                     Arrays.fill(seen, 0, i, true);
                 }
-                key = Arrays.binarySearch(frame.keyStarts, 0, frame.completed, index);
+                key = index < 0L || index > Integer.MAX_VALUE ? -1
+                        : Arrays.binarySearch(frame.keyStarts, 0, frame.completed, (int) index);
                 if (key < 0) {
                     throw VPackErrors.malformed("object index", frame.indexStart,
                             "index entry does not point to an observed key start");
@@ -858,12 +861,11 @@ public class VPackParser extends ParserBase {
                 seen[key] = true;
             }
             if (frame.sorted) {
-                byte[] currentName = frame.nameBytes[key];
-                if (previousName != null && Arrays.compareUnsigned(previousName, currentName) > 0) {
+                if (previousKey >= 0 && _compareObjectNames(frame, previousKey, key) > 0) {
                     throw VPackErrors.malformed("object index", frame.indexStart,
                             "sorted object index is not in unsigned UTF-8 name order");
                 }
-                previousName = currentName;
+                previousKey = key;
             }
         }
         if (seen != null) {
@@ -876,8 +878,25 @@ public class VPackParser extends ParserBase {
         }
     }
 
-    private NameValue _decodeName(long start, long end, int marker, VPackMarker kind,
-            boolean retainBytes) {
+    private int _compareObjectNames(ObjectFrame frame, int left, int right) {
+        byte[] leftId = frame.attributeNameBytes == null ? null : frame.attributeNameBytes[left];
+        byte[] rightId = frame.attributeNameBytes == null ? null : frame.attributeNameBytes[right];
+        if (leftId == null && rightId == null) {
+            // Indexed frames are validated before their root is popped, so these source offsets
+            // still refer to the live root range.
+            return _root.range().compareUnsigned(frame.nameOffset(left), frame.nameLength(left),
+                    frame.nameOffset(right), frame.nameLength(right));
+        }
+        if (leftId == null) {
+            return _root.range().compareUnsigned(frame.nameOffset(left), frame.nameLength(left), rightId);
+        }
+        if (rightId == null) {
+            return -_root.range().compareUnsigned(frame.nameOffset(right), frame.nameLength(right), leftId);
+        }
+        return Arrays.compareUnsigned(leftId, rightId);
+    }
+
+    private NameValue _decodeName(long start, long end, int marker, VPackMarker kind) {
         if (kind == VPackMarker.UNSIGNED_INTEGER || kind == VPackMarker.SMALL_POSITIVE) {
             long id = kind == VPackMarker.SMALL_POSITIVE
                     ? marker - 0x30L : _readUnsignedKeyIdBits(start, marker);
@@ -900,48 +919,84 @@ public class VPackParser extends ParserBase {
             _rootBudget.chargeName(utf8.length);
             _currentAttributeId = id;
             _hasAttributeId = true;
-            _lastNameBytes = retainBytes ? utf8 : null;
-            return new NameValue(text, retainBytes ? utf8 : null, true);
+            return new NameValue(text, -1L, utf8.length, utf8, true);
         }
         long payloadOffset = kind == VPackMarker.SHORT_STRING ? 1L : 9L;
         long byteLength = end - start - payloadOffset;
         _rootBudget.chargeName(byteLength);
         int length = VPackBounds.checkedInt(byteLength, "object key byte length");
         long relative = start - _root.startOffset() + payloadOffset;
-        byte[] utf8 = null;
         String decoded;
-        if (length <= NAME_CACHE_MAX_BYTES) {
-            _root.range().copyTo(relative, _nameScratch, 0, length);
-            int hash = length;
-            for (int i = 0; i < length; ++i) hash = 31 * hash + _nameScratch[i];
-            int slot = (hash ^ (hash >>> 16)) & (NAME_CACHE_SIZE - 1);
-            if (_nameCacheBytes != null && _nameCacheBytes[slot] != null
-                    && Arrays.equals(_nameCacheBytes[slot], 0,
-                            _nameCacheBytes[slot].length, _nameScratch, 0, length)) {
-                utf8 = _nameCacheBytes[slot];
-                decoded = _nameCacheText[slot];
-            } else {
-                utf8 = Arrays.copyOf(_nameScratch, length);
-                decoded = new String(utf8, StandardCharsets.UTF_8);
-                if (_nameCacheBytes == null) {
-                    _nameCacheBytes = new byte[NAME_CACHE_SIZE][];
-                    _nameCacheText = new String[NAME_CACHE_SIZE];
+        int canonicalLength = 0;
+        boolean addToSymbols = false;
+        if (_symbolsCanonical && length > 0 && length <= 64) {
+            byte[] bytes = _root.range().contiguousArray(relative, length);
+            if (bytes != null) {
+                int offset = _root.range().contiguousOffset(relative);
+                int quadLength = (length + 3) >> 2;
+                canonicalLength = quadLength + 1;
+                if (_quadBuffer.length < canonicalLength) {
+                    _quadBuffer = Arrays.copyOf(_quadBuffer,
+                            Math.max(canonicalLength, _quadBuffer.length << 1));
                 }
-                _nameCacheBytes[slot] = utf8;
-                _nameCacheText[slot] = decoded;
+                _packQuads(bytes, offset, length, _quadBuffer);
+                // Retain the byte length as a final quad: malformed UTF-8 can contain the
+                // same 0xFF values used by Smile-style final-quad padding.
+                _quadBuffer[quadLength] = length;
+                String name = _findName(_quadBuffer, canonicalLength);
+                if (name == null) {
+                    _root.range().recordDecodedBytes(length);
+                    name = new String(bytes, offset, length, StandardCharsets.UTF_8);
+                    addToSymbols = true;
+                }
+                decoded = name;
+            } else {
+                decoded = _root.range().decodeUtf8(relative, length);
             }
-        } else if (retainBytes) {
-            utf8 = new byte[length];
-            _root.range().copyTo(relative, utf8, 0, length);
-            decoded = new String(utf8, StandardCharsets.UTF_8);
         } else {
             decoded = _root.range().decodeUtf8(relative, length);
         }
         if (length > _streamReadConstraints.getMaxNameLength()) {
             _streamReadConstraints.validateNameLength(decoded.length());
         }
-        _lastNameBytes = retainBytes ? utf8 : null;
-        return new NameValue(decoded, retainBytes ? utf8 : null, false);
+        if (addToSymbols) {
+            decoded = _addName(decoded, _quadBuffer, canonicalLength);
+        }
+        return new NameValue(decoded, relative, length, null, false);
+    }
+
+    private void _packQuads(byte[] bytes, int offset, int length, int[] quads) {
+        int quadCount = (length + 3) >> 2;
+        for (int q = 0; q < quadCount; ++q) {
+            int byteOffset = q << 2;
+            int bytesInQuad = Math.min(4, length - byteOffset);
+            int value = 0;
+            for (int i = 0; i < bytesInQuad; ++i) {
+                value = (value << 8) | (bytes[offset + byteOffset + i] & 0xFF);
+            }
+            if (bytesInQuad < 4) {
+                value |= -1 << (bytesInQuad << 3);
+            }
+            quads[q] = value;
+        }
+    }
+
+    private String _findName(int[] quads, int qlen) {
+        return switch (qlen) {
+            case 1 -> _symbols.findName(quads[0]);
+            case 2 -> _symbols.findName(quads[0], quads[1]);
+            case 3 -> _symbols.findName(quads[0], quads[1], quads[2]);
+            default -> _symbols.findName(quads, qlen);
+        };
+    }
+
+    private String _addName(String name, int[] quads, int qlen) {
+        return switch (qlen) {
+            case 1 -> _symbols.addName(name, quads[0]);
+            case 2 -> _symbols.addName(name, quads[0], quads[1]);
+            case 3 -> _symbols.addName(name, quads[0], quads[1], quads[2]);
+            default -> _symbols.addName(name, quads, qlen);
+        };
     }
 
     private long _readUnsignedKeyIdBits(long start, int marker) {
@@ -973,7 +1028,8 @@ public class VPackParser extends ParserBase {
 
     private record CompactLayout(long end, long bodyStart, long bodyEnd, long count) { }
 
-    private record NameValue(String text, byte[] utf8, boolean attributeId) { }
+    private record NameValue(String text, long payloadRelative, int byteLength,
+            byte[] attributeUtf8, boolean attributeId) { }
 
     private abstract static class Frame {
         final Frame parent;
@@ -1024,8 +1080,9 @@ public class VPackParser extends ParserBase {
     private static final class ObjectFrame extends Frame {
         final boolean sorted;
         boolean expectingName = true;
-        long[] keyStarts;
-        byte[][] nameBytes;
+        int[] keyStarts;
+        long[] nameRanges;
+        byte[][] attributeNameBytes;
 
         ObjectFrame(Frame parent, SimpleStreamReadContext context, long start, long end,
                 long bodyStart, long bodyEnd, int width, boolean sorted, long expectedCount,
@@ -1035,22 +1092,45 @@ public class VPackParser extends ParserBase {
             this.sorted = sorted;
         }
 
-        void recordName(long keyStart, byte[] utf8) {
+        void recordName(long keyStart, long payloadOffset, int byteLength, byte[] attributeUtf8) {
             if (keyStarts == null || completed >= keyStarts.length) {
                 int oldLength = keyStarts == null ? 0 : keyStarts.length;
                 // Keep the historical cap even when a very small maximum is below the initial size.
                 //noinspection MathClampMigration
                 int newLength = Math.min(Integer.MAX_VALUE - 8,
                         Math.max(completed + 1, Math.max(16, oldLength * 2)));
-                keyStarts = keyStarts == null ? new long[newLength]
+                keyStarts = keyStarts == null ? new int[newLength]
                         : java.util.Arrays.copyOf(keyStarts, newLength);
                 if (sorted) {
-                    nameBytes = nameBytes == null ? new byte[newLength][]
-                            : java.util.Arrays.copyOf(nameBytes, newLength);
+                    nameRanges = nameRanges == null ? new long[newLength]
+                            : java.util.Arrays.copyOf(nameRanges, newLength);
+                    if (attributeNameBytes != null) {
+                        attributeNameBytes = java.util.Arrays.copyOf(attributeNameBytes, newLength);
+                    }
                 }
             }
-            keyStarts[completed] = keyStart;
-            if (sorted) nameBytes[completed] = utf8;
+            // Per-root offsets are bounded by the store's int-sized capacity.
+            keyStarts[completed] = (int) keyStart;
+            if (sorted) {
+                // Root storage is capped below 2 GiB; store the 32-bit relative offset
+                // and byte length in one primitive slot to avoid per-key arrays.
+                nameRanges[completed] = ((long) byteLength << 32)
+                        | (payloadOffset & 0xFFFF_FFFFL);
+                if (attributeUtf8 != null) {
+                    if (attributeNameBytes == null) {
+                        attributeNameBytes = new byte[keyStarts.length][];
+                    }
+                    attributeNameBytes[completed] = attributeUtf8;
+                }
+            }
+        }
+
+        long nameOffset(int index) {
+            return nameRanges[index] & 0xFFFF_FFFFL;
+        }
+
+        int nameLength(int index) {
+            return (int) (nameRanges[index] >>> 32);
         }
     }
 
@@ -1412,6 +1492,10 @@ public class VPackParser extends ParserBase {
 
     @Override protected void _releaseBuffers() {
         _arrayFrames.clear();
+        if (!_symbolsReleased) {
+            _symbolsReleased = true;
+            if (_symbols != null) _symbols.release();
+        }
         if (_root != null) {
             _root.close();
             _root = null;
@@ -1426,9 +1510,6 @@ public class VPackParser extends ParserBase {
         _streamReadContext = SimpleStreamReadContext.createRootContext(null);
         _currentVPackType = null;
         _hasAttributeId = false;
-        _nameCacheBytes = null;
-        _nameCacheText = null;
-        _lastNameBytes = null;
         _embeddedValue = null;
         _clearRetainedValues();
         if (_byteArrayBuilder != null) {

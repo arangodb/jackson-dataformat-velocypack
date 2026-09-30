@@ -446,6 +446,87 @@ final class VPackByteStore implements AutoCloseable {
 
         long copiedBytes() { return owner.copiedBytes(); }
 
+        void recordDecodedBytes(int byteLength) {
+            owner.ensureOpen();
+            owner.copiedBytes = VPackBounds.checkedAdd(owner.copiedBytes, byteLength,
+                    "byte store copy instrumentation");
+        }
+
+        /** Return the backing array when the requested range is in one segment. */
+        byte[] contiguousArray(long relativeOffset, int byteLength) {
+            owner.ensureOpen();
+            if (relativeOffset < 0L || relativeOffset > length || byteLength < 0
+                    || byteLength > length - relativeOffset) {
+                throw VPackErrors.malformed("byte range", relativeOffset,
+                        "copy range is outside the range");
+            }
+            long absolute = VPackBounds.checkedAdd(offset, relativeOffset,
+                    "byte range array offset");
+            byte[] data;
+            if (owner.borrowed != null) {
+                data = owner.borrowed;
+            } else {
+                int inPage = (int) (absolute & PAGE_MASK);
+                if (byteLength == 0 && absolute == owner.size) {
+                    return null;
+                }
+                if (byteLength > PAGE_SIZE - inPage) {
+                    return null;
+                }
+                data = owner.pages[(int) (absolute >>> PAGE_SHIFT)];
+            }
+            owner.scannedBytes = VPackBounds.checkedAdd(owner.scannedBytes, byteLength,
+                    "byte store scan instrumentation");
+            return data;
+        }
+
+        int contiguousOffset(long relativeOffset) {
+            owner.ensureOpen();
+            if (relativeOffset < 0L || relativeOffset > length) {
+                throw VPackErrors.malformed("byte range", relativeOffset,
+                        "copy range is outside the range");
+            }
+            long absolute = VPackBounds.checkedAdd(offset, relativeOffset,
+                    "byte range array offset");
+            return owner.borrowed != null
+                    ? owner.borrowedOffset + (int) absolute
+                    : (int) (absolute & PAGE_MASK);
+        }
+
+        int compareUnsigned(long relA, int lenA, long relB, int lenB) {
+            byte[] a = contiguousArray(relA, lenA);
+            byte[] b = contiguousArray(relB, lenB);
+            int offA = a == null ? -1 : contiguousOffset(relA);
+            int offB = b == null ? -1 : contiguousOffset(relB);
+            if (a != null && b != null) {
+                return Arrays.compareUnsigned(a, offA, offA + lenA, b, offB, offB + lenB);
+            }
+            int common = Math.min(lenA, lenB);
+            for (int i = 0; i < common; ++i) {
+                int va = unsignedByteAt(relA + i, a, offA + i);
+                int vb = unsignedByteAt(relB + i, b, offB + i);
+                if (va != vb) return va - vb;
+            }
+            return lenA - lenB;
+        }
+
+        int compareUnsigned(long relativeOffset, int byteLength, byte[] other) {
+            byte[] data = contiguousArray(relativeOffset, byteLength);
+            int offset = data == null ? -1 : contiguousOffset(relativeOffset);
+            int common = Math.min(byteLength, other.length);
+            for (int i = 0; i < common; ++i) {
+                int left = unsignedByteAt(relativeOffset + i, data, offset + i);
+                int right = other[i] & 0xFF;
+                if (left != right) return left - right;
+            }
+            return byteLength - other.length;
+        }
+
+        private int unsignedByteAt(long relativeOffset, byte[] data, int arrayOffset) {
+            if (data != null) return data[arrayOffset] & 0xFF;
+            return byteAt(relativeOffset) & 0xFF;
+        }
+
         long readLE(long relativeOffset, int width) {
             owner.ensureOpen();
             if (relativeOffset < 0L || relativeOffset > length || width < 0

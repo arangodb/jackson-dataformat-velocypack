@@ -10,6 +10,8 @@ import org.junit.jupiter.api.Test;
 
 import tools.jackson.core.JsonParser;
 import tools.jackson.core.ObjectReadContext;
+import tools.jackson.core.JsonToken;
+import tools.jackson.core.TokenStreamFactory;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
@@ -74,6 +76,41 @@ public class VPackFactoryReadTest {
                 () -> factory.createParser(new char[] { '1', '8' }));
         assertThrows(UnsupportedOperationException.class, () -> factory.createGenerator(
                 new StringWriter()));
+    }
+
+    @Test
+    void propertyNamesAreSharedAcrossParsersOnlyWhenCanonicalizationIsEnabled() throws Exception {
+        byte[] document = VPackObjectParserTest.object(1, false,
+                VPackObjectParserTest.body(
+                        VPackObjectParserTest.pair("alpha", new byte[] { 0x31 }),
+                        VPackObjectParserTest.pair("beta", new byte[] { 0x32 })),
+                new long[] { 3, 10 });
+        VPackFactory canonical = new VPackFactory();
+        String[] first = propertyNames(canonical, document);
+        String[] second = propertyNames(canonical, document);
+        assertSame(first[0], second[0]);
+        assertSame(first[1], second[1]);
+
+        VPackFactory nonCanonical = VPackFactory.builder()
+                .disable(TokenStreamFactory.Feature.CANONICALIZE_PROPERTY_NAMES).build();
+        String[] uncachedFirst = propertyNames(nonCanonical, document);
+        String[] uncachedSecond = propertyNames(nonCanonical, document);
+        assertNotSame(uncachedFirst[0], uncachedSecond[0]);
+        assertNotSame(uncachedFirst[1], uncachedSecond[1]);
+    }
+
+    private static String[] propertyNames(VPackFactory factory, byte[] document) throws Exception {
+        String[] result = new String[2];
+        try (JsonParser parser = factory.createParser(document)) {
+            assertEquals(JsonToken.START_OBJECT, parser.nextToken());
+            assertEquals(JsonToken.PROPERTY_NAME, parser.nextToken());
+            result[0] = parser.currentName();
+            parser.nextToken();
+            assertEquals(JsonToken.PROPERTY_NAME, parser.nextToken());
+            result[1] = parser.currentName();
+            while (parser.nextToken() != null) { }
+        }
+        return result;
     }
 
 }

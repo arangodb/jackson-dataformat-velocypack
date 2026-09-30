@@ -15,6 +15,7 @@ import tools.jackson.core.base.BinaryTSFactory;
 import tools.jackson.core.io.ContentReference;
 import tools.jackson.core.io.IOContext;
 import tools.jackson.core.sym.BinaryNameMatcher;
+import tools.jackson.core.sym.ByteQuadsCanonicalizer;
 import tools.jackson.core.sym.PropertyNameMatcher;
 import tools.jackson.core.util.Named;
 
@@ -36,6 +37,9 @@ public class VPackFactory extends BinaryTSFactory implements java.io.Serializabl
     private static final long serialVersionUID = 1L;
 
     public static final String FORMAT_NAME = "VPack";
+
+    protected final transient ByteQuadsCanonicalizer _byteSymbolCanonicalizer =
+            ByteQuadsCanonicalizer.createRoot();
 
     static final int DEFAULT_VPACK_PARSER_FEATURE_FLAGS = VPackReadFeature.collectDefaults();
     static final int DEFAULT_VPACK_GENERATOR_FEATURE_FLAGS = VPackWriteFeature.collectDefaults();
@@ -152,6 +156,7 @@ public class VPackFactory extends BinaryTSFactory implements java.io.Serializabl
         return new VPackParser(readCtxt, ioCtxt,
                 streamFeatures, formatFeatures,
                 vpackReadConstraints, attributeNameCodec,
+                _byteSymbolCanonicalizer.makeChildOrPlaceholder(_factoryFeatures),
                 VPackRootReader.forInputStream(input, vpackReadConstraints, 0L,
                         ioCtxt.streamReadConstraints().getMaxDocumentLength(),
                         VPackRecyclerPageSupplier.forRead(ioCtxt)));
@@ -167,6 +172,7 @@ public class VPackFactory extends BinaryTSFactory implements java.io.Serializabl
         return new VPackParser(readCtxt, ioCtxt,
                 streamFeatures, formatFeatures,
                 vpackReadConstraints, attributeNameCodec,
+                _byteSymbolCanonicalizer.makeChildOrPlaceholder(_factoryFeatures),
                 VPackRootReader.forByteArray(data, offset, len, vpackReadConstraints,
                         0L, ioCtxt.streamReadConstraints().getMaxDocumentLength()));
     }
@@ -180,6 +186,7 @@ public class VPackFactory extends BinaryTSFactory implements java.io.Serializabl
         return new VPackParser(readCtxt, ioCtxt,
                 streamFeatures, formatFeatures,
                 vpackReadConstraints, attributeNameCodec,
+                _byteSymbolCanonicalizer.makeChildOrPlaceholder(_factoryFeatures),
                 VPackRootReader.forDataInput(input, vpackReadConstraints, 0L,
                         ioCtxt.streamReadConstraints().getMaxDocumentLength(),
                         VPackRecyclerPageSupplier.forRead(ioCtxt)));

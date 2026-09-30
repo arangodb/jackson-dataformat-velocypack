@@ -242,10 +242,10 @@ class VPackParserRetentionRegressionTest {
         for (String name : new String[] { "_root", "_rootBudget", "_currentVPackType",
                 "_embeddedValue", "_canonicalNumber", "_numberBigInt",
                 "_numberBigDecimal", "_numberString", "_stringValue",
-                "_binaryValue", "_byteArrayBuilder", "_nameCacheBytes", "_nameCacheText",
-                "_lastNameBytes" }) {
+                "_binaryValue", "_byteArrayBuilder" }) {
             assertNull(field(parser, name), name);
         }
+        assertEquals(true, field(parser, "_symbolsReleased"));
     }
 
     private static Object field(Object target, String name) throws Exception {

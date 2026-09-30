@@ -53,6 +53,16 @@ class VPackParserLifecycleTest {
     }
 
     @Test
+    void canonicalizerReleaseIsIdempotentAfterClose() throws Exception {
+        VPackParser parser = (VPackParser) new VPackFactory().createParser(
+                new byte[] { 0x41, 'x' });
+        parser.nextToken();
+        parser.close();
+        parser._releaseBuffers();
+        parser._releaseBuffers();
+    }
+
+    @Test
     void objectReadContextConstraintsAreUsedByParserConstruction() {
         ObjectReadContext context = new ObjectReadContext.Base() {
             @Override public StreamReadConstraints streamReadConstraints() {
