@@ -8,8 +8,6 @@ import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
 import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Objects;
 
 import tools.jackson.core.*;
@@ -827,29 +825,36 @@ public class VPackParser extends ParserBase {
             throw VPackErrors.malformed("object keys", frame.end,
                     "object did not observe every declared property name");
         }
-        Map<Long, Integer> observed = new HashMap<>(Math.max(4, frame.completed * 2));
-        for (int i = 0; i < frame.completed; ++i) {
-            Integer previous = observed.put(frame.keyStarts[i], i);
-            if (previous != null) {
+        for (int i = 1; i < frame.completed; ++i) {
+            if (frame.keyStarts[i] <= frame.keyStarts[i - 1]) {
                 throw VPackErrors.malformed("object index", frame.indexStart,
                         "object index domain contains a duplicate key start");
             }
         }
-        boolean[] seen = new boolean[frame.completed];
+        boolean[] seen = null;
         byte[] previousName = null;
         for (int i = 0; i < frame.completed; ++i) {
             long index = _readStructural(frame.indexStart + (long) i * frame.width,
                     frame.width);
-            Integer key = observed.get(index);
-            if (key == null) {
-                throw VPackErrors.malformed("object index", frame.indexStart,
-                        "index entry does not point to an observed key start");
+            int key;
+            if (seen == null && index == frame.keyStarts[i]) {
+                key = i;
+            } else {
+                if (seen == null) {
+                    seen = new boolean[frame.completed];
+                    Arrays.fill(seen, 0, i, true);
+                }
+                key = Arrays.binarySearch(frame.keyStarts, 0, frame.completed, index);
+                if (key < 0) {
+                    throw VPackErrors.malformed("object index", frame.indexStart,
+                            "index entry does not point to an observed key start");
+                }
+                if (seen[key]) {
+                    throw VPackErrors.malformed("object index", frame.indexStart,
+                            "object index entries are not a bijection onto key starts");
+                }
+                seen[key] = true;
             }
-            if (seen[key]) {
-                throw VPackErrors.malformed("object index", frame.indexStart,
-                        "object index entries are not a bijection onto key starts");
-            }
-            seen[key] = true;
             if (frame.sorted) {
                 byte[] currentName = frame.nameBytes[key];
                 if (previousName != null && Arrays.compareUnsigned(previousName, currentName) > 0) {
@@ -859,10 +864,12 @@ public class VPackParser extends ParserBase {
                 previousName = currentName;
             }
         }
-        for (boolean keySeen : seen) {
-            if (!keySeen) {
-                throw VPackErrors.malformed("object index", frame.indexStart,
-                        "object index omits an observed key start");
+        if (seen != null) {
+            for (boolean keySeen : seen) {
+                if (!keySeen) {
+                    throw VPackErrors.malformed("object index", frame.indexStart,
+                            "object index omits an observed key start");
+                }
             }
         }
     }

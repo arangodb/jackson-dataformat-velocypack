@@ -7,9 +7,12 @@ import org.junit.jupiter.api.Test;
 
 import tools.jackson.core.JsonParser;
 import tools.jackson.core.JsonToken;
+import tools.jackson.core.exc.StreamReadException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class VPackObjectParserTest {
     private final VPackFactory factory = new VPackFactory();
@@ -80,6 +83,51 @@ public class VPackObjectParserTest {
                 JsonToken.VALUE_NUMBER_INT, JsonToken.END_OBJECT);
     }
 
+    @Test
+    void validatesIndexInBodyOrderOnFastPath() throws Exception {
+        byte[] body = body(pair("a", new byte[] { 0x31 }),
+                pair("b", new byte[] { 0x32 }));
+        assertConsumesObject(object(1, false, body, new long[] { 3, 6 }));
+    }
+
+    @Test
+    void validatesPermutedIndexWithBinarySearch() throws Exception {
+        byte[] body = body(pair("a", new byte[] { 0x31 }),
+                pair("b", new byte[] { 0x32 }));
+        assertConsumesObject(object(1, false, body, new long[] { 6, 3 }));
+    }
+
+    @Test
+    void rejectsDuplicateIndexEntry() {
+        byte[] body = body(pair("a", new byte[] { 0x31 }),
+                pair("b", new byte[] { 0x32 }));
+        assertIndexFailure(object(1, false, body, new long[] { 3, 3 }),
+                "object index entries are not a bijection onto key starts");
+    }
+
+    @Test
+    void rejectsIndexEntryBetweenKeyStarts() {
+        byte[] body = body(pair("a", new byte[] { 0x31 }),
+                pair("b", new byte[] { 0x32 }));
+        assertIndexFailure(object(1, false, body, new long[] { 3, 4 }),
+                "index entry does not point to an observed key start");
+    }
+
+    @Test
+    void rejectsSortedIndexThatIsNotInNameOrder() {
+        byte[] body = body(pair("b", new byte[] { 0x31 }),
+                pair("a", new byte[] { 0x32 }));
+        assertIndexFailure(object(1, true, body, new long[] { 3, 6 }),
+                "sorted object index is not in unsigned UTF-8 name order");
+    }
+
+    @Test
+    void acceptsSortedIndexInNameOrderWhenItDiffersFromBodyOrder() throws Exception {
+        byte[] body = body(pair("b", new byte[] { 0x31 }),
+                pair("a", new byte[] { 0x32 }));
+        assertConsumesObject(object(1, true, body, new long[] { 6, 3 }));
+    }
+
     public static byte[] object(int width, boolean sorted, byte[] body, long[] indexes) {
         int marker = (sorted ? 0x0B : 0x0F) + widthIndex(width);
         boolean trailing = width == 8 && !sorted;
@@ -132,6 +180,23 @@ public class VPackObjectParserTest {
         try (JsonParser parser = factory.createParser(input)) {
             for (JsonToken token : expected) assertEquals(token, parser.nextToken());
             assertNull(parser.nextToken());
+        }
+    }
+
+    private void assertConsumesObject(byte[] input) throws Exception {
+        try (JsonParser parser = factory.createParser(input)) {
+            while (parser.nextToken() != null) { }
+        }
+    }
+
+    private void assertIndexFailure(byte[] input, String detail) {
+        try (JsonParser parser = factory.createParser(input)) {
+            StreamReadException exception = assertThrows(StreamReadException.class, () -> {
+                while (parser.nextToken() != null) { }
+            });
+            assertTrue(exception.getMessage().contains(detail), exception.getMessage());
+        } catch (Exception e) {
+            throw new AssertionError(e);
         }
     }
 }
