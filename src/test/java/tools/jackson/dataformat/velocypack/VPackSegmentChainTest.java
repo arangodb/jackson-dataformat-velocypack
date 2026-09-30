@@ -32,6 +32,20 @@ class VPackSegmentChainTest {
     }
 
     @Test
+    void writesLongPayloadAcrossSeveralPagesByteForByte() throws Exception {
+        int length = 3 * VPackByteStore.PAGE_SIZE + 17;
+        byte[] expected = new byte[length];
+        for (int i = 0; i < length; ++i) expected[i] = (byte) (i * 31);
+        VPackOutputArena arena = new VPackOutputArena((long) length);
+        VPackSegmentChain chain = new VPackSegmentChain(arena);
+        chain.append(arena.append(expected));
+
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        chain.writeTo(output);
+        assertArrayEquals(expected, output.toByteArray());
+    }
+
+    @Test
     void appendPrependAndTransferCoalesceAdjacentRanges() throws Exception {
         VPackOutputArena arena = new VPackOutputArena(20L);
         VPackByteStore.Range first = arena.append(new byte[] { 1 });

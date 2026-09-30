@@ -1378,19 +1378,12 @@ public class VPackParser extends ParserBase {
         if (out == null) {
             throw _constructReadException("Output stream is null");
         }
-        byte[] chunk = new byte[Math.min(VPackByteStore.PAGE_SIZE, _binaryLength)];
-        int done = 0;
         try {
-            while (done < _binaryLength) {
-                int count = Math.min(chunk.length, _binaryLength - done);
-                _root.range().copyTo(_binaryPayloadOffset + done, chunk, 0, count);
-                out.write(chunk, 0, count);
-                done += count;
-            }
+            _root.range().writeTo(_binaryPayloadOffset, _binaryLength, out);
         } catch (IOException e) {
             throw _wrapIOFailure(e);
         }
-        return done;
+        return _binaryLength;
     }
 
     @Override public void clearCurrentToken() {
@@ -1507,15 +1500,8 @@ public class VPackParser extends ParserBase {
 
     private static void _writeRange(OutputStream out, VPackByteStore.Range range)
             throws IOException {
-        int length = VPackBounds.checkedInt(range.length(), "released range");
-        byte[] buffer = new byte[Math.min(VPackByteStore.PAGE_SIZE, length)];
-        int offset = 0;
-        while (offset < length) {
-            int count = Math.min(buffer.length, length - offset);
-            range.copyTo(offset, buffer, 0, count);
-            out.write(buffer, 0, count);
-            offset += count;
-        }
+        VPackBounds.checkedInt(range.length(), "released range");
+        range.writeTo(0L, range.length(), out);
     }
 
     private void _clearRetainedValues() {

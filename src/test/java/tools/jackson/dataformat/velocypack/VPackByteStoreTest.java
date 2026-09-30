@@ -1,5 +1,7 @@
 package tools.jackson.dataformat.velocypack;
 
+import java.io.ByteArrayOutputStream;
+
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -173,6 +175,46 @@ class VPackByteStoreTest {
     }
 
     @Test
+    void writeToWritesOneBackingSlicePerPageSegment() throws Exception {
+        int start = VPackByteStore.PAGE_SIZE - 2;
+        byte[] input = new byte[VPackByteStore.PAGE_SIZE * 2 + 7];
+        for (int i = 0; i < input.length; ++i) input[i] = (byte) i;
+        VPackByteStore owned = VPackByteStore.owned();
+        owned.append(input, 0, input.length);
+
+        CountingOutput output = new CountingOutput();
+        owned.range(start, VPackByteStore.PAGE_SIZE + 5L)
+                .writeTo(0L, VPackByteStore.PAGE_SIZE + 5L, output);
+
+        assertEquals(3, output.writeCalls);
+        assertArrayEquals(java.util.Arrays.copyOfRange(input, start,
+                start + VPackByteStore.PAGE_SIZE + 5), output.toByteArray());
+        assertThrows(tools.jackson.core.exc.StreamReadException.class,
+                () -> owned.range(start, 2L).writeTo(1L, 2L, output));
+
+        VPackByteStore borrowed = VPackByteStore.borrowed(input, start,
+                VPackByteStore.PAGE_SIZE + 5L);
+        CountingOutput borrowedOutput = new CountingOutput();
+        borrowed.writeTo(0L, borrowed.size(), borrowedOutput);
+        assertEquals(1, borrowedOutput.writeCalls);
+    }
+
+    @Test
+    void arenaAppendCopiesDirectlyFromBorrowedSourceStore() {
+        byte[] input = new byte[VPackByteStore.PAGE_SIZE + 9];
+        for (int i = 0; i < input.length; ++i) input[i] = (byte) (i * 3);
+        VPackByteStore source = VPackByteStore.borrowed(input, 3L, input.length - 6L);
+        VPackOutputArena arena = new VPackOutputArena((long) input.length);
+        VPackByteStore.Range copied = arena.append(source.range(1L, input.length - 8L));
+
+        assertEquals(input.length - 8L, copied.length());
+        assertEquals(input.length - 8L, arena.copiedBytes());
+        assertEquals(0L, source.materializedRanges());
+        assertArrayEquals(java.util.Arrays.copyOfRange(input, 4, input.length - 4),
+                copied.toByteArray());
+    }
+
+    @Test
     void arenaRangeAppendRejectsBeforeMaterializingOrMutatingOnBudgetFailure() {
         VPackByteStore source = VPackByteStore.owned();
         byte[] input = new byte[VPackByteStore.PAGE_SIZE + 3];
@@ -213,5 +255,14 @@ class VPackByteStoreTest {
         borrowed.release();
         borrowed.release();
         assertThrows(tools.jackson.core.exc.StreamReadException.class, borrowed::size);
+    }
+
+    private static final class CountingOutput extends ByteArrayOutputStream {
+        private int writeCalls;
+
+        @Override public void write(byte[] bytes, int offset, int length) {
+            writeCalls++;
+            super.write(bytes, offset, length);
+        }
     }
 }

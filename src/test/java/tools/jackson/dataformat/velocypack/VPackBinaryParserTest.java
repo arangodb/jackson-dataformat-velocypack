@@ -1,5 +1,6 @@
 package tools.jackson.dataformat.velocypack;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 
 import org.junit.jupiter.api.Test;
@@ -29,11 +30,12 @@ class VPackBinaryParserTest {
     @Test
     void binaryMaterializationIsDefensiveAndReadBinaryValueStreamsTheRetainedSpan()
             throws Exception {
-        byte[] payload = new byte[20_000];
+        byte[] payload = new byte[3 * VPackByteStore.PAGE_SIZE + 17];
         for (int i = 0; i < payload.length; i++) payload[i] = (byte) i;
         byte[] encoded = binary(2, payload);
         byte[] source = encoded.clone();
-        try (VPackParser parser = (VPackParser) new VPackFactory().createParser(source)) {
+        try (VPackParser parser = (VPackParser) new VPackFactory().createParser(
+                new ByteArrayInputStream(source))) {
             assertEquals(JsonToken.VALUE_EMBEDDED_OBJECT, parser.nextToken());
             byte[] materialized = parser.getBinaryValue();
             source[source.length - 1] = 99;

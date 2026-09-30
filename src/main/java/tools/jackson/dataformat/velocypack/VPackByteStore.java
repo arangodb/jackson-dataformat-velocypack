@@ -1,5 +1,7 @@
 package tools.jackson.dataformat.velocypack;
 
+import java.io.IOException;
+import java.io.OutputStream;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.nio.ByteOrder;
@@ -196,9 +198,78 @@ final class VPackByteStore implements AutoCloseable {
         }
     }
 
+    void append(VPackByteStore source, long offset, long length) {
+        ensureOwned();
+        if (source == null) {
+            throw VPackErrors.write("owned byte store", "source is null");
+        }
+        source.ensureRange(offset, length, "byte store append source");
+        ensureCapacityForAppend(length);
+
+        long sourceOffset = offset;
+        long remaining = length;
+        while (remaining != 0L) {
+            int destinationPage = (int) (size / PAGE_SIZE);
+            int destinationOffset = (int) (size % PAGE_SIZE);
+            if (destinationOffset == 0) {
+                pages.add(acquirePage());
+            }
+            int count = (int) Math.min(remaining, PAGE_SIZE - destinationOffset);
+            byte[] sourceArray;
+            int sourceArrayOffset;
+            if (source.borrowed != null) {
+                sourceArray = source.borrowed;
+                sourceArrayOffset = source.borrowedOffset + (int) sourceOffset;
+                count = Math.min(count, sourceArray.length - sourceArrayOffset);
+            } else {
+                int sourcePageOffset = (int) (sourceOffset % PAGE_SIZE);
+                count = Math.min(count, PAGE_SIZE - sourcePageOffset);
+                sourceArray = source.pages.get((int) (sourceOffset / PAGE_SIZE));
+                sourceArrayOffset = sourcePageOffset;
+            }
+            System.arraycopy(sourceArray, sourceArrayOffset, pages.get(destinationPage),
+                    destinationOffset, count);
+            sourceOffset += count;
+            remaining -= count;
+            size += count;
+        }
+    }
+
     Range range(long offset, long length) {
         ensureRange(offset, length, "byte range");
         return new Range(this, offset, length);
+    }
+
+    /**
+     * Writes live bytes directly from backing arrays to the caller-supplied stream.
+     * The backing arrays are passed to caller-supplied OutputStreams, with off/len
+     * limited to live data. This has the same trade-off Jackson's generators make
+     * with their pooled output buffers.
+     */
+    void writeTo(long index, long length, OutputStream out) throws IOException {
+        ensureRange(index, length, "byte store write range");
+        if (out == null) {
+            throw new NullPointerException("output");
+        }
+        long source = index;
+        long remaining = length;
+        while (remaining != 0L) {
+            byte[] data;
+            int offset;
+            int count;
+            if (borrowed != null) {
+                data = borrowed;
+                offset = borrowedOffset + (int) source;
+                count = (int) Math.min(remaining, data.length - offset);
+            } else {
+                offset = (int) (source % PAGE_SIZE);
+                count = (int) Math.min(remaining, PAGE_SIZE - offset);
+                data = pages.get((int) (source / PAGE_SIZE));
+            }
+            out.write(data, offset, count);
+            source += count;
+            remaining -= count;
+        }
     }
 
     void copyTo(long offset, byte[] output, int outputOffset, int length) {
@@ -361,6 +432,17 @@ final class VPackByteStore implements AutoCloseable {
                 destination += count;
                 remaining -= count;
             }
+        }
+
+        void writeTo(long relativeOffset, long writeLength, OutputStream out) throws IOException {
+            owner.ensureOpen();
+            if (relativeOffset < 0L || relativeOffset > length || writeLength < 0L
+                    || writeLength > length - relativeOffset) {
+                throw VPackErrors.malformed("byte range", relativeOffset,
+                        "write range is outside the range");
+            }
+            owner.writeTo(VPackBounds.checkedAdd(offset, relativeOffset,
+                    "byte range write offset"), writeLength, out);
         }
 
         void ensureUsable() {

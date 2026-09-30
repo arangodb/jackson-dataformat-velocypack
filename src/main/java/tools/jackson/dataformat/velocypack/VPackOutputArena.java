@@ -89,16 +89,9 @@ final class VPackOutputArena implements AutoCloseable {
         if (length == 0L) {
             return bytes.range(start, 0L);
         }
-
-        int chunkSize = (int) Math.min(VPackByteStore.PAGE_SIZE, length);
-        byte[] chunk = new byte[chunkSize];
-        long sourceOffset = 0L;
-        while (sourceOffset < length) {
-            int count = (int) Math.min(chunk.length, length - sourceOffset);
-            source.copyTo(sourceOffset, chunk, 0, count);
-            append(chunk, 0, count);
-            sourceOffset += count;
-        }
+        bytes.append(source.store(), source.offset(), length);
+        retainedBytes = VPackBounds.checkedAdd(retainedBytes, length, "output arena size");
+        copiedBytes = VPackBounds.checkedAdd(copiedBytes, length, "output arena copy count");
         return bytes.range(start, length);
     }
 

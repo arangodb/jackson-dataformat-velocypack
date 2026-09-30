@@ -137,17 +137,8 @@ final class VPackSegmentChain implements AutoCloseable {
         if (output == null) {
             throw new NullPointerException("output");
         }
-        byte[] scratch = new byte[VPackByteStore.PAGE_SIZE];
         for (Node node = head; node != null; node = node.next) {
-            long offset = node.offset;
-            long remaining = node.length;
-            while (remaining != 0L) {
-                int count = (int) Math.min(remaining, scratch.length);
-                node.store.copyTo(offset, scratch, 0, count);
-                output.write(scratch, 0, count);
-                offset += count;
-                remaining -= count;
-            }
+            node.store.writeTo(node.offset, node.length, output);
         }
     }
 
