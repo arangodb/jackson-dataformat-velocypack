@@ -6,6 +6,9 @@ interface VPackPageSupplier extends AutoCloseable {
 
     void release(byte[] page);
 
+    /** Whether this supplier owns the page for its whole lifetime. */
+    default boolean ownsPage(byte[] page) { return false; }
+
     /** Release supplier-owned resources after its last store has been released. */
     @Override
     default void close() { }

@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class VPackByteStoreTest {
@@ -123,6 +124,28 @@ class VPackByteStoreTest {
         assertEquals(1, secondRoot.pageCount());
         arena.release();
         assertEquals(0, secondRoot.pageCount());
+    }
+
+    @Test
+    void arenaReusesRetainedPagesAcrossReset() {
+        VPackOutputArena arena = new VPackOutputArena(
+                (long) VPackByteStore.PAGE_SIZE * VPackOutputArena.RETAINED_PAGES);
+        byte[] contents = new byte[VPackByteStore.PAGE_SIZE * 3 + 1];
+        arena.append(contents);
+        VPackByteStore first = arena.store();
+        byte[][] pages = new byte[first.pageCount()][];
+        for (int i = 0; i < pages.length; ++i) {
+            pages[i] = first.pageForTest(i);
+        }
+
+        arena.reset();
+        arena.append(contents);
+        VPackByteStore second = arena.store();
+        assertEquals(pages.length, second.pageCount());
+        for (int i = 0; i < pages.length; ++i) {
+            assertSame(pages[i], second.pageForTest(i));
+        }
+        arena.release();
     }
 
     @Test

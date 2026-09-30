@@ -1,9 +1,36 @@
 package tools.jackson.dataformat.velocypack;
 
+import java.util.ArrayDeque;
+
 /** One lazy-page arena for the currently open output root. */
 final class VPackOutputArena implements AutoCloseable {
+    static final int RETAINED_PAGES = 4;
     private final long maxBytes;
     private final VPackPageSupplier pageSupplier;
+    private final ArrayDeque<byte[]> freePages = new ArrayDeque<>();
+    private final VPackPageSupplier storePageSupplier = new VPackPageSupplier() {
+        @Override
+        public byte[] acquire() {
+            byte[] page = freePages.pollFirst();
+            return page != null ? page : (pageSupplier == null
+                    ? new byte[VPackByteStore.PAGE_SIZE] : pageSupplier.acquire());
+        }
+
+        @Override
+        public void release(byte[] page) {
+            if (pageSupplier != null && pageSupplier.ownsPage(page)) {
+                pageSupplier.release(page);
+                return;
+            }
+            // Store release invalidates all ranges before these bytes can be reused.
+            // Pages are not zeroed; all reads are limited to the new store's size.
+            if (freePages.size() < RETAINED_PAGES) {
+                freePages.addLast(page);
+            } else if (pageSupplier != null) {
+                pageSupplier.release(page);
+            }
+        }
+    };
     private VPackByteStore bytes;
     private long retainedBytes;
     private long copiedBytes;
@@ -19,7 +46,7 @@ final class VPackOutputArena implements AutoCloseable {
         }
         maxBytes = constraints.getMaxRootValueBytes();
         this.pageSupplier = pageSupplier;
-        bytes = VPackByteStore.owned(pageSupplier);
+        bytes = newStore();
     }
 
     VPackOutputArena(long maxBytes) {
@@ -32,7 +59,7 @@ final class VPackOutputArena implements AutoCloseable {
         }
         this.maxBytes = maxBytes;
         this.pageSupplier = pageSupplier;
-        bytes = VPackByteStore.owned(pageSupplier);
+        bytes = newStore();
     }
 
     long size() {
@@ -108,7 +135,7 @@ final class VPackOutputArena implements AutoCloseable {
     void reset() {
         ensureOpen();
         bytes.release();
-        bytes = VPackByteStore.owned(pageSupplier);
+        bytes = newStore();
         retainedBytes = 0L;
         copiedBytes = 0L;
     }
@@ -124,6 +151,7 @@ final class VPackOutputArena implements AutoCloseable {
         }
         released = true;
         bytes.release();
+        freePages.clear();
         retainedBytes = 0L;
         if (pageSupplier != null) {
             pageSupplier.close();
@@ -135,6 +163,10 @@ final class VPackOutputArena implements AutoCloseable {
             throw VPackErrors.constraint("output arena", retainedBytes,
                     "root byte budget exceeded");
         }
+    }
+
+    private VPackByteStore newStore() {
+        return VPackByteStore.owned(storePageSupplier);
     }
 
     private void ensureOpen() {

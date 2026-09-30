@@ -54,6 +54,11 @@ final class VPackRecyclerPageSupplier implements VPackPageSupplier {
     }
 
     @Override
+    public boolean ownsPage(byte[] page) {
+        return page == pooledPage;
+    }
+
+    @Override
     public void close() {
         if (closed) {
             return;

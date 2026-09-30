@@ -65,6 +65,11 @@ final class VPackByteStore implements AutoCloseable {
         return pages.size();
     }
 
+    /** Test-only page identity accessor. */
+    byte[] pageForTest(int index) {
+        return pages.get(index);
+    }
+
     /** Test-only evidence that a complete range was materialized. */
     long materializedRanges() {
         return materializedRanges;

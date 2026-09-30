@@ -18,8 +18,25 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 
 class VPackSequenceTest {
+    @Test
+    void longMultiRootStreamMatchesConcatenatedRootEncodings() throws Exception {
+        VPackMapper mapper = new VPackMapper();
+        String value = "v".repeat(VPackByteStore.PAGE_SIZE + 257);
+        ByteArrayOutputStream expected = new ByteArrayOutputStream();
+        ByteArrayOutputStream actual = new ByteArrayOutputStream();
+        try (SequenceWriter writer = mapper.writer().withRootValueSeparator((String) null)
+                .writeValues(actual)) {
+            for (int i = 0; i < 8; ++i) {
+                writer.write(value + i);
+                expected.write(mapper.writeValueAsBytes(value + i));
+            }
+        }
+        assertArrayEquals(expected.toByteArray(), actual.toByteArray());
+    }
+
     @Test
     void sequenceWriterEmitsSelfDelimitingScalarAndContainerRoots() throws Exception {
         VPackMapper mapper = new VPackMapper();
