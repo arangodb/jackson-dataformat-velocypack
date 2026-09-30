@@ -1253,9 +1253,9 @@ public class VPackGenerator extends GeneratorBase {
     @SuppressWarnings("SameParameterValue") // Keep context-specific failure messages at callers.
     private byte[] encodeString(byte[] payload, int offset, int length, String context) {
         checkScalarSize(length, length <= 126L ? 1L : 9L, context);
-        long end = VPackBounds.checkedAdd(offset, length, context + " range");
-        int start = VPackBounds.checkedInt(offset, context + " offset");
-        int finish = VPackBounds.checkedInt(end, context + " end");
+        long end = VPackBounds.checkedAdd(offset, length, context, " range");
+        int start = VPackBounds.checkedInt(offset, context, " offset");
+        int finish = VPackBounds.checkedInt(end, context, " end");
         byte[] result = allocateStringFrame(length, context);
         System.arraycopy(payload, start, result, result.length - length, length);
         return result;

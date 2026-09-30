@@ -25,6 +25,13 @@ final class VPackBounds {
         return left + right;
     }
 
+    static long checkedAdd(long left, long right, String context, String suffix) {
+        if (left < 0L || right < 0L || right > Long.MAX_VALUE - left) {
+            return checkedAdd(left, right, context + suffix);
+        }
+        return left + right;
+    }
+
     static long checkedAdd(long left, long right, String context, long errorOffset) {
         if (left < 0L || right < 0L) {
             throw VPackErrors.malformed(context, errorOffset, "arithmetic operand is negative");
@@ -86,6 +93,13 @@ final class VPackBounds {
         nonNegative(value, context, "value is negative");
         if (value > Integer.MAX_VALUE) {
             throw VPackErrors.constraint(context, -1L, "value does not fit in an int");
+        }
+        return (int) value;
+    }
+
+    static int checkedInt(long value, String context, String suffix) {
+        if (value < 0L || value > Integer.MAX_VALUE) {
+            return checkedInt(value, context + suffix);
         }
         return (int) value;
     }

@@ -30,6 +30,38 @@ class VPackBoundsTest {
     }
 
     @Test
+    void suffixedDiagnosticsPreserveChecksWithoutChangingSuccessfulResults() {
+        assertEquals(12L, VPackBounds.checkedAdd(5L, 7L, "string", " range"));
+        assertEquals(Long.MAX_VALUE,
+                VPackBounds.checkedAdd(Long.MAX_VALUE, 0L, "string", " range"));
+        assertEquals(0, VPackBounds.checkedInt(0L, "string", " offset"));
+        assertEquals(Integer.MAX_VALUE,
+                VPackBounds.checkedInt(Integer.MAX_VALUE, "string", " end"));
+
+        StreamReadException negativeLeft = assertThrows(StreamReadException.class,
+                () -> VPackBounds.checkedAdd(-1L, -2L, "string", " range"));
+        assertEquals("string range: left operand is negative", negativeLeft.getMessage());
+
+        StreamReadException negativeRight = assertThrows(StreamReadException.class,
+                () -> VPackBounds.checkedAdd(1L, -2L, "string", " range"));
+        assertEquals("string range: right operand is negative", negativeRight.getMessage());
+
+        StreamReadException overflow = assertThrows(StreamReadException.class,
+                () -> VPackBounds.checkedAdd(Long.MAX_VALUE, 1L, "string", " range"));
+        assertEquals("string range: addition overflow", overflow.getMessage());
+
+        StreamReadException negativeInt = assertThrows(StreamReadException.class,
+                () -> VPackBounds.checkedInt(-1L, "string", " offset"));
+        assertEquals("string offset: value is negative", negativeInt.getMessage());
+
+        StreamConstraintsException largeInt = assertThrows(StreamConstraintsException.class,
+                () -> VPackBounds.checkedInt((long) Integer.MAX_VALUE + 1L,
+                        "string", " end"));
+        assertEquals("string end: value does not fit in an int\n"
+                + " at [Source: UNKNOWN; byte offset: #UNKNOWN]", largeInt.getMessage());
+    }
+
+    @Test
     void rangesAndWidthsAreCheckedBeforeArrayIndexArithmetic() {
         assertEquals(8L, VPackBounds.checkedRange(3L, 5L, 8L, "test range"));
         assertThrows(StreamReadException.class,
