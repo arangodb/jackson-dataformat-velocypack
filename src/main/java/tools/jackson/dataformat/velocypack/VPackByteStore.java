@@ -1,6 +1,8 @@
 package tools.jackson.dataformat.velocypack;
 
 import java.io.IOException;
+import java.io.DataInput;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
@@ -200,6 +202,60 @@ final class VPackByteStore implements AutoCloseable {
             source += count;
             remaining -= count;
             size += count;
+        }
+    }
+
+    /** Reads directly into the current page's free tail. */
+    int appendFrom(InputStream in, int maxLength) throws IOException {
+        ensureOwned();
+        if (in == null) {
+            throw new NullPointerException("input");
+        }
+        if (maxLength < 0) {
+            throw new IllegalArgumentException("maxLength must be non-negative");
+        }
+        int inPage = (int) (size % PAGE_SIZE);
+        int requested = Math.min(maxLength, PAGE_SIZE - inPage);
+        ensureCapacityForAppend(requested);
+        if (requested == 0) {
+            return 0;
+        }
+        int page = (int) (size / PAGE_SIZE);
+        if (inPage == 0) {
+            pages.add(acquirePage());
+        }
+        // The caller's stream receives our page array, as Jackson's stream
+        // parsers do with pooled input buffers. Any damage from a misbehaving
+        // stream is confined to this root's owned store and is checked by the
+        // parser's normal structural validation.
+        int count = in.read(pages.get(page), inPage, requested);
+        if (count > 0 && count <= requested) {
+            size += count;
+        }
+        return count;
+    }
+
+    /** Reads exactly {@code length} bytes directly into owned page segments. */
+    void appendFullyFrom(DataInput in, int length) throws IOException {
+        ensureOwned();
+        if (in == null) {
+            throw new NullPointerException("input");
+        }
+        if (length < 0) {
+            throw new IllegalArgumentException("length must be non-negative");
+        }
+        ensureCapacityForAppend(length);
+        int remaining = length;
+        while (remaining != 0) {
+            int page = (int) (size / PAGE_SIZE);
+            int inPage = (int) (size % PAGE_SIZE);
+            if (inPage == 0) {
+                pages.add(acquirePage());
+            }
+            int count = Math.min(remaining, PAGE_SIZE - inPage);
+            in.readFully(pages.get(page), inPage, count);
+            size += count;
+            remaining -= count;
         }
     }
 

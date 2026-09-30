@@ -13,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class VPackRootReaderTest {
@@ -132,6 +133,88 @@ class VPackRootReaderTest {
         };
         VPackRootReader.Root root = VPackRootReader.forInputStream(input).nextRoot();
         assertArrayEquals(new byte[] { 0x41, 'a' }, root.toByteArray());
+    }
+
+    @Test
+    void readsRootsAcrossPagesFromShortAndZeroReturningStreams() {
+        byte[] fixture = longStringFixture(2 * VPackByteStore.PAGE_SIZE + 37);
+        for (InputStream input : new InputStream[] {
+                new FragmentedInputStream(fixture, false),
+                new FragmentedInputStream(fixture, true) }) {
+            assertArrayEquals(fixture, VPackRootReader.forInputStream(input)
+                    .nextRoot().toByteArray());
+        }
+        for (InputStream input : new InputStream[] {
+                new FragmentedInputStream(fixture, false),
+                new FragmentedInputStream(fixture, true) }) {
+            assertArrayEquals(fixture, VPackRootReader.forDataInput(new DataInputStream(input))
+                    .nextRoot().toByteArray());
+        }
+    }
+
+    @Test
+    void truncatedMultiPageRootsKeepSourceOffsets() {
+        byte[] complete = longStringFixture(2 * VPackByteStore.PAGE_SIZE + 37);
+        byte[] partial = Arrays.copyOf(complete, complete.length - 11);
+        long streamOffset = partial.length;
+        long dataInputOffset = 9L + 2L * VPackByteStore.PAGE_SIZE;
+
+        tools.jackson.core.exc.StreamReadException streamFailure = assertThrows(
+                tools.jackson.core.exc.StreamReadException.class,
+                () -> VPackRootReader.forInputStream(new FragmentedInputStream(partial, true))
+                        .nextRoot());
+        assertEquals(streamOffset, streamFailure.getLocation().getByteOffset());
+
+        tools.jackson.core.exc.StreamReadException dataFailure = assertThrows(
+                tools.jackson.core.exc.StreamReadException.class,
+                () -> VPackRootReader.forDataInput(new DataInputStream(
+                        new FragmentedInputStream(partial, true))).nextRoot());
+        assertEquals(dataInputOffset, dataFailure.getLocation().getByteOffset());
+    }
+
+    private static byte[] longStringFixture(int payloadLength) {
+        byte[] bytes = new byte[9 + payloadLength];
+        bytes[0] = (byte) 0xBF;
+        long length = payloadLength;
+        for (int i = 0; i < 8; ++i) {
+            bytes[1 + i] = (byte) (length >>> (8 * i));
+        }
+        for (int i = 0; i < payloadLength; ++i) {
+            bytes[9 + i] = (byte) ('a' + (i % 26));
+        }
+        return bytes;
+    }
+
+    private static final class FragmentedInputStream extends InputStream {
+        private final byte[] bytes;
+        private final boolean sometimesZero;
+        private int index;
+        private boolean returnZero = true;
+
+        private FragmentedInputStream(byte[] bytes, boolean sometimesZero) {
+            this.bytes = Arrays.copyOf(bytes, bytes.length);
+            this.sometimesZero = sometimesZero;
+        }
+
+        @Override
+        public int read() {
+            return index == bytes.length ? -1 : bytes[index++] & 0xFF;
+        }
+
+        @Override
+        public int read(byte[] target, int offset, int length) {
+            if (length == 0) return 0;
+            if (sometimesZero && returnZero) {
+                returnZero = false;
+                return 0;
+            }
+            returnZero = true;
+            if (index == bytes.length) return -1;
+            int count = Math.min(1, Math.min(length, bytes.length - index));
+            System.arraycopy(bytes, index, target, offset, count);
+            index += count;
+            return count;
+        }
     }
 
     private static final class TrackingInputStream extends InputStream {

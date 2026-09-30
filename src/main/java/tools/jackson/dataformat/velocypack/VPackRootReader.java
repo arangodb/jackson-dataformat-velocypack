@@ -25,7 +25,7 @@ final class VPackRootReader implements AutoCloseable {
     }
 
     private static final long UNLIMITED = -1L;
-    private static final int COPY_CHUNK = VPackByteStore.PAGE_SIZE;
+    private static final int READ_CHUNK = VPackByteStore.PAGE_SIZE;
 
     private final SourceKind sourceKind;
     private final Object source;
@@ -260,8 +260,8 @@ final class VPackRootReader implements AutoCloseable {
                         "short string payload length"));
             }
             case LONG_STRING -> {
-                byte[] lengthBytes = readHeader(store, 8);
-                long length = VPackBounds.readStructural(lengthBytes, 0, 8,
+                long lengthBits = readHeader(store, 8);
+                long length = VPackBounds.readStructural(lengthBits, 8,
                         logicalOffset(rootStart, 1L));
                 total = VPackBounds.checkedAdd(9L, length, "long string length",
                         logicalOffset(rootStart, 1L));
@@ -270,8 +270,8 @@ final class VPackRootReader implements AutoCloseable {
             }
             case BINARY -> {
                 int width = VPackMarker.width(marker);
-                byte[] lengthBytes = readHeader(store, width);
-                long length = VPackBounds.readScalarLength(lengthBytes, 0, width,
+                long lengthBits = readHeader(store, width);
+                long length = VPackBounds.readScalarLength(lengthBits, width,
                         logicalOffset(rootStart, 1L));
                 total = VPackBounds.checkedAdd(1L + width, length, "binary length",
                         logicalOffset(rootStart, 1L));
@@ -280,8 +280,8 @@ final class VPackRootReader implements AutoCloseable {
             }
             case POSITIVE_BCD, NEGATIVE_BCD -> {
                 int width = VPackMarker.width(marker);
-                byte[] lengthBytes = readHeader(store, width);
-                long length = VPackBounds.readScalarLength(lengthBytes, 0, width,
+                long lengthBits = readHeader(store, width);
+                long length = VPackBounds.readScalarLength(lengthBits, width,
                         logicalOffset(rootStart, 1L));
                 if (length == 0L) {
                     throw VPackErrors.malformed("BCD root", logicalOffset(rootStart, 1L),
@@ -295,8 +295,8 @@ final class VPackRootReader implements AutoCloseable {
             }
             case EQUAL_ARRAY, INDEXED_ARRAY, SORTED_OBJECT, UNSORTED_OBJECT -> {
                 int width = VPackMarker.width(marker);
-                byte[] lengthBytes = readHeader(store, width);
-                long length = VPackBounds.readStructural(lengthBytes, 0, width,
+                long lengthBits = readHeader(store, width);
+                long length = VPackBounds.readStructural(lengthBits, width,
                         logicalOffset(rootStart, 1L));
                 long minimum = 1L + width;
                 if (length < minimum) {
@@ -456,13 +456,12 @@ final class VPackRootReader implements AutoCloseable {
                 "length uses more than eight groups");
     }
 
-    private byte[] readHeader(VPackByteStore store, int length) {
+    private long readHeader(VPackByteStore store, int length) {
         // The header itself must fit before a forward-only source is touched.
         ensureRootLength(store, VPackBounds.checkedAdd(store.size(), length,
                 "root header length", position));
-        byte[] header = new byte[length];
-        readExact(header, length, store);
-        return header;
+        readExact(length, store);
+        return store.readLE(store.size() - length, length);
     }
 
     private void readAndAppend(VPackByteStore store, int length) {
@@ -472,11 +471,10 @@ final class VPackRootReader implements AutoCloseable {
         if (length == 0) {
             return;
         }
-        byte[] chunk = new byte[Math.min(COPY_CHUNK, length)];
         int remaining = length;
         while (remaining != 0) {
-            int count = Math.min(remaining, chunk.length);
-            readExact(chunk, count, store);
+            int count = Math.min(remaining, READ_CHUNK);
+            readExact(count, store);
             remaining -= count;
         }
     }
@@ -511,38 +509,49 @@ final class VPackRootReader implements AutoCloseable {
         }
     }
 
-    private void readExact(byte[] target, int length, VPackByteStore store) {
-        int done = 0;
-        while (done < length) {
+    private void readExact(int length, VPackByteStore store) {
+        if (sourceKind == SourceKind.DATA_INPUT) {
+            try {
+                store.appendFullyFrom(dataInput, length);
+                position = VPackBounds.checkedAdd(position, length,
+                        "logical source position", position);
+            } catch (EOFException e) {
+                throw truncated("root payload", position, e);
+            } catch (IOException e) {
+                throw VPackErrors.input("root input", position, e);
+            }
+            return;
+        }
+
+        int remaining = length;
+        while (remaining != 0) {
+            int requested = Math.min(remaining, READ_CHUNK);
+            int requestedSlice = Math.min(requested, VPackByteStore.PAGE_SIZE
+                    - (int) (store.size() % VPackByteStore.PAGE_SIZE));
             int count;
             try {
-                if (sourceKind == SourceKind.INPUT_STREAM) {
-                    count = inputStream.read(target, done, length - done);
-                    if (count == 0) {
-                        int one = inputStream.read();
-                        if (one < 0) {
-                            throw truncated("root payload", position);
-                        }
-                        target[done] = (byte) one;
-                        count = 1;
-                    } else if (count < 0) {
+                count = store.appendFrom(inputStream, requested);
+                if (count == 0) {
+                    int one = inputStream.read();
+                    if (one < 0) {
                         throw truncated("root payload", position);
-                    } else if (count > length - done) {
-                        throw VPackErrors.malformed("root input", position,
-                                "input returned more bytes than requested");
                     }
-                } else {
-                    dataInput.readFully(target, done, length - done);
-                    count = length - done;
+                    store.append((byte) one);
+                    count = 1;
+                } else if (count < 0) {
+                    throw truncated("root payload", position);
+                } else if (count > requestedSlice) {
+                    throw VPackErrors.malformed("root input", position,
+                            "input returned more bytes than requested");
                 }
             } catch (EOFException e) {
                 throw truncated("root payload", position, e);
             } catch (IOException e) {
                 throw VPackErrors.input("root input", position, e);
             }
-            store.append(target, done, count);
-            done += count;
-            position = VPackBounds.checkedAdd(position, count, "logical source position", position);
+            remaining -= count;
+            position = VPackBounds.checkedAdd(position, count,
+                    "logical source position", position);
         }
     }
 
