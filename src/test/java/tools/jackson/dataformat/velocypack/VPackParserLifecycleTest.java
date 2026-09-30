@@ -39,6 +39,20 @@ class VPackParserLifecycleTest {
     }
 
     @Test
+    void inputStreamParserReusesItsOwnedPageAcrossSeveralRoots() throws Exception {
+        try (VPackParser parser = (VPackParser) new VPackFactory().createParser(
+                new ByteArrayInputStream(new byte[] { 0x30, 0x31, 0x32 }))) {
+            assertEquals(JsonToken.VALUE_NUMBER_INT, parser.nextToken());
+            assertEquals(0, parser.getIntValue());
+            assertEquals(JsonToken.VALUE_NUMBER_INT, parser.nextToken());
+            assertEquals(1, parser.getIntValue());
+            assertEquals(JsonToken.VALUE_NUMBER_INT, parser.nextToken());
+            assertEquals(2, parser.getIntValue());
+            assertNull(parser.nextToken());
+        }
+    }
+
+    @Test
     void objectReadContextConstraintsAreUsedByParserConstruction() {
         ObjectReadContext context = new ObjectReadContext.Base() {
             @Override public StreamReadConstraints streamReadConstraints() {

@@ -61,7 +61,8 @@ public class VPackGenerator extends GeneratorBase {
         DupDetector dups = StreamWriteFeature.STRICT_DUPLICATE_DETECTION.enabledIn(streamWriteFeatures)
                 ? DupDetector.rootDetector(this) : null;
         _streamWriteContext = SimpleStreamWriteContext.createRootContext(dups);
-        _arena = new VPackOutputArena(constraints);
+        _arena = new VPackOutputArena(constraints,
+                VPackRecyclerPageSupplier.forWrite(_ioContext));
         _rootBudget = new VPackRootBudget(constraints);
     }
 
@@ -752,7 +753,7 @@ public class VPackGenerator extends GeneratorBase {
             problem = fail(e);
         } finally {
             try {
-                if (_ioContext.isResourceManaged()
+                if ((_ioContext != null && _ioContext.isResourceManaged())
                         || StreamWriteFeature.AUTO_CLOSE_TARGET.enabledIn(_streamWriteFeatures)) {
                     _out.close();
                 }
@@ -768,7 +769,9 @@ public class VPackGenerator extends GeneratorBase {
                     problem = addCleanupFailure(problem, e);
                 }
                 try {
-                    _ioContext.close();
+                    if (_ioContext != null) {
+                        _ioContext.close();
+                    }
                 } catch (RuntimeException e) {
                     problem = addCleanupFailure(problem, e);
                 } finally {

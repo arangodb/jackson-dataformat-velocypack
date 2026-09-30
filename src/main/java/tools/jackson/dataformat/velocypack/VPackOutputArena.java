@@ -3,25 +3,36 @@ package tools.jackson.dataformat.velocypack;
 /** One lazy-page arena for the currently open output root. */
 final class VPackOutputArena implements AutoCloseable {
     private final long maxBytes;
+    private final VPackPageSupplier pageSupplier;
     private VPackByteStore bytes;
     private long retainedBytes;
     private long copiedBytes;
     private boolean released;
 
     VPackOutputArena(VPackWriteConstraints constraints) {
+        this(constraints, null);
+    }
+
+    VPackOutputArena(VPackWriteConstraints constraints, VPackPageSupplier pageSupplier) {
         if (constraints == null) {
             throw new NullPointerException("constraints");
         }
         maxBytes = constraints.getMaxRootValueBytes();
-        bytes = VPackByteStore.owned();
+        this.pageSupplier = pageSupplier;
+        bytes = VPackByteStore.owned(pageSupplier);
     }
 
     VPackOutputArena(long maxBytes) {
+        this(maxBytes, null);
+    }
+
+    VPackOutputArena(long maxBytes, VPackPageSupplier pageSupplier) {
         if (maxBytes < 1L || maxBytes > VPackReadConstraints.MAX_ROOT_VALUE_BYTES) {
             throw new IllegalArgumentException("maxBytes is outside the root storage limit: " + maxBytes);
         }
         this.maxBytes = maxBytes;
-        bytes = VPackByteStore.owned();
+        this.pageSupplier = pageSupplier;
+        bytes = VPackByteStore.owned(pageSupplier);
     }
 
     long size() {
@@ -99,7 +110,7 @@ final class VPackOutputArena implements AutoCloseable {
     void reset() {
         ensureOpen();
         bytes.release();
-        bytes = VPackByteStore.owned();
+        bytes = VPackByteStore.owned(pageSupplier);
         retainedBytes = 0L;
         copiedBytes = 0L;
     }
@@ -116,6 +127,9 @@ final class VPackOutputArena implements AutoCloseable {
         released = true;
         bytes.release();
         retainedBytes = 0L;
+        if (pageSupplier != null) {
+            pageSupplier.close();
+        }
     }
 
     private void charge(long amount) {

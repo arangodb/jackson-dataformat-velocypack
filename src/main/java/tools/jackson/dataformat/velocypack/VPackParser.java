@@ -1420,6 +1420,7 @@ public class VPackParser extends ParserBase {
             _root.close();
             _root = null;
         }
+        _roots.releasePageSupplier();
         if (_rootBudget != null) {
             _rootBudget.close();
             _rootBudget = null;

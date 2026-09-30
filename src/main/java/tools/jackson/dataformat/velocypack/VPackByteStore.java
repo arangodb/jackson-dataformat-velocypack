@@ -19,6 +19,7 @@ final class VPackByteStore implements AutoCloseable {
     private final byte[] borrowed;
     private final int borrowedOffset;
     private final List<byte[]> pages;
+    private final VPackPageSupplier pageSupplier;
     private long size;
     private long materializedRanges;
     private long scannedBytes;
@@ -29,13 +30,15 @@ final class VPackByteStore implements AutoCloseable {
         borrowed = input;
         borrowedOffset = offset;
         pages = new ArrayList<>();
+        pageSupplier = null;
         size = length;
     }
 
-    private VPackByteStore() {
+    private VPackByteStore(VPackPageSupplier pageSupplier) {
         borrowed = null;
         borrowedOffset = 0;
         pages = new ArrayList<>();
+        this.pageSupplier = pageSupplier;
     }
 
     static VPackByteStore borrowed(byte[] input, long offset, long length) {
@@ -44,7 +47,11 @@ final class VPackByteStore implements AutoCloseable {
     }
 
     static VPackByteStore owned() {
-        return new VPackByteStore();
+        return owned(null);
+    }
+
+    static VPackByteStore owned(VPackPageSupplier pageSupplier) {
+        return new VPackByteStore(pageSupplier);
     }
 
     boolean isReleased() {
@@ -158,7 +165,7 @@ final class VPackByteStore implements AutoCloseable {
         int page = (int) (size / PAGE_SIZE);
         int inPage = (int) (size % PAGE_SIZE);
         if (inPage == 0) {
-            pages.add(new byte[PAGE_SIZE]);
+            pages.add(acquirePage());
         }
         pages.get(page)[inPage] = value;
         size++;
@@ -179,7 +186,7 @@ final class VPackByteStore implements AutoCloseable {
             int page = (int) (size / PAGE_SIZE);
             int inPage = (int) (size % PAGE_SIZE);
             if (inPage == 0) {
-                pages.add(new byte[PAGE_SIZE]);
+                pages.add(acquirePage());
             }
             int count = Math.min(remaining, PAGE_SIZE - inPage);
             System.arraycopy(input, source, pages.get(page), inPage, count);
@@ -208,8 +215,21 @@ final class VPackByteStore implements AutoCloseable {
             return;
         }
         released = true;
+        if (pageSupplier != null) {
+            for (byte[] page : pages) {
+                pageSupplier.release(page);
+            }
+        }
         pages.clear();
         size = 0L;
+    }
+
+    private byte[] acquirePage() {
+        byte[] page = pageSupplier == null ? new byte[PAGE_SIZE] : pageSupplier.acquire();
+        if (page == null || page.length < PAGE_SIZE) {
+            throw new IllegalStateException("page supplier returned a page smaller than PAGE_SIZE");
+        }
+        return page;
     }
 
     private void ensureOwned() {

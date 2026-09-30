@@ -124,6 +124,34 @@ class VPackByteStoreTest {
     }
 
     @Test
+    void resetMayReusePagesOnlyAfterOldRangesBecomeUnusable() {
+        byte[] reusable = new byte[VPackByteStore.PAGE_SIZE];
+        VPackPageSupplier supplier = new VPackPageSupplier() {
+            private boolean available = true;
+
+            @Override public byte[] acquire() {
+                assertTrue(available);
+                available = false;
+                return reusable;
+            }
+
+            @Override public void release(byte[] page) {
+                assertTrue(page == reusable);
+                available = true;
+            }
+        };
+        VPackOutputArena arena = new VPackOutputArena(100L, supplier);
+        VPackByteStore.Range oldRange = arena.append(new byte[] { 1 });
+
+        arena.reset();
+        VPackByteStore.Range newRange = arena.append(new byte[] { 2 });
+        assertEquals(2, newRange.byteAt(0L));
+        assertThrows(tools.jackson.core.exc.StreamReadException.class,
+                () -> oldRange.byteAt(0L));
+        arena.release();
+    }
+
+    @Test
     void arenaRangeAppendCopiesInBoundedChunksAndAccountsBytes() {
         VPackByteStore source = VPackByteStore.owned();
         byte[] input = new byte[VPackByteStore.PAGE_SIZE + 3];

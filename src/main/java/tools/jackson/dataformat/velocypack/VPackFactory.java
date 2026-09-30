@@ -161,7 +161,8 @@ public class VPackFactory extends BinaryTSFactory implements java.io.Serializabl
                     streamFeatures, formatFeatures,
                     vpackReadConstraints, attributeNameCodec, symbols,
                     VPackRootReader.forInputStream(input, vpackReadConstraints, 0L,
-                            ioCtxt.streamReadConstraints().getMaxDocumentLength()));
+                            ioCtxt.streamReadConstraints().getMaxDocumentLength(),
+                            VPackRecyclerPageSupplier.forRead(ioCtxt)));
         } catch (RuntimeException e) {
             symbols.release();
             throw e;
@@ -202,7 +203,8 @@ public class VPackFactory extends BinaryTSFactory implements java.io.Serializabl
                     streamFeatures, formatFeatures,
                     vpackReadConstraints, attributeNameCodec, symbols,
                     VPackRootReader.forDataInput(input, vpackReadConstraints, 0L,
-                            ioCtxt.streamReadConstraints().getMaxDocumentLength()));
+                            ioCtxt.streamReadConstraints().getMaxDocumentLength(),
+                            VPackRecyclerPageSupplier.forRead(ioCtxt)));
         } catch (RuntimeException e) {
             symbols.release();
             throw e;

@@ -37,6 +37,7 @@ final class VPackRootReader implements AutoCloseable {
     private final int inputArrayEnd;
     private final InputStream inputStream;
     private final DataInput dataInput;
+    private final VPackPageSupplier pageSupplier;
     private final VPackByteStore borrowedStore;
     private long position;
     private boolean failed;
@@ -45,7 +46,8 @@ final class VPackRootReader implements AutoCloseable {
     private VPackRootReader(SourceKind sourceKind, Object source,
             VPackReadConstraints constraints, long initialOffset, long maxDocumentLength,
             byte[] inputArray, int inputArrayOffset, int inputArrayEnd,
-            InputStream inputStream, DataInput dataInput) {
+            InputStream inputStream, DataInput dataInput,
+            VPackPageSupplier pageSupplier) {
         if (constraints == null) {
             throw new NullPointerException("constraints");
         }
@@ -65,6 +67,7 @@ final class VPackRootReader implements AutoCloseable {
         this.inputArrayEnd = inputArrayEnd;
         this.inputStream = inputStream;
         this.dataInput = dataInput;
+        this.pageSupplier = pageSupplier;
         borrowedStore = inputArray == null ? null
                 : VPackByteStore.borrowed(inputArray, inputArrayOffset,
                         inputArrayEnd - (long) inputArrayOffset);
@@ -100,7 +103,7 @@ final class VPackRootReader implements AutoCloseable {
             VPackReadConstraints constraints, long initialOffset, long maxDocumentLength) {
         int end = VPackBounds.checkedArrayRange(input, offset, length, "byte-array source");
         return new VPackRootReader(SourceKind.BYTE_ARRAY, input, constraints, initialOffset,
-                maxDocumentLength, input, (int) offset, end, null, null);
+                maxDocumentLength, input, (int) offset, end, null, null, null);
     }
 
     static VPackRootReader forByteArray(byte[] input, int offset, int length,
@@ -124,11 +127,16 @@ final class VPackRootReader implements AutoCloseable {
 
     static VPackRootReader forInputStream(InputStream input, VPackReadConstraints constraints,
             long initialOffset, long maxDocumentLength) {
+        return forInputStream(input, constraints, initialOffset, maxDocumentLength, null);
+    }
+
+    static VPackRootReader forInputStream(InputStream input, VPackReadConstraints constraints,
+            long initialOffset, long maxDocumentLength, VPackPageSupplier pageSupplier) {
         if (input == null) {
             throw new NullPointerException("input");
         }
         return new VPackRootReader(SourceKind.INPUT_STREAM, input, constraints, initialOffset,
-                maxDocumentLength, null, 0, 0, input, null);
+                maxDocumentLength, null, 0, 0, input, null, pageSupplier);
     }
 
     static VPackRootReader forDataInput(DataInput input) {
@@ -146,11 +154,16 @@ final class VPackRootReader implements AutoCloseable {
 
     static VPackRootReader forDataInput(DataInput input, VPackReadConstraints constraints,
             long initialOffset, long maxDocumentLength) {
+        return forDataInput(input, constraints, initialOffset, maxDocumentLength, null);
+    }
+
+    static VPackRootReader forDataInput(DataInput input, VPackReadConstraints constraints,
+            long initialOffset, long maxDocumentLength, VPackPageSupplier pageSupplier) {
         if (input == null) {
             throw new NullPointerException("input");
         }
         return new VPackRootReader(SourceKind.DATA_INPUT, input, constraints, initialOffset,
-                maxDocumentLength, null, 0, 0, null, input);
+                maxDocumentLength, null, 0, 0, null, input, pageSupplier);
     }
 
     SourceKind sourceKind() {
@@ -218,7 +231,7 @@ final class VPackRootReader implements AutoCloseable {
     }
 
     private Root nextForwardOnlyRoot() {
-        VPackByteStore store = VPackByteStore.owned();
+        VPackByteStore store = VPackByteStore.owned(pageSupplier);
         long rootStart = position;
         try {
             int marker = readOne(store, true);
@@ -608,6 +621,13 @@ final class VPackRootReader implements AutoCloseable {
         closed = true;
         if (borrowedStore != null) {
             borrowedStore.release();
+        }
+    }
+
+    /** Called after the parser has released its current root. */
+    void releasePageSupplier() {
+        if (pageSupplier != null) {
+            pageSupplier.close();
         }
     }
 
