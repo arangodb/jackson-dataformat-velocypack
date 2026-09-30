@@ -6,10 +6,7 @@ import java.io.InputStream;
 
 import tools.jackson.core.JsonParser;
 import tools.jackson.core.JsonToken;
-import tools.jackson.core.TokenStreamFactory;
-import tools.jackson.core.util.JsonParserDelegate;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -37,25 +34,7 @@ private static final byte[] FLOATS = {
             0x1B, 0x00, 0x00, 0x00, (byte) 0xE0, 0x04, 0x2F, (byte) 0xC3, 0x3F,
             0x05
     };
-private static final byte[] SIMPLE_OBJECT = {
-            0x14, 0x06, 0x41, 'a', 0x31, 0x01
-    };
 
-    void interningDelegationRetainsFactoryConfiguration() throws Exception {
-        VPackFactory internFactory = VPackFactory.builder()
-                .enable(TokenStreamFactory.Feature.INTERN_PROPERTY_NAMES).build();
-        try (JsonParser parser = internFactory.createParser(
-                new ByteArrayInputStream(SIMPLE_OBJECT))) {
-            JsonParserDelegate delegate = new JsonParserDelegate(parser);
-            assertTrue(delegate.willInternPropertyNames());
-        }
-
-        try (JsonParser parser = new VPackFactory().createParser(
-                new ByteArrayInputStream(SIMPLE_OBJECT))) {
-            JsonParserDelegate delegate = new JsonParserDelegate(parser);
-            assertFalse(delegate.willInternPropertyNames());
-        }
-    }
 private static void assertFieldName(JsonParser parser) throws Exception {
         try (parser) {
             assertEquals(JsonToken.START_OBJECT, parser.nextToken());
@@ -117,13 +96,6 @@ private static final class OneByteInputStream extends InputStream {
             }
             target[offset] = input[position++];
             return 1;
-        }
-    }
-
-    void __invoke_interningDelegationRetainsFactoryConfiguration() throws Exception {
-        try {
-            interningDelegationRetainsFactoryConfiguration();
-        } finally {
         }
     }
 

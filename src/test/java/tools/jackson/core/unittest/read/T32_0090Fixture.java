@@ -8,11 +8,8 @@ import java.util.Random;
 
 import tools.jackson.core.JsonParser;
 import tools.jackson.core.JsonToken;
-import tools.jackson.core.TokenStreamFactory;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
 
 import tools.jackson.dataformat.velocypack.*;
 
@@ -20,33 +17,6 @@ class T32_0090Fixture {
 private static final byte[] NULL = { 0x18 };
 private static final byte[] TRUE = { 0x1A };
 private static final byte[] FALSE = { 0x19 };
-
-    void interningWithStreamsRetainsConfiguredNameIdentity() throws Exception {
-        byte[] input = indexedObject(
-                pair("a", NULL), pair("a", NULL));
-        for (boolean enabled : new boolean[] { true, false }) {
-            VPackFactory factory = VPackFactory.builder()
-                    .configure(TokenStreamFactory.Feature.INTERN_PROPERTY_NAMES, enabled)
-                    .build();
-            try (JsonParser parser = factory.createParser(
-                    new ByteArrayInputStream(input))) {
-                assertEquals(enabled, parser.willInternPropertyNames());
-                assertEquals(JsonToken.START_OBJECT, parser.nextToken());
-                assertEquals(JsonToken.PROPERTY_NAME, parser.nextToken());
-                String actual = parser.currentName();
-                assertEquals("a", actual);
-                if (enabled) {
-                    assertSame("a", actual);
-                } else {
-                    assertNotSame("a", actual);
-                }
-                assertEquals(JsonToken.VALUE_NULL, parser.nextToken());
-                assertEquals(JsonToken.PROPERTY_NAME, parser.nextToken());
-                assertEquals(JsonToken.VALUE_NULL, parser.nextToken());
-                assertEquals(JsonToken.END_OBJECT, parser.nextToken());
-            }
-        }
-    }
 
     void longTextRetainsLiteralUtf8AcrossBinarySources() throws Exception {
         for (int length : new int[] { 310, 7700, 49000, 96000 }) {
@@ -370,14 +340,6 @@ private static final class OneByteInputStream extends ByteArrayInputStream {
             return super.read(target, offset, Math.min(length, 1));
         }
     }
-
-    void __invoke_interningWithStreamsRetainsConfiguredNameIdentity() throws Exception {
-        try {
-            interningWithStreamsRetainsConfiguredNameIdentity();
-        } finally {
-        }
-    }
-
 
     void __invoke_longTextRetainsLiteralUtf8AcrossBinarySources() throws Exception {
         try {

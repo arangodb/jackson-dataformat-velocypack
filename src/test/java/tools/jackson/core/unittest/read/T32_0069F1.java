@@ -11,7 +11,6 @@ import java.util.List;
 import tools.jackson.core.JsonParser;
 import tools.jackson.core.JsonToken;
 import tools.jackson.core.ObjectReadContext;
-import tools.jackson.core.TokenStreamFactory;
 import tools.jackson.core.sym.PropertyNameMatcher;
 import tools.jackson.core.util.Named;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -19,9 +18,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import tools.jackson.dataformat.velocypack.*;
 
 class T32_0069F1 {
-private static final byte[] SIMPLE_OBJECT = {
-            0x14, 0x06, 0x41, 'a', 0x31, 0x01
-    };
 private static final String LONG_NAME =
             "01234567890123456789012345678901234567890123456789012345678901234";
 private static final byte[] LONG_NAME_OBJECT = longNameObject();
@@ -45,12 +41,6 @@ private static final byte[] LONG_NAME_OBJECT = longNameObject();
                 new OneByteInputStream(LONG_NAME_OBJECT)), matcher);
         DataInput input = new DataInputStream(new ByteArrayInputStream(LONG_NAME_OBJECT));
         assertLongNameWithMatcher(factory.createParser(ObjectReadContext.empty(), input), matcher);
-    }
-private static VPackFactory factoryWith(boolean intern, boolean canonicalize) {
-        return VPackFactory.builder()
-                .configure(TokenStreamFactory.Feature.INTERN_PROPERTY_NAMES, intern)
-                .configure(TokenStreamFactory.Feature.CANONICALIZE_PROPERTY_NAMES, canonicalize)
-                .build();
     }
 private static void assertLongName(JsonParser parser) throws Exception {
         try (parser) {

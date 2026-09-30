@@ -7,7 +7,9 @@ import org.junit.jupiter.api.Test;
 
 import tools.jackson.core.JsonParser;
 import tools.jackson.core.JsonToken;
+import tools.jackson.core.ObjectReadContext;
 import tools.jackson.core.StreamReadFeature;
+import tools.jackson.core.TokenStreamFactory;
 import tools.jackson.core.exc.StreamReadException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -46,6 +48,31 @@ class VPackAttributeNameParserTest {
             assertNull(parser.currentAttributeId());
             assertEquals(JsonToken.END_OBJECT, parser.nextToken());
             assertNull(parser.currentAttributeId());
+        }
+    }
+
+    @Test
+    void repeatedAndCodecNamesDecodeWithoutCanonicalization() throws Exception {
+        byte[] body = concat(new byte[] { 0x44, 's', 'a', 'm', 'e', 0x1A },
+                key(0x30), new byte[] { 0x19 });
+        byte[] input = VPackObjectParserTest.object(1, false, body,
+                new long[] { 3, 9 });
+        VPackFactory factory = VPackFactory.builder()
+                .enable(TokenStreamFactory.Feature.INTERN_PROPERTY_NAMES)
+                .attributeNameCodec(decoder(id -> id.signum() == 0 ? "same" : null))
+                .build();
+
+        try (VPackParser parser = (VPackParser) factory.createParser(
+                ObjectReadContext.empty(), input)) {
+            assertEquals(false, parser.willInternPropertyNames());
+            assertEquals(JsonToken.START_OBJECT, parser.nextToken());
+            assertEquals(JsonToken.PROPERTY_NAME, parser.nextToken());
+            assertEquals("same", parser.currentName());
+            assertEquals(JsonToken.VALUE_TRUE, parser.nextToken());
+            assertEquals(JsonToken.PROPERTY_NAME, parser.nextToken());
+            assertEquals("same", parser.currentName());
+            assertEquals(JsonToken.VALUE_FALSE, parser.nextToken());
+            assertEquals(JsonToken.END_OBJECT, parser.nextToken());
         }
     }
 

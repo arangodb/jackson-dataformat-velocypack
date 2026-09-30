@@ -15,7 +15,6 @@ import tools.jackson.core.base.BinaryTSFactory;
 import tools.jackson.core.io.ContentReference;
 import tools.jackson.core.io.IOContext;
 import tools.jackson.core.sym.BinaryNameMatcher;
-import tools.jackson.core.sym.ByteQuadsCanonicalizer;
 import tools.jackson.core.sym.PropertyNameMatcher;
 import tools.jackson.core.util.Named;
 
@@ -44,10 +43,6 @@ public class VPackFactory extends BinaryTSFactory implements java.io.Serializabl
     private final VPackReadConstraints vpackReadConstraints;
     private final VPackWriteConstraints vpackWriteConstraints;
     private final VPackAttributeNameCodec attributeNameCodec;
-
-    /** Per-factory parent for the parser child canonicalizers. */
-    protected final transient ByteQuadsCanonicalizer _byteSymbolCanonicalizer =
-            ByteQuadsCanonicalizer.createRoot();
 
     public VPackFactory() {
         super(StreamReadConstraints.defaults(), StreamWriteConstraints.defaults(),
@@ -154,19 +149,12 @@ public class VPackFactory extends BinaryTSFactory implements java.io.Serializabl
         ioCtxt = _effectiveReadContext(readCtxt, ioCtxt);
         int streamFeatures = readCtxt.getStreamReadFeatures(_streamReadFeatures);
         int formatFeatures = readCtxt.getFormatReadFeatures(_formatReadFeatures);
-        ByteQuadsCanonicalizer symbols =
-                _byteSymbolCanonicalizer.makeChildOrPlaceholder(_factoryFeatures);
-        try {
-            return new VPackParser(readCtxt, ioCtxt,
-                    streamFeatures, formatFeatures,
-                    vpackReadConstraints, attributeNameCodec, symbols,
-                    VPackRootReader.forInputStream(input, vpackReadConstraints, 0L,
-                            ioCtxt.streamReadConstraints().getMaxDocumentLength(),
-                            VPackRecyclerPageSupplier.forRead(ioCtxt)));
-        } catch (RuntimeException e) {
-            symbols.release();
-            throw e;
-        }
+        return new VPackParser(readCtxt, ioCtxt,
+                streamFeatures, formatFeatures,
+                vpackReadConstraints, attributeNameCodec,
+                VPackRootReader.forInputStream(input, vpackReadConstraints, 0L,
+                        ioCtxt.streamReadConstraints().getMaxDocumentLength(),
+                        VPackRecyclerPageSupplier.forRead(ioCtxt)));
     }
 
     @Override
@@ -176,18 +164,11 @@ public class VPackFactory extends BinaryTSFactory implements java.io.Serializabl
         ioCtxt.streamReadConstraints().validateDocumentLength(len);
         int streamFeatures = readCtxt.getStreamReadFeatures(_streamReadFeatures);
         int formatFeatures = readCtxt.getFormatReadFeatures(_formatReadFeatures);
-        ByteQuadsCanonicalizer symbols =
-                _byteSymbolCanonicalizer.makeChildOrPlaceholder(_factoryFeatures);
-        try {
-            return new VPackParser(readCtxt, ioCtxt,
-                    streamFeatures, formatFeatures,
-                    vpackReadConstraints, attributeNameCodec, symbols,
-                    VPackRootReader.forByteArray(data, offset, len, vpackReadConstraints,
-                            0L, ioCtxt.streamReadConstraints().getMaxDocumentLength()));
-        } catch (RuntimeException e) {
-            symbols.release();
-            throw e;
-        }
+        return new VPackParser(readCtxt, ioCtxt,
+                streamFeatures, formatFeatures,
+                vpackReadConstraints, attributeNameCodec,
+                VPackRootReader.forByteArray(data, offset, len, vpackReadConstraints,
+                        0L, ioCtxt.streamReadConstraints().getMaxDocumentLength()));
     }
 
     @Override
@@ -196,19 +177,12 @@ public class VPackFactory extends BinaryTSFactory implements java.io.Serializabl
         ioCtxt = _effectiveReadContext(readCtxt, ioCtxt);
         int streamFeatures = readCtxt.getStreamReadFeatures(_streamReadFeatures);
         int formatFeatures = readCtxt.getFormatReadFeatures(_formatReadFeatures);
-        ByteQuadsCanonicalizer symbols =
-                _byteSymbolCanonicalizer.makeChildOrPlaceholder(_factoryFeatures);
-        try {
-            return new VPackParser(readCtxt, ioCtxt,
-                    streamFeatures, formatFeatures,
-                    vpackReadConstraints, attributeNameCodec, symbols,
-                    VPackRootReader.forDataInput(input, vpackReadConstraints, 0L,
-                            ioCtxt.streamReadConstraints().getMaxDocumentLength(),
-                            VPackRecyclerPageSupplier.forRead(ioCtxt)));
-        } catch (RuntimeException e) {
-            symbols.release();
-            throw e;
-        }
+        return new VPackParser(readCtxt, ioCtxt,
+                streamFeatures, formatFeatures,
+                vpackReadConstraints, attributeNameCodec,
+                VPackRootReader.forDataInput(input, vpackReadConstraints, 0L,
+                        ioCtxt.streamReadConstraints().getMaxDocumentLength(),
+                        VPackRecyclerPageSupplier.forRead(ioCtxt)));
     }
 
     /**

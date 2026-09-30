@@ -10,7 +10,6 @@ import org.junit.jupiter.api.Test;
 
 import tools.jackson.core.JsonParser;
 import tools.jackson.core.ObjectReadContext;
-import tools.jackson.core.TokenStreamFactory;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
@@ -77,26 +76,4 @@ public class VPackFactoryReadTest {
                 new StringWriter()));
     }
 
-    @Test
-    void canonicalizerLifecycleAndInterningReportTheActualFactoryConfiguration() throws Exception {
-        VPackFactory canonical = VPackFactory.builder()
-                .enable(TokenStreamFactory.Feature.INTERN_PROPERTY_NAMES).build();
-        byte[] body = VPackObjectParserTest.body(
-                VPackObjectParserTest.pair("a", new byte[] { 0x18 }),
-                VPackObjectParserTest.pair("a", new byte[] { 0x18 }));
-        try (VPackParser parser = (VPackParser) canonical.createParser(
-                VPackObjectParserTest.object(1, false, body, new long[] { 3, 6 }))) {
-            assertEquals(true, parser.willInternPropertyNames());
-            parser.nextToken();
-            parser.nextToken();
-            String first = parser.currentName();
-            parser.nextToken();
-            parser.nextToken();
-            assertSame(first, parser.currentName());
-        }
-        try (VPackParser parser = (VPackParser) new VPackFactory().createParser(
-                VPackObjectParserTest.object(1, false, body, new long[] { 3, 6 }))) {
-            assertEquals(false, parser.willInternPropertyNames());
-        }
-    }
 }

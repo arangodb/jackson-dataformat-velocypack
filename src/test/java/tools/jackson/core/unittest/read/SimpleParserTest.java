@@ -49,14 +49,6 @@ class SimpleParserTest {
         }
 /**
  * VPack adaptation of {@link tools.jackson.core.unittest.read.SimpleParserTest}.
- * Original test methods: {@link tools.jackson.core.unittest.read.SimpleParserTest#interningWithStreams()}.
- */
-    @Test
-    void interningWithStreamsRetainsConfiguredNameIdentity() throws Exception {
-            new T32_0090Fixture().__invoke_interningWithStreamsRetainsConfiguredNameIdentity();
-        }
-/**
- * VPack adaptation of {@link tools.jackson.core.unittest.read.SimpleParserTest}.
  * Original test methods: {@link tools.jackson.core.unittest.read.SimpleParserTest#longText()}.
  */
     @Test

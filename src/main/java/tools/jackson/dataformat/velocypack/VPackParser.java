@@ -14,7 +14,6 @@ import tools.jackson.core.*;
 import tools.jackson.core.base.ParserBase;
 import tools.jackson.core.exc.InputCoercionException;
 import tools.jackson.core.io.IOContext;
-import tools.jackson.core.sym.ByteQuadsCanonicalizer;
 import tools.jackson.core.util.JacksonFeatureSet;
 import tools.jackson.core.util.SimpleStreamReadContext;
 
@@ -28,7 +27,6 @@ public class VPackParser extends ParserBase {
     private final VPackRootReader _roots;
     private final VPackReadConstraints _vpackConstraints;
     private final VPackAttributeNameCodec _attributeNameCodec;
-    private final ByteQuadsCanonicalizer _symbols;
     private final int _formatReadFeatures;
     private final byte[] _compactScratch = new byte[VPackVarInts.MAX_GROUPS];
     private SimpleStreamReadContext _streamReadContext;
@@ -44,34 +42,19 @@ public class VPackParser extends ParserBase {
     private long _currentLocation = -1L;
     private long _nextLocation;
     private boolean _inputClosed;
-    private boolean _symbolsReleased;
     private boolean _releasedBuffered;
     private final ArrayDeque<Frame> _arrayFrames = new ArrayDeque<>();
     private VPackRootBudget _rootBudget;
 
-    /** Compatibility constructor for direct package/API users of the parser. */
-    @SuppressWarnings({"unused", "ClassEscapesItsScope"}) // Factory and compatibility constructor use the internal root source.
+    @SuppressWarnings({"unused", "ClassEscapesItsScope"}) // Factory constructs the parser with its internal root source.
     public VPackParser(ObjectReadContext readCtxt, IOContext ioCtxt,
             int streamReadFeatures, int formatReadFeatures,
             VPackReadConstraints vpackConstraints,
             VPackAttributeNameCodec attributeNameCodec, VPackRootReader roots) {
-        this(readCtxt, ioCtxt, streamReadFeatures, formatReadFeatures,
-                vpackConstraints, attributeNameCodec,
-                ByteQuadsCanonicalizer.createRoot().makeChildOrPlaceholder(
-                        TokenStreamFactory.Feature.collectDefaults()), roots);
-    }
-
-    @SuppressWarnings("ClassEscapesItsScope") // Factory constructs the parser with its internal root source.
-    public VPackParser(ObjectReadContext readCtxt, IOContext ioCtxt,
-            int streamReadFeatures, int formatReadFeatures,
-            VPackReadConstraints vpackConstraints,
-            VPackAttributeNameCodec attributeNameCodec,
-            ByteQuadsCanonicalizer symbols, VPackRootReader roots) {
         super(readCtxt, ioCtxt, streamReadFeatures);
         _roots = roots;
         _vpackConstraints = Objects.requireNonNull(vpackConstraints, "vpackConstraints");
         _attributeNameCodec = attributeNameCodec;
-        _symbols = Objects.requireNonNull(symbols, "symbols");
         _formatReadFeatures = formatReadFeatures;
         _streamReadContext = SimpleStreamReadContext.createRootContext(
                 StreamReadFeature.STRICT_DUPLICATE_DETECTION.enabledIn(streamReadFeatures)
@@ -93,11 +76,6 @@ public class VPackParser extends ParserBase {
 
     @Override
     public Object streamReadInputSource() { return _roots.source(); }
-
-    @Override
-    public boolean willInternPropertyNames() {
-        return _symbols.willInternStrings();
-    }
 
     @Override
     public TokenStreamLocation currentTokenLocation() {
@@ -900,7 +878,7 @@ public class VPackParser extends ParserBase {
             byte[] utf8 = _encodeResolvedName(text);
             _rootBudget.chargeName(utf8.length);
             _currentAttributeId = id;
-            return new NameValue(_canonicalizeName(text, utf8), utf8, id);
+            return new NameValue(text, utf8, id);
         }
         long payloadOffset;
         long byteLength;
@@ -924,37 +902,7 @@ public class VPackParser extends ParserBase {
         _root.range().copyTo(start - _root.startOffset() + payloadOffset, utf8, 0, length);
         String decoded = new String(utf8, StandardCharsets.UTF_8);
         _streamReadConstraints.validateNameLength(decoded.length());
-        return new NameValue(_canonicalizeName(decoded, utf8), utf8);
-    }
-
-    /** Feed the UTF-8 bytes to the bounded core canonicalizer. */
-    private String _canonicalizeName(String text, byte[] utf8) {
-        if (!_symbols.isCanonicalizing()) {
-            return text;
-        }
-        if (utf8.length == 0) {
-            return _symbols.willInternStrings() ? text.intern() : text;
-        }
-        int quadLength = (utf8.length + 3) >> 2;
-        int[] quads = new int[quadLength];
-        int input = 0;
-        for (int i = 0; i < quadLength; ++i) {
-            int remaining = utf8.length - input;
-            if (remaining < 4) {
-                int q = (utf8[input++] & 0xFF) | 0xFFFFFF00;
-                while (--remaining > 0) {
-                    q = (q << 8) | (utf8[input++] & 0xFF);
-                }
-                quads[i] = q;
-            } else {
-                quads[i] = ((utf8[input++] & 0xFF) << 24)
-                        | ((utf8[input++] & 0xFF) << 16)
-                        | ((utf8[input++] & 0xFF) << 8)
-                        | (utf8[input++] & 0xFF);
-            }
-        }
-        String existing = _symbols.findName(quads, quadLength);
-        return existing == null ? _symbols.addName(text, quads, quadLength) : existing;
+        return new NameValue(decoded, utf8);
     }
 
     private BigInteger _readUnsignedKeyId(long start, int marker) {
@@ -1437,10 +1385,6 @@ public class VPackParser extends ParserBase {
             _byteArrayBuilder = null;
         }
         super._releaseBuffers();
-        if (!_symbolsReleased) {
-            _symbolsReleased = true;
-            _symbols.release();
-        }
     }
     @Override protected void _handleEOF() throws JacksonException { }
 
