@@ -152,6 +152,45 @@ class VPackAttributeNameParserTest {
     }
 
     @Test
+    void decodedNameMetadataAndScalarCoordinatesSurviveNestedAndSequenceTransitions()
+            throws Exception {
+        VPackAttributeNameCodec codec = decoder(id -> id.signum() == 0 ? "a" : null);
+        byte[] nested = { 0x02, 0x04, 0x32, 0x33 };
+        byte[] body = concat(key(0x30), new byte[] { 0x31 },
+                new byte[] { 0x41, 'b' }, nested);
+        byte[] object = VPackObjectParserTest.object(1, true, body, new long[] { 3, 5 });
+        byte[] input = concat(object, new byte[] { 0x42, 'o', 'k', 0x37 });
+
+        try (VPackParser parser = (VPackParser) VPackFactory.builder()
+                .attributeNameCodec(codec).build().createParser(input)) {
+            assertEquals(JsonToken.START_OBJECT, parser.nextToken());
+            assertEquals(JsonToken.PROPERTY_NAME, parser.nextToken());
+            assertEquals("a", parser.currentName());
+            assertEquals(0L, parser.currentAttributeIdBits());
+            assertEquals(VPackType.SMALL_INTEGER, parser.currentVPackType());
+            assertEquals(JsonToken.VALUE_NUMBER_INT, parser.nextToken());
+            assertEquals(1, parser.getIntValue());
+
+            assertEquals(JsonToken.PROPERTY_NAME, parser.nextToken());
+            assertEquals("b", parser.currentName());
+            assertEquals(VPackType.STRING, parser.currentVPackType());
+            assertEquals(JsonToken.START_ARRAY, parser.nextToken());
+            assertEquals(JsonToken.VALUE_NUMBER_INT, parser.nextToken());
+            assertEquals(2, parser.getIntValue());
+            assertEquals(JsonToken.VALUE_NUMBER_INT, parser.nextToken());
+            assertEquals(3, parser.getIntValue());
+            assertEquals(JsonToken.END_ARRAY, parser.nextToken());
+            assertEquals(JsonToken.END_OBJECT, parser.nextToken());
+
+            assertEquals(JsonToken.VALUE_STRING, parser.nextToken());
+            assertEquals("ok", parser.getText());
+            assertEquals(JsonToken.VALUE_NUMBER_INT, parser.nextToken());
+            assertEquals(7, parser.getIntValue());
+            assertNull(parser.nextToken());
+        }
+    }
+
+    @Test
     void repeatedAndCodecNamesDecodeWithoutCanonicalization() throws Exception {
         byte[] body = concat(new byte[] { 0x44, 's', 'a', 'm', 'e', 0x1A },
                 key(0x30), new byte[] { 0x19 });

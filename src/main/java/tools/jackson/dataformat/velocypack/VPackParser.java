@@ -225,8 +225,7 @@ public class VPackParser extends ParserBase {
                 throw VPackErrors.malformed("container parser", root.startOffset(),
                         "unhandled container marker");
             }
-            return _decodeScalar(new ValueView(0L, root.startOffset(), root.endOffset(),
-                    root.marker(), root.classification()));
+            return _decodeScalar(0L, root.startOffset(), root.marker(), root.classification());
         } catch (RuntimeException e) {
             _currToken = null;
             _roots.close();
@@ -235,9 +234,8 @@ public class VPackParser extends ParserBase {
         }
     }
 
-    private JsonToken _decodeScalar(ValueView value) {
-        int marker = value.marker();
-        VPackMarker kind = value.classification();
+    private JsonToken _decodeScalar(long relativeStart, long logicalStart, int marker,
+            VPackMarker kind) {
         switch (kind) {
         case NULL -> {
             _currentVPackType = VPackType.NULL;
@@ -264,17 +262,17 @@ public class VPackParser extends ParserBase {
             return _updateToken(JsonToken.VALUE_EMBEDDED_OBJECT);
         }
         case SHORT_STRING, LONG_STRING -> {
-            _decodeString(value);
+            _decodeString(relativeStart, logicalStart, marker, kind);
             _currentVPackType = VPackType.STRING;
             return _updateToken(JsonToken.VALUE_STRING);
         }
         case BINARY -> {
-            _decodeBinary(value);
+            _decodeBinary(relativeStart, logicalStart, marker);
             _currentVPackType = VPackType.BINARY;
             return _updateToken(JsonToken.VALUE_EMBEDDED_OBJECT);
         }
         case DOUBLE -> {
-            _doubleBits = _readFixedPayload(value, 8);
+            _doubleBits = _readFixedPayload(relativeStart, 8);
             _numberDouble = Double.longBitsToDouble(_doubleBits);
             _canonicalNumber = _numberDouble;
             _numberIsNaN = !Double.isFinite(_numberDouble);
@@ -283,7 +281,7 @@ public class VPackParser extends ParserBase {
             return _updateToken(JsonToken.VALUE_NUMBER_FLOAT);
         }
         case UTC_DATE -> {
-            _numberLong = VPackBounds.readSigned(_readFixedPayload(value, 8), 8);
+            _numberLong = VPackBounds.readSigned(_readFixedPayload(relativeStart, 8), 8);
             _canonicalNumber = _numberLong;
             _numTypesValid = NR_LONG;
             _currentVPackType = VPackType.DATE;
@@ -305,7 +303,7 @@ public class VPackParser extends ParserBase {
         }
         case SIGNED_INTEGER -> {
             int width = VPackMarker.width(marker);
-            long numericValue = VPackBounds.readSigned(_readFixedPayload(value, width), width);
+            long numericValue = VPackBounds.readSigned(_readFixedPayload(relativeStart, width), width);
             if (numericValue >= Integer.MIN_VALUE && numericValue <= Integer.MAX_VALUE) {
                 _numberInt = (int) numericValue;
                 _canonicalNumber = _numberInt;
@@ -320,7 +318,7 @@ public class VPackParser extends ParserBase {
         }
         case UNSIGNED_INTEGER -> {
             int width = VPackMarker.width(marker);
-            long bits = _readFixedPayload(value, width);
+            long bits = _readFixedPayload(relativeStart, width);
             if (bits >= 0L && bits <= Integer.MAX_VALUE) {
                 _numberInt = (int) bits;
                 _canonicalNumber = _numberInt;
@@ -339,21 +337,22 @@ public class VPackParser extends ParserBase {
         }
         case POSITIVE_BCD, NEGATIVE_BCD -> {
             int width = VPackMarker.width(marker);
-            long mantissaLength = _readLength(value, width, "BCD mantissa length");
+            long mantissaLength = _readLength(relativeStart, logicalStart, width,
+                    "BCD mantissa length");
             long exponentOffset = VPackBounds.checkedAdd(1L + width, 0L,
                     "BCD exponent offset");
             int exponent = (int) VPackBounds.readSigned(_root.range().readLE(
-                    value.relativeStart() + exponentOffset, 4), 4);
+                    relativeStart + exponentOffset, 4), 4);
             long mantissaOffset = VPackBounds.checkedAdd(exponentOffset, 4L,
                     "BCD mantissa offset");
             VPackNumbers.validateBcdInput(mantissaLength, exponent,
-                    VPackBounds.checkedAdd(value.logicalStart(), mantissaOffset,
+                    VPackBounds.checkedAdd(logicalStart, mantissaOffset,
                             "BCD value location"), _streamReadConstraints);
             int length = VPackBounds.checkedInt(mantissaLength, "BCD mantissa length");
             byte[] mantissa = new byte[length];
-            _root.range().copyTo(value.relativeStart() + mantissaOffset, mantissa, 0, length);
+            _root.range().copyTo(relativeStart + mantissaOffset, mantissa, 0, length);
             Number numericValue = VPackNumbers.decodeBcd(mantissa, kind == VPackMarker.NEGATIVE_BCD,
-                    exponent, VPackBounds.checkedAdd(value.logicalStart(), mantissaOffset,
+                    exponent, VPackBounds.checkedAdd(logicalStart, mantissaOffset,
                             "BCD value location"), _streamReadConstraints);
             _canonicalNumber = numericValue;
             if (numericValue instanceof BigInteger integer) {
@@ -367,7 +366,7 @@ public class VPackParser extends ParserBase {
             return _updateToken(exponent == 0
                     ? JsonToken.VALUE_NUMBER_INT : JsonToken.VALUE_NUMBER_FLOAT);
         }
-        default -> throw VPackErrors.malformed("scalar parser", value.logicalStart(),
+        default -> throw VPackErrors.malformed("scalar parser", logicalStart,
                 "marker 0x" + Integer.toHexString(marker)
                         + " is not a supported scalar marker");
         }
@@ -556,8 +555,7 @@ public class VPackParser extends ParserBase {
         }
         _currentLocation = start;
         _nextLocation = end;
-        JsonToken token = _decodeScalar(new ValueView(start - _root.startOffset(), start, end,
-                marker, kind));
+        JsonToken token = _decodeScalar(start - _root.startOffset(), start, marker, kind);
         frame.completed++;
         return token;
     }
@@ -603,18 +601,15 @@ public class VPackParser extends ParserBase {
             }
             long end = _valueEnd(start, frame.bodyEnd, kind, marker);
             _rootBudget.chargeEntry();
-            NameValue name = _decodeName(start, end, marker, kind);
-            if (frame.indexed) {
-                frame.recordName(start - frame.start, name.payloadRelative(),
-                        name.byteLength(), name.attributeId() ? name.attributeUtf8() : null);
-            }
+            String name = _decodeName(frame, start, end, marker, kind);
             frame.cursor = end;
             frame.expectingName = false;
             frame.context.valueRead();
-            frame.context.setCurrentName(name.text());
+            frame.context.setCurrentName(name);
             _currentLocation = start;
             _nextLocation = end;
-            _currentVPackType = !name.attributeId()
+            _currentVPackType = kind != VPackMarker.UNSIGNED_INTEGER
+                    && kind != VPackMarker.SMALL_POSITIVE
                     ? VPackType.STRING : (kind == VPackMarker.SMALL_POSITIVE
                             ? VPackType.SMALL_INTEGER : VPackType.UNSIGNED_INTEGER);
             return _updateToken(JsonToken.PROPERTY_NAME);
@@ -642,8 +637,7 @@ public class VPackParser extends ParserBase {
         }
         _currentLocation = start;
         _nextLocation = end;
-        JsonToken token = _decodeScalar(new ValueView(start - _root.startOffset(), start, end,
-                marker, kind));
+        JsonToken token = _decodeScalar(start - _root.startOffset(), start, marker, kind);
         frame.completed++;
         frame.expectingName = true;
         return token;
@@ -928,7 +922,8 @@ public class VPackParser extends ParserBase {
         return Arrays.compareUnsigned(leftId, rightId);
     }
 
-    private NameValue _decodeName(long start, long end, int marker, VPackMarker kind) {
+    private String _decodeName(ObjectFrame frame, long start, long end, int marker,
+            VPackMarker kind) {
         if (kind == VPackMarker.UNSIGNED_INTEGER || kind == VPackMarker.SMALL_POSITIVE) {
             long id = kind == VPackMarker.SMALL_POSITIVE
                     ? marker - 0x30L : _readUnsignedKeyIdBits(start, marker);
@@ -951,7 +946,10 @@ public class VPackParser extends ParserBase {
             _rootBudget.chargeName(utf8.length);
             _currentAttributeId = id;
             _hasAttributeId = true;
-            return new NameValue(text, -1L, utf8.length, utf8, true);
+            if (frame.indexed) {
+                frame.recordName(start - frame.start, -1L, utf8.length, utf8);
+            }
+            return text;
         }
         long payloadOffset = kind == VPackMarker.SHORT_STRING ? 1L : 9L;
         long byteLength = end - start - payloadOffset;
@@ -994,7 +992,10 @@ public class VPackParser extends ParserBase {
         if (addToSymbols) {
             decoded = _addName(decoded, _quadBuffer, canonicalLength);
         }
-        return new NameValue(decoded, relative, length, null, false);
+        if (frame.indexed) {
+            frame.recordName(start - frame.start, relative, length, null);
+        }
+        return decoded;
     }
 
     private void _packQuads(byte[] bytes, int offset, int length, int[] quads) {
@@ -1055,17 +1056,11 @@ public class VPackParser extends ParserBase {
         return _root.range().byteAt(logicalOffset - _root.startOffset()) & 0xFF;
     }
 
-    private record ValueView(long relativeStart, long logicalStart, long end,
-            int marker, VPackMarker classification) { }
-
     private record CompactLayout(long end, long bodyStart, long bodyEnd, long count) { }
 
     /** Fully checked framing retained from child-end calculation through entry. */
     private record ContainerLayout(VPackMarker classification,
             VPackLayout.FixedLayout fixed, CompactLayout compact, long end) { }
-
-    private record NameValue(String text, long payloadRelative, int byteLength,
-            byte[] attributeUtf8, boolean attributeId) { }
 
     private abstract static class Frame {
         final Frame parent;
@@ -1170,39 +1165,40 @@ public class VPackParser extends ParserBase {
         }
     }
 
-    private long _readFixedPayload(ValueView value, int length) {
-        return _root.range().readLE(value.relativeStart() + 1L, length);
+    private long _readFixedPayload(long relativeStart, int length) {
+        return _root.range().readLE(relativeStart + 1L, length);
     }
 
-    private void _decodeString(ValueView value) {
+    private void _decodeString(long relativeStart, long logicalStart, int marker,
+            VPackMarker kind) {
         long payloadOffset;
         long byteLength;
-        if (value.classification() == VPackMarker.SHORT_STRING) {
+        if (kind == VPackMarker.SHORT_STRING) {
             payloadOffset = 1L;
-            byteLength = value.marker() - 0x40L;
+            byteLength = marker - 0x40L;
         } else {
             payloadOffset = 9L;
-            byteLength = _readLength(value, 8, "long string length");
+            byteLength = _readLength(relativeStart, logicalStart, 8, "long string length");
         }
         int length = VPackBounds.checkedInt(byteLength, "string byte length");
-        _stringValue = _root.range().decodeUtf8(value.relativeStart() + payloadOffset, length);
+        _stringValue = _root.range().decodeUtf8(relativeStart + payloadOffset, length);
         _streamReadConstraints.validateStringLengthLong(_stringValue.length());
     }
 
-    private void _decodeBinary(ValueView value) {
-        int width = VPackMarker.width(value.marker());
+    private void _decodeBinary(long relativeStart, long logicalStart, int marker) {
+        int width = VPackMarker.width(marker);
         long payloadOffset = 1L + width;
-        long length = _readLength(value, width, "binary length");
-        _binaryPayloadOffset = value.relativeStart() + payloadOffset;
+        long length = _readLength(relativeStart, logicalStart, width, "binary length");
+        _binaryPayloadOffset = relativeStart + payloadOffset;
         _binaryLength = VPackBounds.checkedInt(length, "binary payload length");
-        VPackBounds.checkedRange(value.relativeStart() + payloadOffset, length,
+        VPackBounds.checkedRange(relativeStart + payloadOffset, length,
                 _root.range().length(), "binary payload");
     }
 
-    private long _readLength(ValueView value, int width, String context) {
+    private long _readLength(long relativeStart, long logicalStart, int width, String context) {
         return VPackBounds.readScalarLength(_root.range().readLE(
-                value.relativeStart() + 1L, width), width,
-                VPackBounds.checkedAdd(value.logicalStart(), 1L, context));
+                relativeStart + 1L, width), width,
+                VPackBounds.checkedAdd(logicalStart, 1L, context));
     }
 
     public VPackType currentVPackType() { return _currToken == null ? null : _currentVPackType; }
