@@ -398,20 +398,22 @@ public class VPackParser extends ParserBase {
     }
 
     private JsonToken _enterArray(Frame parent, long start, long enclosingEnd) {
-        VPackMarker markerKind = VPackMarker.classify(_byteAt(start));
-        VPackLayout.FixedLayout layout = null;
-        CompactLayout compact = null;
-        if (markerKind == VPackMarker.COMPACT_ARRAY) {
-            compact = _analyzeCompact(start, enclosingEnd);
-        } else if (markerKind != VPackMarker.EMPTY_ARRAY) {
-            long relative = start - _root.startOffset();
-            layout = VPackLayout.analyzeFixed(_root.range(), relative, _root.range().length(),
-                    start, enclosingEnd);
-            if (layout.classification() != VPackMarker.EQUAL_ARRAY
-                    && layout.classification() != VPackMarker.INDEXED_ARRAY) {
-                throw VPackErrors.malformed("array parser", start,
-                        "marker is not a regular array");
-            }
+        return _enterArray(parent, start, enclosingEnd, null);
+    }
+
+    private JsonToken _enterArray(Frame parent, long start, long enclosingEnd,
+            ContainerLayout analyzed) {
+        ContainerLayout container = analyzed == null
+                ? _analyzeContainer(start, enclosingEnd) : analyzed;
+        VPackLayout.FixedLayout layout = container.fixed();
+        CompactLayout compact = container.compact();
+        VPackMarker markerKind = container.classification();
+        if (markerKind != VPackMarker.EMPTY_ARRAY
+                && markerKind != VPackMarker.COMPACT_ARRAY
+                && (layout == null || (layout.classification() != VPackMarker.EQUAL_ARRAY
+                        && layout.classification() != VPackMarker.INDEXED_ARRAY))) {
+            throw VPackErrors.malformed("array parser", start,
+                    "marker is not a regular array");
         }
         int depth = _arrayFrames.size() + 1;
         _streamReadConstraints.validateNestingDepth(depth);
@@ -449,20 +451,22 @@ public class VPackParser extends ParserBase {
     }
 
     private JsonToken _enterObject(Frame parent, long start, long enclosingEnd) {
-        VPackMarker markerKind = VPackMarker.classify(_byteAt(start));
-        VPackLayout.FixedLayout layout = null;
-        CompactLayout compact = null;
-        if (markerKind == VPackMarker.COMPACT_OBJECT) {
-            compact = _analyzeCompact(start, enclosingEnd);
-        } else if (markerKind != VPackMarker.EMPTY_OBJECT) {
-            long relative = start - _root.startOffset();
-            layout = VPackLayout.analyzeFixed(_root.range(), relative, _root.range().length(),
-                    start, enclosingEnd);
-            if (layout.classification() != VPackMarker.SORTED_OBJECT
-                    && layout.classification() != VPackMarker.UNSORTED_OBJECT) {
-                throw VPackErrors.malformed("object parser", start,
-                        "marker is not a regular object");
-            }
+        return _enterObject(parent, start, enclosingEnd, null);
+    }
+
+    private JsonToken _enterObject(Frame parent, long start, long enclosingEnd,
+            ContainerLayout analyzed) {
+        ContainerLayout container = analyzed == null
+                ? _analyzeContainer(start, enclosingEnd) : analyzed;
+        VPackLayout.FixedLayout layout = container.fixed();
+        CompactLayout compact = container.compact();
+        VPackMarker markerKind = container.classification();
+        if (markerKind != VPackMarker.EMPTY_OBJECT
+                && markerKind != VPackMarker.COMPACT_OBJECT
+                && (layout == null || (layout.classification() != VPackMarker.SORTED_OBJECT
+                        && layout.classification() != VPackMarker.UNSORTED_OBJECT))) {
+            throw VPackErrors.malformed("object parser", start,
+                    "marker is not a regular object");
         }
         int depth = _arrayFrames.size() + 1;
         _streamReadConstraints.validateNestingDepth(depth);
@@ -521,7 +525,10 @@ public class VPackParser extends ParserBase {
         long start = frame.cursor;
         int marker = _byteAt(start);
         VPackMarker kind = VPackMarker.requireSupported(marker, "array child marker", start);
-        long end = _valueEnd(start, frame.bodyEnd, kind, marker);
+        ContainerLayout container = VPackMarker.isContainer(marker)
+                ? _analyzeContainer(start, frame.bodyEnd) : null;
+        long end = container == null ? _valueEnd(start, frame.bodyEnd, kind, marker)
+                : container.end();
         long size = end - start;
         if (size <= 0L) {
             throw VPackErrors.malformed("array child", start, "child has no encoded bytes");
@@ -537,11 +544,11 @@ public class VPackParser extends ParserBase {
         frame.context.valueRead();
         if (kind == VPackMarker.EMPTY_ARRAY || kind == VPackMarker.EQUAL_ARRAY
                 || kind == VPackMarker.INDEXED_ARRAY || kind == VPackMarker.COMPACT_ARRAY) {
-            return _enterArray(frame, start, frame.bodyEnd);
+            return _enterArray(frame, start, frame.bodyEnd, container);
         }
         if (kind == VPackMarker.EMPTY_OBJECT || kind == VPackMarker.SORTED_OBJECT
                 || kind == VPackMarker.UNSORTED_OBJECT || kind == VPackMarker.COMPACT_OBJECT) {
-            return _enterObject(frame, start, frame.bodyEnd);
+            return _enterObject(frame, start, frame.bodyEnd, container);
         }
         if (VPackMarker.isContainer(marker)) {
             throw VPackErrors.malformed("array child", start,
@@ -620,15 +627,18 @@ public class VPackParser extends ParserBase {
         long start = frame.cursor;
         int marker = _byteAt(start);
         VPackMarker kind = VPackMarker.requireSupported(marker, "object value marker", start);
-        long end = _valueEnd(start, frame.bodyEnd, kind, marker);
+        ContainerLayout container = VPackMarker.isContainer(marker)
+                ? _analyzeContainer(start, frame.bodyEnd) : null;
+        long end = container == null ? _valueEnd(start, frame.bodyEnd, kind, marker)
+                : container.end();
         frame.cursor = end;
         if (kind == VPackMarker.EMPTY_ARRAY || kind == VPackMarker.EQUAL_ARRAY
                 || kind == VPackMarker.INDEXED_ARRAY || kind == VPackMarker.COMPACT_ARRAY) {
-            return _enterArray(frame, start, frame.bodyEnd);
+            return _enterArray(frame, start, frame.bodyEnd, container);
         }
         if (kind == VPackMarker.EMPTY_OBJECT || kind == VPackMarker.SORTED_OBJECT
                 || kind == VPackMarker.UNSORTED_OBJECT || kind == VPackMarker.COMPACT_OBJECT) {
-            return _enterObject(frame, start, frame.bodyEnd);
+            return _enterObject(frame, start, frame.bodyEnd, container);
         }
         _currentLocation = start;
         _nextLocation = end;
@@ -656,13 +666,8 @@ public class VPackParser extends ParserBase {
         long end;
         switch (kind) {
         case EMPTY_ARRAY -> end = _checkedEnd(start, 1L, "empty array child");
-        case EQUAL_ARRAY, INDEXED_ARRAY, SORTED_OBJECT, UNSORTED_OBJECT -> {
-            long relative = start - _root.startOffset();
-            VPackLayout.FixedLayout nested = VPackLayout.analyzeFixed(_root.range(), relative,
-                    _root.range().length(), start, bodyEnd);
-            end = nested.end();
-        }
-        case COMPACT_ARRAY, COMPACT_OBJECT -> end = _analyzeCompact(start, bodyEnd).end();
+        case EQUAL_ARRAY, INDEXED_ARRAY, SORTED_OBJECT, UNSORTED_OBJECT,
+                COMPACT_ARRAY, COMPACT_OBJECT -> end = _analyzeContainer(start, bodyEnd).end();
         case EMPTY_OBJECT -> end = _checkedEnd(start, 1L, "empty object child");
         case DOUBLE, UTC_DATE -> end = _checkedEnd(start, 9L, "fixed scalar child");
         case SIGNED_INTEGER, UNSIGNED_INTEGER -> end = _checkedEnd(start,
@@ -691,6 +696,33 @@ public class VPackParser extends ParserBase {
                     "child exceeds its enclosing body boundary");
         }
         return end;
+    }
+
+    private ContainerLayout _analyzeContainer(long start, long enclosingEnd) {
+        VPackMarker markerKind = VPackMarker.requireSupported(_byteAt(start),
+                "container parser", start);
+        if (markerKind == VPackMarker.EMPTY_ARRAY || markerKind == VPackMarker.EMPTY_OBJECT) {
+            long end = _checkedEnd(start, 1L, "empty container");
+            if (end > enclosingEnd) {
+                throw VPackErrors.malformed("container parser", start,
+                        "empty container exceeds its enclosing body boundary");
+            }
+            return new ContainerLayout(markerKind, null, null, end);
+        }
+        if (markerKind == VPackMarker.COMPACT_ARRAY || markerKind == VPackMarker.COMPACT_OBJECT) {
+            CompactLayout compact = _analyzeCompact(start, enclosingEnd);
+            return new ContainerLayout(markerKind, null, compact, compact.end());
+        }
+        if (markerKind == VPackMarker.EQUAL_ARRAY || markerKind == VPackMarker.INDEXED_ARRAY
+                || markerKind == VPackMarker.SORTED_OBJECT
+                || markerKind == VPackMarker.UNSORTED_OBJECT) {
+            long relative = start - _root.startOffset();
+            VPackLayout.FixedLayout fixed = VPackLayout.analyzeFixed(_root.range(), relative,
+                    _root.range().length(), start, enclosingEnd);
+            return new ContainerLayout(markerKind, fixed, null, fixed.end());
+        }
+        throw VPackErrors.malformed("container parser", start,
+                "marker is not a supported container");
     }
 
     /**
@@ -1027,6 +1059,10 @@ public class VPackParser extends ParserBase {
             int marker, VPackMarker classification) { }
 
     private record CompactLayout(long end, long bodyStart, long bodyEnd, long count) { }
+
+    /** Fully checked framing retained from child-end calculation through entry. */
+    private record ContainerLayout(VPackMarker classification,
+            VPackLayout.FixedLayout fixed, CompactLayout compact, long end) { }
 
     private record NameValue(String text, long payloadRelative, int byteLength,
             byte[] attributeUtf8, boolean attributeId) { }
