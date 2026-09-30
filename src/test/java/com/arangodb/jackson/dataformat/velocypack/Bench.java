@@ -30,8 +30,8 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.concurrent.TimeUnit;
 
-@Warmup(iterations = 8, time = 1)
-@Measurement(iterations = 10, time = 1)
+@Warmup(iterations = 1, time = 5)
+@Measurement(iterations = 3, time = 1)
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 @Fork(1)
