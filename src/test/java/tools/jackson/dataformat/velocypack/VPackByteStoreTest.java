@@ -91,6 +91,23 @@ class VPackByteStoreTest {
     }
 
     @Test
+    void borrowedRangeCopyUsesOffsetForMultiplePageLengths() {
+        int borrowedOffset = 19;
+        int length = VPackByteStore.PAGE_SIZE + 37;
+        byte[] input = new byte[borrowedOffset + length + 11];
+        for (int i = 0; i < input.length; ++i) input[i] = (byte) (i * 7);
+        VPackByteStore store = VPackByteStore.borrowed(input, borrowedOffset, length);
+        VPackByteStore.Range range = store.range(0L, length);
+        byte[] output = new byte[length];
+
+        range.copyTo(0L, output, 0, length);
+
+        assertArrayEquals(java.util.Arrays.copyOfRange(input, borrowedOffset,
+                borrowedOffset + length), output);
+        assertEquals(length, store.copiedBytes());
+    }
+
+    @Test
     void ownedStoreAllocatesPagesLazilyAndCopiesAcrossBoundaries() {
         VPackByteStore store = VPackByteStore.owned();
         assertEquals(0L, store.size());

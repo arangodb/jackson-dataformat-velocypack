@@ -8,8 +8,7 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Arrays;
 
 /**
  * Random-access bytes for one framed root.  Borrowed stores retain a caller
@@ -17,12 +16,21 @@ import java.util.List;
  */
 final class VPackByteStore implements AutoCloseable {
     static final int PAGE_SIZE = 16 * 1024;
+    private static final int PAGE_SHIFT = Integer.numberOfTrailingZeros(PAGE_SIZE);
+    private static final int PAGE_MASK = PAGE_SIZE - 1;
+    private static final int INITIAL_PAGE_CAPACITY = 4;
+    static {
+        if ((PAGE_SIZE & (PAGE_SIZE - 1)) != 0) {
+            throw new ExceptionInInitializerError("PAGE_SIZE must be a power of two");
+        }
+    }
     private static final VarHandle LONG_LE = MethodHandles.byteArrayViewVarHandle(
             long[].class, ByteOrder.LITTLE_ENDIAN);
 
     private final byte[] borrowed;
     private final int borrowedOffset;
-    private final List<byte[]> pages;
+    private byte[][] pages;
+    private int pageCount;
     private final VPackPageSupplier pageSupplier;
     private long size;
     private long materializedRanges;
@@ -33,7 +41,7 @@ final class VPackByteStore implements AutoCloseable {
     private VPackByteStore(byte[] input, int offset, int length) {
         borrowed = input;
         borrowedOffset = offset;
-        pages = new ArrayList<>();
+        pages = new byte[INITIAL_PAGE_CAPACITY][];
         pageSupplier = null;
         size = length;
     }
@@ -41,7 +49,7 @@ final class VPackByteStore implements AutoCloseable {
     private VPackByteStore(VPackPageSupplier pageSupplier) {
         borrowed = null;
         borrowedOffset = 0;
-        pages = new ArrayList<>();
+        pages = new byte[INITIAL_PAGE_CAPACITY][];
         this.pageSupplier = pageSupplier;
     }
 
@@ -64,12 +72,12 @@ final class VPackByteStore implements AutoCloseable {
 
     /** Test-only ownership evidence; production callers do not depend on pages. */
     int pageCount() {
-        return pages.size();
+        return pageCount;
     }
 
     /** Test-only page identity accessor. */
     byte[] pageForTest(int index) {
-        return pages.get(index);
+        return pages[index];
     }
 
     /** Test-only evidence that a complete range was materialized. */
@@ -94,8 +102,8 @@ final class VPackByteStore implements AutoCloseable {
         if (borrowed != null) {
             return borrowed[borrowedOffset + (int) index];
         }
-        int page = (int) (index / PAGE_SIZE);
-        return pages.get(page)[(int) (index % PAGE_SIZE)];
+        int page = (int) (index >>> PAGE_SHIFT);
+        return pages[page][(int) (index & PAGE_MASK)];
     }
 
     long readLE(long index, int width) {
@@ -109,9 +117,9 @@ final class VPackByteStore implements AutoCloseable {
             data = borrowed;
             offset = borrowedOffset + (int) index;
         } else {
-            int inPage = (int) (index % PAGE_SIZE);
+            int inPage = (int) (index & PAGE_MASK);
             if (width <= PAGE_SIZE - inPage) {
-                data = pages.get((int) (index / PAGE_SIZE));
+                data = pages[(int) (index >>> PAGE_SHIFT)];
                 offset = inPage;
             } else {
                 return readLESlow(index, width);
@@ -130,9 +138,9 @@ final class VPackByteStore implements AutoCloseable {
     private long readLESlow(long index, int width) {
         long result = 0L;
         for (int i = 0; i < width; ++i) {
-            int page = (int) ((index + i) / PAGE_SIZE);
-            int inPage = (int) ((index + i) % PAGE_SIZE);
-            result |= (long) (pages.get(page)[inPage] & 0xFF) << (8 * i);
+            int page = (int) ((index + i) >>> PAGE_SHIFT);
+            int inPage = (int) ((index + i) & PAGE_MASK);
+            result |= (long) (pages[page][inPage] & 0xFF) << (8 * i);
         }
         return result;
     }
@@ -148,9 +156,9 @@ final class VPackByteStore implements AutoCloseable {
             return new String(borrowed, borrowedOffset + (int) index, length,
                     StandardCharsets.UTF_8);
         }
-        int inPage = (int) (index % PAGE_SIZE);
+        int inPage = (int) (index & PAGE_MASK);
         if (length <= PAGE_SIZE - inPage) {
-            return new String(pages.get((int) (index / PAGE_SIZE)), inPage, length,
+            return new String(pages[(int) (index >>> PAGE_SHIFT)], inPage, length,
                     StandardCharsets.UTF_8);
         }
         byte[] bytes = new byte[length];
@@ -158,9 +166,10 @@ final class VPackByteStore implements AutoCloseable {
         long source = index;
         int remaining = length;
         while (remaining != 0) {
-            int count = Math.min(remaining, PAGE_SIZE - (int) (source % PAGE_SIZE));
-            System.arraycopy(pages.get((int) (source / PAGE_SIZE)),
-                    (int) (source % PAGE_SIZE), bytes, destination, count);
+            int sourceOffset = (int) (source & PAGE_MASK);
+            int count = Math.min(remaining, PAGE_SIZE - sourceOffset);
+            System.arraycopy(pages[(int) (source >>> PAGE_SHIFT)],
+                    sourceOffset, bytes, destination, count);
             source += count;
             destination += count;
             remaining -= count;
@@ -171,12 +180,12 @@ final class VPackByteStore implements AutoCloseable {
     void append(byte value) {
         ensureOwned();
         ensureCapacityForAppend(1L);
-        int page = (int) (size / PAGE_SIZE);
-        int inPage = (int) (size % PAGE_SIZE);
+        int page = (int) (size >>> PAGE_SHIFT);
+        int inPage = (int) (size & PAGE_MASK);
         if (inPage == 0) {
-            pages.add(acquirePage());
+            addPage(acquirePage());
         }
-        pages.get(page)[inPage] = value;
+        pages[page][inPage] = value;
         size++;
     }
 
@@ -191,17 +200,24 @@ final class VPackByteStore implements AutoCloseable {
         ensureCapacityForAppend(length);
         int source = offset;
         int remaining = length;
+        int page = (int) (size >>> PAGE_SHIFT);
+        int inPage = (int) (size & PAGE_MASK);
+        byte[] pageData = null;
         while (remaining != 0) {
-            int page = (int) (size / PAGE_SIZE);
-            int inPage = (int) (size % PAGE_SIZE);
             if (inPage == 0) {
-                pages.add(acquirePage());
+                page = pageCount;
+                pageData = acquirePage();
+                addPage(pageData);
+            } else {
+                pageData = pages[page];
             }
             int count = Math.min(remaining, PAGE_SIZE - inPage);
-            System.arraycopy(input, source, pages.get(page), inPage, count);
+            System.arraycopy(input, source, pageData, inPage, count);
             source += count;
             remaining -= count;
             size += count;
+            page++;
+            inPage = 0;
         }
     }
 
@@ -214,21 +230,21 @@ final class VPackByteStore implements AutoCloseable {
         if (maxLength < 0) {
             throw new IllegalArgumentException("maxLength must be non-negative");
         }
-        int inPage = (int) (size % PAGE_SIZE);
+        int inPage = (int) (size & PAGE_MASK);
         int requested = Math.min(maxLength, PAGE_SIZE - inPage);
         ensureCapacityForAppend(requested);
         if (requested == 0) {
             return 0;
         }
-        int page = (int) (size / PAGE_SIZE);
+        int page = (int) (size >>> PAGE_SHIFT);
         if (inPage == 0) {
-            pages.add(acquirePage());
+            addPage(acquirePage());
         }
         // The caller's stream receives our page array, as Jackson's stream
         // parsers do with pooled input buffers. Any damage from a misbehaving
         // stream is confined to this root's owned store and is checked by the
         // parser's normal structural validation.
-        int count = in.read(pages.get(page), inPage, requested);
+        int count = in.read(pages[page], inPage, requested);
         if (count > 0 && count <= requested) {
             size += count;
         }
@@ -247,13 +263,13 @@ final class VPackByteStore implements AutoCloseable {
         ensureCapacityForAppend(length);
         int remaining = length;
         while (remaining != 0) {
-            int page = (int) (size / PAGE_SIZE);
-            int inPage = (int) (size % PAGE_SIZE);
+            int page = (int) (size >>> PAGE_SHIFT);
+            int inPage = (int) (size & PAGE_MASK);
             if (inPage == 0) {
-                pages.add(acquirePage());
+                addPage(acquirePage());
             }
             int count = Math.min(remaining, PAGE_SIZE - inPage);
-            in.readFully(pages.get(page), inPage, count);
+            in.readFully(pages[page], inPage, count);
             size += count;
             remaining -= count;
         }
@@ -270,10 +286,10 @@ final class VPackByteStore implements AutoCloseable {
         long sourceOffset = offset;
         long remaining = length;
         while (remaining != 0L) {
-            int destinationPage = (int) (size / PAGE_SIZE);
-            int destinationOffset = (int) (size % PAGE_SIZE);
+            int destinationPage = (int) (size >>> PAGE_SHIFT);
+            int destinationOffset = (int) (size & PAGE_MASK);
             if (destinationOffset == 0) {
-                pages.add(acquirePage());
+                addPage(acquirePage());
             }
             int count = (int) Math.min(remaining, PAGE_SIZE - destinationOffset);
             byte[] sourceArray;
@@ -283,12 +299,12 @@ final class VPackByteStore implements AutoCloseable {
                 sourceArrayOffset = source.borrowedOffset + (int) sourceOffset;
                 count = Math.min(count, sourceArray.length - sourceArrayOffset);
             } else {
-                int sourcePageOffset = (int) (sourceOffset % PAGE_SIZE);
+                int sourcePageOffset = (int) (sourceOffset & PAGE_MASK);
                 count = Math.min(count, PAGE_SIZE - sourcePageOffset);
-                sourceArray = source.pages.get((int) (sourceOffset / PAGE_SIZE));
+                sourceArray = source.pages[(int) (sourceOffset >>> PAGE_SHIFT)];
                 sourceArrayOffset = sourcePageOffset;
             }
-            System.arraycopy(sourceArray, sourceArrayOffset, pages.get(destinationPage),
+            System.arraycopy(sourceArray, sourceArrayOffset, pages[destinationPage],
                     destinationOffset, count);
             sourceOffset += count;
             remaining -= count;
@@ -323,9 +339,9 @@ final class VPackByteStore implements AutoCloseable {
                 offset = borrowedOffset + (int) source;
                 count = (int) Math.min(remaining, data.length - offset);
             } else {
-                offset = (int) (source % PAGE_SIZE);
+                offset = (int) (source & PAGE_MASK);
                 count = (int) Math.min(remaining, PAGE_SIZE - offset);
-                data = pages.get((int) (source / PAGE_SIZE));
+                data = pages[(int) (source >>> PAGE_SHIFT)];
             }
             out.write(data, offset, count);
             source += count;
@@ -348,11 +364,12 @@ final class VPackByteStore implements AutoCloseable {
         }
         released = true;
         if (pageSupplier != null) {
-            for (byte[] page : pages) {
-                pageSupplier.release(page);
+            for (int i = 0; i < pageCount; ++i) {
+                pageSupplier.release(pages[i]);
             }
         }
-        pages.clear();
+        Arrays.fill(pages, 0, pageCount, null);
+        pageCount = 0;
         size = 0L;
     }
 
@@ -362,6 +379,13 @@ final class VPackByteStore implements AutoCloseable {
             throw new IllegalStateException("page supplier returned a page smaller than PAGE_SIZE");
         }
         return page;
+    }
+
+    private void addPage(byte[] page) {
+        if (pageCount == pages.length) {
+            pages = Arrays.copyOf(pages, pages.length << 1);
+        }
+        pages[pageCount++] = page;
     }
 
     private void ensureOwned() {
@@ -474,21 +498,20 @@ final class VPackByteStore implements AutoCloseable {
             }
             owner.copiedBytes = VPackBounds.checkedAdd(owner.copiedBytes, copyLength,
                     "byte store copy instrumentation");
-            long source = VPackBounds.checkedAdd(offset, relativeOffset, "byte range copy offset");
+            // Both offsets are within a range already bounded by the store size.
+            long source = offset + relativeOffset;
+            if (owner.borrowed != null) {
+                System.arraycopy(owner.borrowed, owner.borrowedOffset + (int) source,
+                        output, outputOffset, copyLength);
+                return;
+            }
             int destination = outputOffset;
             int remaining = copyLength;
             while (remaining != 0) {
-                int count = Math.min(remaining, PAGE_SIZE - (int) (source % PAGE_SIZE));
-                if (owner.borrowed != null) {
-                    count = Math.min(count, owner.borrowed.length
-                            - owner.borrowedOffset - (int) source);
-                    System.arraycopy(owner.borrowed, owner.borrowedOffset + (int) source,
-                            output, destination, count);
-                } else {
-                    int page = (int) (source / PAGE_SIZE);
-                    System.arraycopy(owner.pages.get(page), (int) (source % PAGE_SIZE),
-                            output, destination, count);
-                }
+                int sourceOffset = (int) (source & PAGE_MASK);
+                int count = Math.min(remaining, PAGE_SIZE - sourceOffset);
+                int page = (int) (source >>> PAGE_SHIFT);
+                System.arraycopy(owner.pages[page], sourceOffset, output, destination, count);
                 source += count;
                 destination += count;
                 remaining -= count;
