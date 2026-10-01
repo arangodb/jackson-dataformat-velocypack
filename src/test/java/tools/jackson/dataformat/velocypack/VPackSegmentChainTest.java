@@ -67,6 +67,48 @@ class VPackSegmentChainTest {
     }
 
     @Test
+    void bufferedWriteEmitsTwoSmallFragmentsWhenTheyExactlyFillBuffer() throws Exception {
+        VPackOutputArena arena = new VPackOutputArena(5L);
+        VPackSegmentChain chain = new VPackSegmentChain(arena);
+        chain.append(arena.append(new byte[] { 1, 2 }));
+        arena.append(new byte[] { 99 });
+        chain.append(arena.append(new byte[] { 3, 4 }));
+
+        CountingOutput output = new CountingOutput();
+        chain.writeTo(output, new byte[4]);
+
+        assertArrayEquals(new byte[] { 1, 2, 3, 4 }, output.bytes.toByteArray());
+        assertEquals(1, output.writeCalls);
+    }
+
+    @Test
+    void bufferedWriteCarriesPendingBytesAcrossBackingPageBoundary() throws Exception {
+        int pageSize = VPackByteStore.PAGE_SIZE;
+        VPackOutputArena arena = new VPackOutputArena((long) pageSize + 3L);
+        VPackSegmentChain chain = new VPackSegmentChain(arena);
+        chain.append(arena.append(new byte[] { 1 }));
+        arena.append(new byte[pageSize - 3]);
+        chain.append(arena.append(new byte[] { 2, 3, 4, 5, 6 }));
+
+        CountingOutput output = new CountingOutput();
+        chain.writeTo(output, new byte[4]);
+
+        assertArrayEquals(new byte[] { 1, 2, 3, 4, 5, 6 }, output.bytes.toByteArray());
+        assertEquals(2, output.writeCalls);
+    }
+
+    @Test
+    void bufferedWriteOfEmptyChainEmitsNoBytes() throws Exception {
+        VPackSegmentChain chain = new VPackSegmentChain(new VPackOutputArena(1L));
+        CountingOutput output = new CountingOutput();
+
+        chain.writeTo(output, new byte[4]);
+
+        assertArrayEquals(new byte[0], output.bytes.toByteArray());
+        assertEquals(0, output.writeCalls);
+    }
+
+    @Test
     void bufferedWriteBypassesLargeSlicesOnlyAfterDrainingTail() throws Exception {
         VPackOutputArena arena = new VPackOutputArena(20L);
         VPackSegmentChain chain = new VPackSegmentChain(arena);
