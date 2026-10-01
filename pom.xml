@@ -9,7 +9,7 @@
     </parent>
 
     <groupId>com.arangodb</groupId>
-    <artifactId>jackson-dataformat-velocypack</artifactId>
+    <artifactId>jackson3-dataformat-velocypack</artifactId>
     <version>5.0.0</version>
 
     <name>Jackson Dataformat: VelocyPack</name>

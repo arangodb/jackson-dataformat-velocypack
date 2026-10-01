@@ -1,6 +1,6 @@
 model_reasoning_effort = "high"
-model = "gpt-6.1-sol"
-#service_tier = "fast"
+model = "gpt-6-luna"
+service_tier = "fast"
 
-#[features]
-#fast_mode = true
+[features]
+fast_mode = true

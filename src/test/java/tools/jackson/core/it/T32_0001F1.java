@@ -29,7 +29,7 @@ private static final String FDP_SHADED = "tools/jackson/core/internal/shaded/fdp
                 "VPack module-info.class must not be under META-INF/versions/");
     }
 private static Path packagedJar() {
-        Path jar = Path.of("target", "jackson-dataformat-velocypack-5.0.0-t28-test.jar")
+        Path jar = Path.of("target", "jackson3-dataformat-velocypack-5.0.0-t28-test.jar")
                 .toAbsolutePath();
         if (!Files.isRegularFile(jar)) {
             throw new AssertionError("packaged VelocyPack JAR is missing: " + jar);
