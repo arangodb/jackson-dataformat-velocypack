@@ -1,6 +1,8 @@
 package tools.jackson.dataformat.velocypack;
 
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
 
 import org.junit.jupiter.api.Test;
 
@@ -43,6 +45,59 @@ class VPackSegmentChainTest {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         chain.writeTo(output);
         assertArrayEquals(expected, output.toByteArray());
+    }
+
+    @Test
+    void bufferedWriteGathersDisorderedFragmentsAndDrainsFullAndPartialBuffers()
+            throws Exception {
+        VPackOutputArena arena = new VPackOutputArena(20L);
+        VPackSegmentChain chain = new VPackSegmentChain(arena);
+        chain.append(arena.append(new byte[] { 1, 2, 3 }));
+        arena.append(new byte[] { 99 });
+        chain.append(arena.append(new byte[] { 4, 5, 6, 7, 8 }));
+        arena.append(new byte[] { 98 });
+        chain.append(arena.append(new byte[] { 9, 10, 11 }));
+
+        CountingOutput output = new CountingOutput();
+        chain.writeTo(output, new byte[4]);
+
+        assertArrayEquals(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 },
+                output.bytes.toByteArray());
+        assertEquals(3, output.writeCalls);
+    }
+
+    @Test
+    void bufferedWriteBypassesLargeSlicesOnlyAfterDrainingTail() throws Exception {
+        VPackOutputArena arena = new VPackOutputArena(20L);
+        VPackSegmentChain chain = new VPackSegmentChain(arena);
+        chain.append(arena.append(new byte[] { 1, 2 }));
+        arena.append(new byte[] { 99 });
+        chain.append(arena.append(new byte[] { 3, 4, 5, 6, 7, 8 }));
+        arena.append(new byte[] { 98 });
+        chain.append(arena.append(new byte[] { 9 }));
+
+        CountingOutput output = new CountingOutput();
+        chain.writeTo(output, new byte[4]);
+
+        assertArrayEquals(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9 },
+                output.bytes.toByteArray());
+        assertEquals(3, output.writeCalls);
+    }
+
+    private static final class CountingOutput extends OutputStream {
+        final ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        int writeCalls;
+
+        @Override
+        public void write(int value) {
+            bytes.write(value);
+        }
+
+        @Override
+        public void write(byte[] value, int offset, int length) throws IOException {
+            ++writeCalls;
+            bytes.write(value, offset, length);
+        }
     }
 
     @Test

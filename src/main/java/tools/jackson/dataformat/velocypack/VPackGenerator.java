@@ -33,6 +33,8 @@ public class VPackGenerator extends GeneratorBase {
     private final VPackOutputArena _arena;
     private final ArrayDeque<ContainerFrame> _containerFrames = new ArrayDeque<>();
     private final VPackRootBudget _rootBudget;
+    private byte[] _rootOutputBuffer;
+    private boolean _rootOutputBufferRecycled;
 
     private SimpleStreamWriteContext _streamWriteContext;
     private boolean _failed;
@@ -1046,7 +1048,11 @@ public class VPackGenerator extends GeneratorBase {
 
     private void outputRoot(VPackSegmentChain root) {
         try {
-            root.writeTo(_out);
+            if (root.nodeCount() > 1) {
+                root.writeTo(_out, rootOutputBuffer());
+            } else {
+                root.writeTo(_out);
+            }
         } catch (IOException e) {
             throw fail(JacksonIOException.construct(e, this));
         }
@@ -1510,7 +1516,13 @@ public class VPackGenerator extends GeneratorBase {
         if (!_failed) {
             _failed = true;
             _failure = failure;
-            releaseOwnedBuffers();
+            try {
+                releaseOwnedBuffers();
+            } catch (RuntimeException cleanup) {
+                if (cleanup != failure) {
+                    failure.addSuppressed(cleanup);
+                }
+            }
         }
         return failure;
     }
@@ -1532,13 +1544,58 @@ public class VPackGenerator extends GeneratorBase {
     }
 
     private void releaseOwnedBuffers() {
+        RuntimeException problem = null;
         for (ContainerFrame frame : _containerFrames) {
-            frame.body.release();
+            try {
+                frame.body.release();
+            } catch (RuntimeException e) {
+                problem = addCleanupFailure(problem, e);
+            }
         }
         _containerFrames.clear();
         _streamWriteContext = SimpleStreamWriteContext.createRootContext(null);
-        _arena.release();
-        _rootBudget.release();
+        try {
+            _arena.release();
+        } catch (RuntimeException e) {
+            problem = addCleanupFailure(problem, e);
+        }
+        try {
+            _rootBudget.release();
+        } catch (RuntimeException e) {
+            problem = addCleanupFailure(problem, e);
+        }
+        try {
+            releaseRootOutputBuffer();
+        } catch (RuntimeException e) {
+            problem = addCleanupFailure(problem, e);
+        }
+        if (problem != null) {
+            throw problem;
+        }
+    }
+
+    private byte[] rootOutputBuffer() {
+        if (_rootOutputBuffer == null) {
+            if (_ioContext != null && _ioContext.bufferRecycler() != null) {
+                _rootOutputBuffer = _ioContext.allocBase64Buffer(8192);
+                _rootOutputBufferRecycled = true;
+            } else {
+                _rootOutputBuffer = new byte[8192];
+            }
+        }
+        return _rootOutputBuffer;
+    }
+
+    private void releaseRootOutputBuffer() {
+        byte[] buffer = _rootOutputBuffer;
+        if (buffer == null) {
+            return;
+        }
+        _rootOutputBuffer = null;
+        if (_rootOutputBufferRecycled) {
+            _rootOutputBufferRecycled = false;
+            _ioContext.releaseBase64Buffer(buffer);
+        }
     }
 
     private static RuntimeException addCleanupFailure(RuntimeException primary,

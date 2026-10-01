@@ -1,6 +1,8 @@
 package tools.jackson.dataformat.velocypack;
 
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.lang.reflect.Field;
 
 import tools.jackson.core.JsonEncoding;
@@ -21,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class VPackGeneratorLifecycleTest {
@@ -132,6 +135,58 @@ class VPackGeneratorLifecycleTest {
         context.releaseWriteEncodingBuffer(returnedPage);
     }
 
+    @Test
+    void completedRootOutputBufferIsReusedAndReturnedOnClose() throws Exception {
+        IOContext context = ioContext(new BufferRecycler());
+        VPackGenerator generator = generator(context);
+        generator.writeStartObject();
+        generator.writeName("z");
+        generator.writeNumber(1);
+        generator.writeName("a");
+        generator.writeNumber(2);
+        generator.writeEndObject();
+        byte[] expectedBuffer = rootOutputBuffer(generator);
+        assertTrue(expectedBuffer.length >= 8192);
+        generator.writeStartArray();
+        generator.writeString("next root");
+        generator.writeEndArray();
+        assertSame(expectedBuffer, rootOutputBuffer(generator));
+        generator.close();
+
+        byte[] returnedBuffer = context.allocBase64Buffer(8192);
+        assertSame(expectedBuffer, returnedBuffer);
+        context.releaseBase64Buffer(returnedBuffer);
+    }
+
+    @Test
+    void completedRootOutputBufferIsReturnedAfterEmissionFailure() throws Exception {
+        IOContext context = ioContext(new BufferRecycler());
+        ToggleFailureOutput target = new ToggleFailureOutput();
+        VPackGenerator generator = new VPackGenerator(ObjectWriteContext.empty(), context,
+                StreamWriteFeature.collectDefaults(), VPackWriteFeature.collectDefaults(),
+                target, VPackWriteConstraints.defaults());
+        writeDisorderedObject(generator);
+        byte[] expectedBuffer = rootOutputBuffer(generator);
+        target.failWrites = true;
+
+        assertThrows(tools.jackson.core.exc.JacksonIOException.class,
+                () -> writeDisorderedObject(generator));
+        assertNull(rootOutputBuffer(generator));
+        byte[] returnedBuffer = context.allocBase64Buffer(8192);
+        assertSame(expectedBuffer, returnedBuffer);
+        context.releaseBase64Buffer(returnedBuffer);
+        assertDoesNotThrow(() -> assertThrows(RuntimeException.class, generator::close));
+    }
+
+    private static void writeDisorderedObject(VPackGenerator generator) {
+        generator.writeStartObject();
+        generator.writeName("z");
+        generator.writeNumber(1);
+        generator.writeName("a");
+        generator.writeNumber(2);
+        generator.writeEndObject();
+    }
+
     private static IOContext ioContext(BufferRecycler recycler) {
         return new IOContext(tools.jackson.core.StreamReadConstraints.defaults(),
                 tools.jackson.core.StreamWriteConstraints.defaults(),
@@ -155,5 +210,29 @@ class VPackGeneratorLifecycleTest {
         Field pageField = VPackRecyclerPageSupplier.class.getDeclaredField("pooledPage");
         pageField.setAccessible(true);
         return (byte[]) pageField.get(supplier);
+    }
+
+    private static byte[] rootOutputBuffer(VPackGenerator generator) throws Exception {
+        Field bufferField = VPackGenerator.class.getDeclaredField("_rootOutputBuffer");
+        bufferField.setAccessible(true);
+        return (byte[]) bufferField.get(generator);
+    }
+
+    private static final class ToggleFailureOutput extends OutputStream {
+        boolean failWrites;
+
+        @Override
+        public void write(int value) throws IOException {
+            if (failWrites) {
+                throw new IOException("write failure");
+            }
+        }
+
+        @Override
+        public void write(byte[] value, int offset, int length) throws IOException {
+            if (failWrites && length > 0) {
+                throw new IOException("write failure");
+            }
+        }
     }
 }

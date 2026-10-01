@@ -377,6 +377,60 @@ final class VPackByteStore implements AutoCloseable {
         }
     }
 
+    /**
+     * Writes a validated range while gathering small backing-page slices into a
+     * caller-owned output buffer. Large slices go directly to the target after
+     * any buffered tail has been drained.
+     */
+    int writeTo(long index, long length, OutputStream out, byte[] buffer,
+            int buffered) throws IOException {
+        ensureRange(index, length, "byte store buffered write range");
+        if (out == null) {
+            throw new NullPointerException("output");
+        }
+        if (buffer == null || buffer.length == 0 || buffered < 0
+                || buffered > buffer.length) {
+            throw new IllegalArgumentException("output buffer state is invalid");
+        }
+        long source = index;
+        long remaining = length;
+        while (remaining != 0L) {
+            byte[] data;
+            int offset;
+            int count;
+            if (borrowed != null) {
+                data = borrowed;
+                offset = borrowedOffset + (int) source;
+                count = (int) Math.min(remaining, data.length - offset);
+            } else {
+                offset = (int) (source & PAGE_MASK);
+                count = (int) Math.min(remaining, PAGE_SIZE - offset);
+                data = pages[(int) (source >>> PAGE_SHIFT)];
+            }
+            if (count >= buffer.length) {
+                if (buffered != 0) {
+                    out.write(buffer, 0, buffered);
+                    buffered = 0;
+                }
+                out.write(data, offset, count);
+            } else {
+                if (count > buffer.length - buffered) {
+                    out.write(buffer, 0, buffered);
+                    buffered = 0;
+                }
+                System.arraycopy(data, offset, buffer, buffered, count);
+                buffered += count;
+                if (buffered == buffer.length) {
+                    out.write(buffer, 0, buffered);
+                    buffered = 0;
+                }
+            }
+            source += count;
+            remaining -= count;
+        }
+        return buffered;
+    }
+
     void copyTo(long offset, byte[] output, int outputOffset, int length) {
         range(offset, length).copyTo(output, outputOffset);
     }

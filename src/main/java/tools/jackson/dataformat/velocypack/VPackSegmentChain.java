@@ -161,6 +161,23 @@ final class VPackSegmentChain implements AutoCloseable {
         }
     }
 
+    void writeTo(OutputStream output, byte[] buffer) throws IOException {
+        ensureCurrentStore();
+        if (output == null) {
+            throw new NullPointerException("output");
+        }
+        if (buffer == null || buffer.length == 0) {
+            throw new IllegalArgumentException("output buffer is empty");
+        }
+        int buffered = 0;
+        for (Node node = head; node != null; node = node.next) {
+            buffered = node.store.writeTo(node.offset, node.length, output, buffer, buffered);
+        }
+        if (buffered != 0) {
+            output.write(buffer, 0, buffered);
+        }
+    }
+
     byte[] toByteArray() {
         ensureCurrentStore();
         byte[] result = new byte[VPackBounds.checkedInt(size, "segment chain materialization")];
