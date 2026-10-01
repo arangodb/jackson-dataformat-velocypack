@@ -7,6 +7,8 @@ import java.util.Arrays;
 import org.junit.jupiter.api.Test;
 
 import tools.jackson.core.JsonGenerator;
+import tools.jackson.core.JsonParser;
+import tools.jackson.core.JsonToken;
 import tools.jackson.core.exc.StreamConstraintsException;
 import tools.jackson.core.exc.StreamWriteException;
 
@@ -49,6 +51,71 @@ class VPackStringGeneratorTest {
         assertArrayEquals(new byte[] { 0x44, (byte) 0xF0, (byte) 0x9F, (byte) 0x98,
                 (byte) 0x80, 0x43, (byte) 0xE2, (byte) 0x82, (byte) 0xAC },
                 output.toByteArray());
+    }
+
+    @Test
+    void nestedStringsAndLiteralNamesAppendPayloadsIntoTheRootArena() throws Exception {
+        byte[] source = { '!', (byte) 0xE2, (byte) 0x82, (byte) 0xAC, '?' };
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        try (VPackGenerator generator = (VPackGenerator) factory.createGenerator(output)) {
+            generator.writeStartObject();
+            generator.writeName("b");
+            generator.writeUTF8String(source, 1, 3);
+            source[1] = 'x';
+            generator.writeName("a");
+            generator.writeString("long".repeat(32));
+            generator.writeName("c");
+            generator.writeString("\uD800");
+            generator.writeEndObject();
+        }
+
+        try (JsonParser parser = factory.createParser(output.toByteArray())) {
+            assertEquals(JsonToken.START_OBJECT, parser.nextToken());
+            assertEquals(JsonToken.PROPERTY_NAME, parser.nextToken());
+            assertEquals("b", parser.currentName());
+            assertEquals(JsonToken.VALUE_STRING, parser.nextToken());
+            assertEquals("€", parser.getString());
+            assertEquals(JsonToken.PROPERTY_NAME, parser.nextToken());
+            assertEquals("a", parser.currentName());
+            assertEquals(JsonToken.VALUE_STRING, parser.nextToken());
+            assertEquals("long".repeat(32), parser.getString());
+            assertEquals(JsonToken.PROPERTY_NAME, parser.nextToken());
+            assertEquals("c", parser.currentName());
+            assertEquals(JsonToken.VALUE_STRING, parser.nextToken());
+            assertEquals("?", parser.getString());
+            assertEquals(JsonToken.END_OBJECT, parser.nextToken());
+            assertEquals(null, parser.nextToken());
+        }
+    }
+
+    @Test
+    void literalObjectNamesKeepShortAndLongLengthBoundaries() throws Exception {
+        String shortName = "s".repeat(126);
+        String longName = "l".repeat(127);
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        try (JsonGenerator generator = factory.createGenerator(output)) {
+            generator.writeStartObject();
+            generator.writeName(shortName);
+            generator.writeNull();
+            generator.writeName(longName);
+            generator.writeNull();
+            generator.writeEndObject();
+        }
+
+        byte[] encoded = output.toByteArray();
+        assertEquals((byte) 0xBE, encoded[5]);
+        assertEquals((byte) 0xBF, encoded[133]);
+        assertEquals(127, encoded[134] & 0xFF);
+        try (JsonParser parser = factory.createParser(encoded)) {
+            assertEquals(JsonToken.START_OBJECT, parser.nextToken());
+            assertEquals(JsonToken.PROPERTY_NAME, parser.nextToken());
+            assertEquals(shortName, parser.currentName());
+            assertEquals(JsonToken.VALUE_NULL, parser.nextToken());
+            assertEquals(JsonToken.PROPERTY_NAME, parser.nextToken());
+            assertEquals(longName, parser.currentName());
+            assertEquals(JsonToken.VALUE_NULL, parser.nextToken());
+            assertEquals(JsonToken.END_OBJECT, parser.nextToken());
+        }
     }
 
     @Test

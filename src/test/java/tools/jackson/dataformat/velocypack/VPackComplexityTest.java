@@ -24,7 +24,7 @@ class VPackComplexityTest {
         assertTrue(wire.length > depth);
         // The outermost chain is written directly; all inner chains transfer once.
         assertEquals(depth - 1L, generator.segmentTransfers());
-        // The one-byte scalar is appended directly; only framing bytes are copied.
+        // The one-byte scalar is appended directly; container framing bytes are copied.
         assertEquals(wire.length - 1L, generator.bytesCopied());
         generator.close();
         assertEquals(0, generator.streamWriteOutputBuffered());
@@ -71,8 +71,9 @@ class VPackComplexityTest {
         }
         byte[] wire = output.toByteArray();
         assertEquals(depth - 1L, generator.segmentTransfers());
-        // The one-byte scalar is appended directly; only framing bytes are copied.
-        assertEquals(wire.length - 1L, generator.bytesCopied());
+        // The one-byte scalar and literal-name markers are written directly; only
+        // key payloads and container framing bytes are copied into the arena.
+        assertEquals(wire.length - 1L - depth / 2L, generator.bytesCopied());
 
         int tokens = 0;
         int maxDepth = 0;

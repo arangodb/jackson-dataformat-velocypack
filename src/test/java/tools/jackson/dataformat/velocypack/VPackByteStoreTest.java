@@ -215,6 +215,44 @@ class VPackByteStoreTest {
     }
 
     @Test
+    void arenaAppendsFramedStringAcrossPageBoundaryFromASlice() {
+        byte[] payload = new byte[VPackByteStore.PAGE_SIZE + 4];
+        payload[1] = 'a';
+        payload[2] = (byte) 0xE2;
+        payload[3] = (byte) 0x82;
+        payload[4] = (byte) 0xAC;
+        VPackOutputArena arena = new VPackOutputArena(
+                (long) VPackByteStore.PAGE_SIZE * 2L);
+        arena.append(new byte[VPackByteStore.PAGE_SIZE - 5]);
+
+        VPackByteStore.Range result = arena.appendStringFrame(payload, 1, 127);
+
+        assertEquals(136L, result.length());
+        assertEquals((byte) 0xBF, result.byteAt(0L));
+        assertEquals(127L, result.readLE(1L, 8));
+        assertEquals((byte) 'a', result.byteAt(9L));
+        assertEquals((byte) 0xE2, result.byteAt(10L));
+        assertEquals(127L, arena.copiedBytes() - (VPackByteStore.PAGE_SIZE - 5L));
+        payload[1] = 'z';
+        assertEquals((byte) 'a', result.byteAt(9L));
+    }
+
+    @Test
+    void arenaStringFrameBudgetFailureDoesNotMutateTheStore() {
+        VPackOutputArena arena = new VPackOutputArena(3L);
+        arena.append((byte) 0x31);
+        VPackByteStore before = arena.store();
+
+        assertThrows(tools.jackson.core.exc.StreamConstraintsException.class,
+                () -> arena.appendStringFrame(new byte[] { 'a', 'b' }, 0, 2));
+
+        assertSame(before, arena.store());
+        assertEquals(1L, arena.size());
+        assertEquals(1L, arena.store().size());
+        assertEquals((byte) 0x31, arena.store().byteAt(0L));
+    }
+
+    @Test
     void writeToWritesOneBackingSlicePerPageSegment() throws Exception {
         int start = VPackByteStore.PAGE_SIZE - 2;
         byte[] input = new byte[VPackByteStore.PAGE_SIZE * 2 + 7];

@@ -221,6 +221,30 @@ final class VPackByteStore implements AutoCloseable {
         }
     }
 
+    /** Appends a string marker and UTF-8 payload directly into owned pages. */
+    void appendStringFrame(byte[] payload, int offset, int length) {
+        ensureOwned();
+        if (payload == null || offset < 0 || length < 0
+                || offset > payload.length - length) {
+            throw VPackErrors.write("owned byte store", "string payload range is invalid");
+        }
+        int headerLength = length <= 126 ? 1 : 9;
+        long totalLength = (long) length + headerLength;
+        ensureCapacityForAppend(totalLength);
+
+        if (length <= 126) {
+            append((byte) (0x40 + length));
+        } else {
+            append((byte) 0xBF);
+            long remainingLength = length;
+            for (int i = 0; i < 8; ++i) {
+                append((byte) remainingLength);
+                remainingLength >>>= 8;
+            }
+        }
+        append(payload, offset, length);
+    }
+
     /** Reads directly into the current page's free tail. */
     int appendFrom(InputStream in, int maxLength) throws IOException {
         ensureOwned();

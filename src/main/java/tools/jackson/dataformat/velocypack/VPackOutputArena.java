@@ -110,6 +110,25 @@ final class VPackOutputArena implements AutoCloseable {
         return bytes.range(start, length);
     }
 
+    VPackByteStore.Range appendStringFrame(byte[] payload, int offset, int length) {
+        ensureOpen();
+        if (payload == null || offset < 0 || length < 0
+                || offset > payload.length - length) {
+            throw VPackErrors.write("output arena", "string payload range is invalid");
+        }
+        long headerLength = length <= 126 ? 1L : 9L;
+        long totalLength = VPackBounds.checkedAdd(length, headerLength,
+                "output arena string frame");
+        charge(totalLength);
+        long start = retainedBytes;
+        bytes.appendStringFrame(payload, offset, length);
+        retainedBytes = VPackBounds.checkedAdd(retainedBytes, totalLength,
+                "output arena size");
+        copiedBytes = VPackBounds.checkedAdd(copiedBytes, length,
+                "output arena copy count");
+        return bytes.range(start, totalLength);
+    }
+
     VPackByteStore.Range append(VPackByteStore.Range source) {
         if (source == null) {
             throw VPackErrors.write("output arena", "source range is null");

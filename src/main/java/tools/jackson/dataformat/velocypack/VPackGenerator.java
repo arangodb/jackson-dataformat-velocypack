@@ -572,8 +572,7 @@ public class VPackGenerator extends GeneratorBase {
         }
         try {
             byte[] utf8 = value.getBytes(StandardCharsets.UTF_8);
-            return _writeScalar(encodeString(utf8, 0, utf8.length, "string"),
-                    "write string");
+            return _writeString(utf8, 0, utf8.length, "string", "write string");
         } catch (RuntimeException e) {
             throw fail(e);
         }
@@ -669,8 +668,7 @@ public class VPackGenerator extends GeneratorBase {
             throws JacksonException {
         try {
             VPackBounds.checkedWriteArrayRange(buffer, offset, len, "UTF-8 string");
-            return _writeScalar(encodeString(buffer, offset, len, "UTF-8 string"),
-                    "write UTF-8 string");
+            return _writeString(buffer, offset, len, "UTF-8 string", "write UTF-8 string");
         } catch (RuntimeException e) {
             throw fail(e);
         }
@@ -836,6 +834,32 @@ public class VPackGenerator extends GeneratorBase {
                     _rootBudget.reset();
                 }
             }
+            return this;
+        } catch (RuntimeException e) {
+            throw fail(e);
+        }
+    }
+
+    private JsonGenerator _writeString(byte[] payload, int offset, int length,
+            String context, String typeMsg) {
+        try {
+            // Preserve the existing size/budget failure precedence before checking
+            // whether the stream context accepts this value.
+            checkScalarSize(length, length <= 126 ? 1L : 9L, context);
+            long end = VPackBounds.checkedAdd(offset, length, context, " range");
+            int start = VPackBounds.checkedInt(offset, context, " offset");
+            int finish = VPackBounds.checkedInt(end, context, " end");
+            if (start < 0 || finish > payload.length) {
+                throw VPackErrors.write(context, "payload range is invalid");
+            }
+            if (_containerFrames.peek() == null) {
+                return _writeScalar(encodeString(payload, start, length, context), typeMsg);
+            }
+            _verifyValueWrite(typeMsg);
+            ContainerFrame frame = _containerFrames.peek();
+            VPackByteStore.Range range = _arena.appendStringFrame(payload, start, length);
+            frame.body.append(range);
+            recordValue(frame, range.length());
             return this;
         } catch (RuntimeException e) {
             throw fail(e);
@@ -1144,7 +1168,9 @@ public class VPackGenerator extends GeneratorBase {
         if (!frame.streamContext.writeName(resolved.text())) {
             throw _constructWriteException("Cannot write an object name, expecting a value");
         }
-        VPackByteStore.Range encoded = _arena.append(resolved.wireBytes());
+        VPackByteStore.Range encoded = resolved.wireBytes() == null
+                ? _arena.appendStringFrame(resolved.utf8(), 0, resolved.utf8().length)
+                : _arena.append(resolved.wireBytes());
         long keyOffset = frame.body.size();
         frame.body.append(encoded);
         _rootBudget.chargeName(resolved.utf8().length);
@@ -1196,7 +1222,9 @@ public class VPackGenerator extends GeneratorBase {
         _rootBudget.checkName(resolvedUtf8.length);
         byte[] wireBytes;
         if (id == null) {
-            wireBytes = encodeString(resolvedUtf8, 0, resolvedUtf8.length, "object name");
+            checkScalarSize(resolvedUtf8.length,
+                    resolvedUtf8.length <= 126 ? 1L : 9L, "object name");
+            wireBytes = null;
         } else {
             wireBytes = encodeInteger(id);
         }
