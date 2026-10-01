@@ -999,18 +999,25 @@ public class VPackParser extends ParserBase {
     }
 
     private void _packQuads(byte[] bytes, int offset, int length, int[] quads) {
-        int quadCount = (length + 3) >> 2;
-        for (int q = 0; q < quadCount; ++q) {
-            int byteOffset = q << 2;
-            int bytesInQuad = Math.min(4, length - byteOffset);
-            int value = 0;
-            for (int i = 0; i < bytesInQuad; ++i) {
-                value = (value << 8) | (bytes[offset + byteOffset + i] & 0xFF);
-            }
-            if (bytesInQuad < 4) {
-                value |= -1 << (bytesInQuad << 3);
-            }
-            quads[q] = value;
+        int fullQuads = length >> 2;
+        int byteOffset = 0;
+        for (int q = 0; q < fullQuads; ++q) {
+            int index = offset + byteOffset;
+            quads[q] = ((bytes[index] & 0xFF) << 24)
+                    | ((bytes[index + 1] & 0xFF) << 16)
+                    | ((bytes[index + 2] & 0xFF) << 8)
+                    | (bytes[index + 3] & 0xFF);
+            byteOffset += 4;
+        }
+
+        switch (length - byteOffset) {
+            case 1 -> quads[fullQuads] = (bytes[offset + byteOffset] & 0xFF) | 0xFFFFFF00;
+            case 2 -> quads[fullQuads] = ((bytes[offset + byteOffset] & 0xFF) << 8)
+                    | (bytes[offset + byteOffset + 1] & 0xFF) | 0xFFFF0000;
+            case 3 -> quads[fullQuads] = ((bytes[offset + byteOffset] & 0xFF) << 16)
+                    | ((bytes[offset + byteOffset + 1] & 0xFF) << 8)
+                    | (bytes[offset + byteOffset + 2] & 0xFF) | 0xFF000000;
+            default -> { }
         }
     }
 
