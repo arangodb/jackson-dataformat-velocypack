@@ -225,7 +225,8 @@ class VPackByteStoreTest {
                 (long) VPackByteStore.PAGE_SIZE * 2L);
         arena.append(new byte[VPackByteStore.PAGE_SIZE - 5]);
 
-        VPackByteStore.Range result = arena.appendStringFrame(payload, 1, 127);
+        long start = arena.appendStringFrame(payload, 1, 127);
+        VPackByteStore.Range result = arena.store().range(start, 136L);
 
         assertEquals(136L, result.length());
         assertEquals((byte) 0xBF, result.byteAt(0L));

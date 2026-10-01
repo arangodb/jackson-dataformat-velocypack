@@ -44,6 +44,23 @@ final class VPackSegmentChain implements AutoCloseable {
         appendRange(range);
     }
 
+    void appendStringFrame(byte[] payload, int offset, int length) {
+        VPackByteStore currentStore = ensureCurrentStore();
+        if (payload == null || offset < 0 || length < 0
+                || offset > payload.length - length) {
+            throw VPackErrors.write("segment chain", "string payload range is invalid");
+        }
+        long totalLength = VPackBounds.checkedAdd(length, length <= 126 ? 1L : 9L,
+                "segment chain string frame");
+        long newSize = VPackBounds.checkedAdd(size, totalLength, "segment chain size");
+        long offsetInStore = arena.appendStringFrame(payload, offset, length);
+        if (ensureCurrentStore() != currentStore) {
+            throw VPackErrors.write("segment chain", "arena root changed during append");
+        }
+        currentStore.validateRange(offsetInStore, totalLength, "segment chain string range");
+        appendRange(currentStore, offsetInStore, totalLength, newSize);
+    }
+
     void prepend(VPackByteStore.Range range) {
         VPackByteStore currentStore = validateRange(range);
         long length = range.length();
@@ -189,6 +206,14 @@ final class VPackSegmentChain implements AutoCloseable {
         ensureCurrentStore();
         long offset = range.offset();
         long newSize = VPackBounds.checkedAdd(size, length, "segment chain size");
+        appendRange(currentStore, offset, length, newSize);
+    }
+
+    private void appendRange(VPackByteStore currentStore, long offset, long length,
+            long newSize) {
+        if (length == 0L) {
+            return;
+        }
         if (tail != null && adjacent(tail.store, tail.offset, tail.length,
                 currentStore, offset, length)) {
             tail.length = VPackBounds.checkedAdd(tail.length, length,

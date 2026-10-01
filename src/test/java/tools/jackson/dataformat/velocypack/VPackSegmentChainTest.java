@@ -103,6 +103,55 @@ class VPackSegmentChainTest {
     }
 
     @Test
+    void directStringFrameAppendTracksRangeAcrossPageBoundaryWithoutAHandle() {
+        int prefixLength = VPackByteStore.PAGE_SIZE - 5;
+        byte[] prefix = new byte[prefixLength];
+        byte[] payload = new byte[130];
+        for (int i = 0; i < payload.length; ++i) payload[i] = (byte) (i + 1);
+        VPackOutputArena arena = new VPackOutputArena(VPackByteStore.PAGE_SIZE * 2L);
+        VPackSegmentChain chain = new VPackSegmentChain(arena);
+        chain.append(arena.append(prefix));
+
+        chain.appendStringFrame(payload, 1, 127);
+        payload[1] = 99;
+
+        byte[] encoded = chain.toByteArray();
+        assertEquals(prefixLength + 136L, chain.size());
+        int marker = prefixLength;
+        assertEquals((byte) 0xBF, encoded[marker]);
+        assertEquals(127, encoded[marker + 1] & 0xFF);
+        assertEquals((byte) 2, encoded[marker + 9]);
+        assertEquals((byte) 128, encoded[marker + 9 + 126]);
+        assertEquals(prefixLength + 127L, arena.copiedBytes());
+    }
+
+    @Test
+    void directStringFrameAppendRejectsInvalidInputBudgetAndStaleOrClosedChains() {
+        VPackOutputArena arena = new VPackOutputArena(4L);
+        VPackSegmentChain chain = new VPackSegmentChain(arena);
+        chain.append(arena.append(new byte[] { 7 }));
+        long beforeSize = arena.size();
+        assertThrows(tools.jackson.core.exc.StreamWriteException.class,
+                () -> chain.appendStringFrame(new byte[] { 1, 2 }, 1, 2));
+        assertEquals(beforeSize, arena.size());
+        assertArrayEquals(new byte[] { 7 }, chain.toByteArray());
+
+        assertThrows(tools.jackson.core.exc.StreamConstraintsException.class,
+                () -> chain.appendStringFrame(new byte[] { 1, 2, 3 }, 0, 3));
+        assertEquals(beforeSize, arena.size());
+        assertEquals(1L, chain.size());
+
+        arena.reset();
+        assertThrows(tools.jackson.core.exc.StreamWriteException.class,
+                () -> chain.appendStringFrame(new byte[] { 1 }, 0, 1));
+
+        VPackSegmentChain closed = new VPackSegmentChain(arena);
+        closed.release();
+        assertThrows(tools.jackson.core.exc.StreamWriteException.class,
+                () -> closed.appendStringFrame(new byte[] { 1 }, 0, 1));
+    }
+
+    @Test
     void invalidRangeFailureLeavesExistingSegmentsUntouched() {
         VPackOutputArena arena = new VPackOutputArena(20L);
         VPackOutputArena otherArena = new VPackOutputArena(20L);

@@ -857,9 +857,9 @@ public class VPackGenerator extends GeneratorBase {
             }
             _verifyValueWrite(typeMsg);
             ContainerFrame frame = _containerFrames.peek();
-            VPackByteStore.Range range = _arena.appendStringFrame(payload, start, length);
-            frame.body.append(range);
-            recordValue(frame, range.length());
+            long framedLength = (long) length + (length <= 126 ? 1L : 9L);
+            frame.body.appendStringFrame(payload, start, length);
+            recordValue(frame, framedLength);
             return this;
         } catch (RuntimeException e) {
             throw fail(e);
@@ -1168,11 +1168,12 @@ public class VPackGenerator extends GeneratorBase {
         if (!frame.streamContext.writeName(resolved.text())) {
             throw _constructWriteException("Cannot write an object name, expecting a value");
         }
-        VPackByteStore.Range encoded = resolved.wireBytes() == null
-                ? _arena.appendStringFrame(resolved.utf8(), 0, resolved.utf8().length)
-                : _arena.append(resolved.wireBytes());
         long keyOffset = frame.body.size();
-        frame.body.append(encoded);
+        if (resolved.wireBytes() == null) {
+            frame.body.appendStringFrame(resolved.utf8(), 0, resolved.utf8().length);
+        } else {
+            frame.body.append(_arena.append(resolved.wireBytes()));
+        }
         _rootBudget.chargeName(resolved.utf8().length);
         frame.reserveName(keyOffset, resolved.utf8());
     }

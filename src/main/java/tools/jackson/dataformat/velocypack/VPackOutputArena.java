@@ -110,7 +110,7 @@ final class VPackOutputArena implements AutoCloseable {
         return bytes.range(start, length);
     }
 
-    VPackByteStore.Range appendStringFrame(byte[] payload, int offset, int length) {
+    long appendStringFrame(byte[] payload, int offset, int length) {
         ensureOpen();
         if (payload == null || offset < 0 || length < 0
                 || offset > payload.length - length) {
@@ -126,7 +126,7 @@ final class VPackOutputArena implements AutoCloseable {
                 "output arena size");
         copiedBytes = VPackBounds.checkedAdd(copiedBytes, length,
                 "output arena copy count");
-        return bytes.range(start, totalLength);
+        return start;
     }
 
     VPackByteStore.Range append(VPackByteStore.Range source) {

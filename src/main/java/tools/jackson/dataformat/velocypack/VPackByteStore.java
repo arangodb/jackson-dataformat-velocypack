@@ -233,16 +233,20 @@ final class VPackByteStore implements AutoCloseable {
         ensureCapacityForAppend(totalLength);
 
         if (length <= 126) {
-            append((byte) (0x40 + length));
+            appendByteUnchecked((byte) (0x40 + length));
         } else {
-            append((byte) 0xBF);
+            appendByteUnchecked((byte) 0xBF);
             long remainingLength = length;
             for (int i = 0; i < 8; ++i) {
-                append((byte) remainingLength);
+                appendByteUnchecked((byte) remainingLength);
                 remainingLength >>>= 8;
             }
         }
         append(payload, offset, length);
+    }
+
+    void validateRange(long offset, long length, String context) {
+        ensureRange(offset, length, context);
     }
 
     /** Reads directly into the current page's free tail. */
@@ -410,6 +414,16 @@ final class VPackByteStore implements AutoCloseable {
             pages = Arrays.copyOf(pages, pages.length << 1);
         }
         pages[pageCount++] = page;
+    }
+
+    private void appendByteUnchecked(byte value) {
+        int page = (int) (size >>> PAGE_SHIFT);
+        int inPage = (int) (size & PAGE_MASK);
+        if (inPage == 0) {
+            addPage(acquirePage());
+        }
+        pages[page][inPage] = value;
+        size++;
     }
 
     private void ensureOwned() {
