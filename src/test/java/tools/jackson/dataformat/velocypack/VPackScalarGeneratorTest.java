@@ -65,8 +65,24 @@ class VPackScalarGeneratorTest {
         assertLong((1L << 56) - 1L, 0x2E, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF);
         assertLong(1L << 56, 0x2F, 0, 0, 0, 0, 0, 0, 0, 1);
         assertLong(Long.MAX_VALUE, 0x2F, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x7F);
+        assertBigInteger(BigInteger.ONE.shiftLeft(63),
+                0x2F, 0, 0, 0, 0, 0, 0, 0, 0x80);
         assertBigInteger(BigInteger.ONE.shiftLeft(64).subtract(BigInteger.ONE),
                 0x2F, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF);
+        assertBigInteger(BigInteger.ONE.shiftLeft(64), 0xC8, 0x0A, 0, 0, 0, 0,
+                0x18, 0x44, 0x67, 0x44, 0x07, 0x37, 0x09, 0x55, 0x16, 0x16);
+    }
+
+    @Test
+    void primitiveAndBigIntegerUnsignedValuesHaveIdenticalCanonicalBytes() throws Exception {
+        long[] values = { 10L, 255L, 256L, 65535L, 65536L, 0xFFFFFFL,
+                0x1000000L, 0xFFFFFFFFL, 0x100000000L, 1L << 40,
+                (1L << 48) - 1L, 1L << 48, (1L << 56) - 1L, 1L << 56,
+                Long.MAX_VALUE };
+        for (long value : values) {
+            assertArrayEquals(encode(g -> g.writeNumber(value)),
+                    encode(g -> g.writeNumber(BigInteger.valueOf(value))));
+        }
     }
 
     @Test
@@ -152,6 +168,14 @@ class VPackScalarGeneratorTest {
 
     private void assertBigInteger(BigInteger value, int... expected) throws Exception {
         assertScalar(g -> g.writeNumber(value), expected);
+    }
+
+    private byte[] encode(WriterCall call) throws Exception {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        try (JsonGenerator generator = factory.createGenerator(out)) {
+            call.write(generator);
+        }
+        return out.toByteArray();
     }
 
     private static byte[] bytes(int... values) {

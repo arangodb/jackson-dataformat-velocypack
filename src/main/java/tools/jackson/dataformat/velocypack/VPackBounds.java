@@ -305,10 +305,24 @@ final class VPackBounds {
             throw VPackErrors.write("unsigned field", "value does not fit in " + width + " bytes");
         }
         checkedWriteArrayRange(output, offset, width, "unsigned field");
-        BigInteger remaining = value;
+        writeUnsignedBitsUnchecked(output, offset, width, value.longValue());
+    }
+
+    /** Write a nonnegative Java long after checking that it fits the requested unsigned width. */
+    static void writeUnsigned(byte[] output, int offset, int width, long value) {
+        requireWriteNumericWidth(width, "unsigned field");
+        if (value < 0L || (width < 8 && (value >>> (width * 8)) != 0L)) {
+            throw VPackErrors.write("unsigned field", "value does not fit in " + width + " bytes");
+        }
+        checkedWriteArrayRange(output, offset, width, "unsigned field");
+        writeUnsignedBitsUnchecked(output, offset, width, value);
+    }
+
+    private static void writeUnsignedBitsUnchecked(byte[] output, int offset, int width, long bits) {
+        long remaining = bits;
         for (int i = 0; i < width; ++i) {
-            output[offset + i] = remaining.byteValue();
-            remaining = remaining.shiftRight(8);
+            output[offset + i] = (byte) remaining;
+            remaining >>>= 8;
         }
     }
 

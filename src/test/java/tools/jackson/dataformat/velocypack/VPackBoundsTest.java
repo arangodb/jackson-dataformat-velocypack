@@ -233,6 +233,21 @@ class VPackBoundsTest {
     }
 
     @Test
+    void primitiveUnsignedWriterValidatesBeforeWritingRawBits() {
+        byte[] output = new byte[8];
+        VPackBounds.writeUnsigned(output, 0, 8, Long.MAX_VALUE);
+        assertArrayEquals(VPackWireFixtureTest.hex("ff ff ff ff ff ff ff 7f"), output);
+        assertThrows(StreamWriteException.class,
+                () -> VPackBounds.writeUnsigned(output, 0, 1, 256L));
+        assertThrows(StreamWriteException.class,
+                () -> VPackBounds.writeUnsigned(output, 0, 8, -1L));
+        assertThrows(StreamWriteException.class,
+                () -> VPackBounds.writeUnsigned(output, 0, 9, 0L));
+        assertThrows(StreamWriteException.class,
+                () -> VPackBounds.writeUnsigned(output, 1, 8, 1L));
+    }
+
+    @Test
     void unsignedLongConversionPreservesTheHighBitExactly() {
         assertEquals(BigInteger.valueOf(Long.MAX_VALUE), VPackBounds.unsignedLong(Long.MAX_VALUE));
         assertEquals(BigInteger.ONE.shiftLeft(63), VPackBounds.unsignedLong(Long.MIN_VALUE));

@@ -1620,7 +1620,7 @@ public class VPackGenerator extends GeneratorBase {
             VPackBounds.writeSigned(result, 1, width, value);
             return result;
         }
-        return encodeUnsigned(BigInteger.valueOf(value));
+        return encodeUnsigned(value);
     }
 
     private static byte[] encodeInteger(BigInteger value) {
@@ -1640,6 +1640,14 @@ public class VPackGenerator extends GeneratorBase {
 
     private static byte[] encodeUnsigned(BigInteger value) {
         int width = Math.max(1, (value.bitLength() + 7) / 8);
+        byte[] result = new byte[1 + width];
+        result[0] = (byte) (0x28 + width - 1);
+        VPackBounds.writeUnsigned(result, 1, width, value);
+        return result;
+    }
+
+    private static byte[] encodeUnsigned(long value) {
+        int width = Math.max(1, (64 - Long.numberOfLeadingZeros(value) + 7) / 8);
         byte[] result = new byte[1 + width];
         result[0] = (byte) (0x28 + width - 1);
         VPackBounds.writeUnsigned(result, 1, width, value);
