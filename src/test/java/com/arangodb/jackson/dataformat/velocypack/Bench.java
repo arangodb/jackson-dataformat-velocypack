@@ -59,8 +59,8 @@ import java.util.function.Consumer;
  * Run a subset:     {@code Bench "Bench\.pojo.*"}
  * Override params:  JMH {@code -p format=VPACK -p batchSize=100}
  */
-@Warmup(iterations = 3, time = 2)
-@Measurement(iterations = 5, time = 2)
+@Warmup(iterations = 1, time = 2)
+@Measurement(iterations = 3, time = 1)
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
 @Fork(1)
