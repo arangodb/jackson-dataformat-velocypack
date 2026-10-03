@@ -174,6 +174,12 @@ public class Bench {
         return mapper.readTree(cursorBytes);
     }
 
+    /** Supplemental read source diagnostic; the byte[] target remains unchanged. */
+    @Benchmark
+    public JsonNode treeReadCursorInputStream() {
+        return mapper.readTree(new ByteArrayInputStream(cursorBytes));
+    }
+
     @Benchmark
     public byte[] treeWriteCursor() {
         return mapper.writeValueAsBytes(cursorTree);

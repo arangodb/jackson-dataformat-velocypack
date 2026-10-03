@@ -48,19 +48,39 @@ public class VPackParserBootstrapper
             ByteQuadsCanonicalizer rootByteSymbols)
         throws JacksonException
     {
-        rootByteSymbols.makeChildOrPlaceholder(factoryFeatures);
-        // Pre-load some bytes if reading from stream
-        if (_in != null && _inputPtr >= _inputEnd) {
-            try {
-                int count = _in.read(_inputBuffer, _inputEnd, _inputBuffer.length - _inputEnd);
-                if (count > 0) {
-                    _inputEnd += count;
+        ByteQuadsCanonicalizer symbols = null;
+        try {
+            symbols = rootByteSymbols.makeChildOrPlaceholder(factoryFeatures);
+            // Pre-load some bytes if reading from stream
+            if (_in != null && _inputPtr >= _inputEnd) {
+                try {
+                    int count = _in.read(_inputBuffer, _inputEnd, _inputBuffer.length - _inputEnd);
+                    if (count > 0) {
+                        _inputEnd += count;
+                    }
+                } catch (IOException e) {
+                    throw JacksonIOException.construct(e);
                 }
-            } catch (IOException e) {
-                throw JacksonIOException.construct(e);
             }
+            return new VPackParser(readCtxt, _ioContext, generalParserFeatures, vpackFeatures,
+                    _in, _inputBuffer, _inputPtr, _inputEnd, _bufferRecyclable, symbols);
+        } catch (RuntimeException | Error failure) {
+            if (symbols != null) {
+                symbols.release();
+            }
+            if (_bufferRecyclable) {
+                _ioContext.releaseReadIOBuffer(_inputBuffer);
+            }
+            _ioContext.close();
+            if (_in != null && (_ioContext.isResourceManaged()
+                    || StreamReadFeature.AUTO_CLOSE_SOURCE.enabledIn(generalParserFeatures))) {
+                try {
+                    _in.close();
+                } catch (IOException closeFailure) {
+                    failure.addSuppressed(closeFailure);
+                }
+            }
+            throw failure;
         }
-        return new VPackParser(readCtxt, _ioContext, generalParserFeatures, vpackFeatures,
-                _in, _inputBuffer, _inputPtr, _inputEnd, _bufferRecyclable);
     }
 }

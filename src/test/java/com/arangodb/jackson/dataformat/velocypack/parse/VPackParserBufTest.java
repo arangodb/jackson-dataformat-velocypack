@@ -494,10 +494,9 @@ public class VPackParserBufTest extends BaseTestForVPack
         arr[1] = 13;      // byteLen
         arr[2] = (byte)0xfd; // LEN8 custom
         arr[3] = 2;       // len[0] = 2
-        // arr[4..9] = 0 (LE 8-byte length: 2)
-        arr[10] = (byte)0x55;
-        arr[11] = (byte)0x66;
-        // arr[12] = 0 (padding)
+        // arr[4..10] = 0 (complete LE 8-byte length: 2)
+        arr[11] = (byte)0x55;
+        arr[12] = (byte)0x66;
         try (VPackParser p = (VPackParser) new VPackMapper().createParser(arr)) {
             assertThat(p.nextToken()).isEqualTo(JsonToken.START_ARRAY);
             assertThat(p.nextToken()).isEqualTo(JsonToken.VALUE_EMBEDDED_OBJECT);
