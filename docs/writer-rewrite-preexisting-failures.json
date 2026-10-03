@@ -1,0 +1,134 @@
+[
+  {
+    "test": "tools.jackson.databind.BoundsChecksForInputTest.testBoundsWithByteArrayInput",
+    "kind": "error",
+    "message": "Invalid byte range: offset -1, length 1, buffer length 10",
+    "type": "java.lang.IndexOutOfBoundsException"
+  },
+  {
+    "test": "tools.jackson.databind.convert.CoerceEmptyArrayTest.testOtherScalarsFromEmptyArray",
+    "kind": "failure",
+    "message": "Expected an exception (tools.jackson.databind.exc.MismatchedInputException) with one of substrings ([from Array value (token `JsonToken.START_ARRAY`)]): got one with message \"Trailing token (`JsonToken.END_ARRAY`) found after value (bound as `java.lang.StringBuilder`): not allowed as per `DeserializationFeature.FAIL_ON_TRAILING_TOKENS`\n at [Source: (byte[])[1 bytes]; byte offset: #1]\"",
+    "type": "org.opentest4j.AssertionFailedError"
+  },
+  {
+    "test": "tools.jackson.databind.deser.jdk.JDKNumberDeserTest.testFloatRangeValidation",
+    "kind": "failure",
+    "message": "Expected tools.jackson.core.exc.InputCoercionException to be thrown, but nothing was thrown.",
+    "type": "org.opentest4j.AssertionFailedError"
+  },
+  {
+    "test": "tools.jackson.databind.deser.jdk.JDKNumberDeserTest.testBigArrayOfFloatPrimitives",
+    "kind": "error",
+    "message": "Cannot invoke \"java.io.InputStream.readAllBytes()\" because \"stream\" is null",
+    "type": "java.lang.NullPointerException"
+  },
+  {
+    "test": "tools.jackson.databind.exc.BasicExceptionTest.testLocationAddition",
+    "kind": "error",
+    "message": "tools.jackson.core.exc.StreamReadException: Unexpected character ('u' (code 117)): was expecting double-quote to start property name\n at [Source: REDACTED (`StreamReadFeature.INCLUDE_SOURCE_IN_LOCATION` disabled); byte offset: #UNKNOWN]",
+    "type": "java.lang.RuntimeException"
+  },
+  {
+    "test": "tools.jackson.databind.ext.javatime.TruncateToMillisecondsTest.testInstantNumericTimestampTruncation",
+    "kind": "failure",
+    "message": "Nanoseconds should be multiple of 1,000,000: 122999906 ==> expected: <true> but was: <false>",
+    "type": "org.opentest4j.AssertionFailedError"
+  },
+  {
+    "test": "tools.jackson.databind.misc.ThreadSafetyWithConverterMixin5813Test.testConcurrentSerializationWithConverterMixin",
+    "kind": "failure",
+    "message": "test failed with 10 error(s):\njava.lang.AssertionError: Serialization produced wrong output.\nExpected: {\n  \"locales\" : [ {\n    \"code\" : \"en\"\n  }, {\n    \"code\" : \"de\"\n  } ],\n  \"localizedTexts\" : [ {\n    \"locale\" : \"en\",\n    \"text\" : \"text 1\"\n  }, {\n    \"locale\" : \"de\",\n    \"text\" : \"text 2\"\n  } ]\n}\nActual:   {\"locales\":[{\"code\":\"en\"},{\"code\":\"de\"}],\"localizedTexts\":[{\"locale\":\"en\",\"text\":\"text 1\"},{\"locale\":\"de\",\"text\":\"text 2\"}]}\njava.lang.AssertionError: Serialization produced wrong output.\nExpected: {\n  \"locales\" : [ {\n    \"code\" : \"en\"\n  }, {\n    \"code\" : \"de\"\n  } ],\n  \"localizedTexts\" : [ {\n    \"locale\" : \"en\",\n    \"text\" : \"text 1\"\n  }, {\n    \"locale\" : \"de\",\n    \"text\" : \"text 2\"\n  } ]\n}\nActual:   {\"locales\":[{\"code\":\"en\"},{\"code\":\"de\"}],\"localizedTexts\":[{\"locale\":\"en\",\"text\":\"text 1\"},{\"locale\":\"de\",\"text\":\"text 2\"}]}\njava.lang.AssertionError: Serialization produced wrong output.\nExpected: {\n  \"locales\" : [ {\n    \"code\" : \"en\"\n  }, {\n    \"code\" : \"de\"\n  } ],\n  \"localizedTexts\" : [ {\n    \"locale\" : \"en\",\n    \"text\" : \"text 1\"\n  }, {\n    \"locale\" : \"de\",\n    \"text\" : \"text 2\"\n  } ]\n}\nActual:   {\"locales\":[{\"code\":\"en\"},{\"code\":\"de\"}],\"localizedTexts\":[{\"locale\":\"en\",\"text\":\"text 1\"},{\"locale\":\"de\",\"text\":\"text 2\"}]}\njava.lang.AssertionError: Serialization produced wrong output.\nExpected: {\n  \"locales\" : [ {\n    \"code\" : \"en\"\n  }, {\n    \"code\" : \"de\"\n  } ],\n  \"localizedTexts\" : [ {\n    \"locale\" : \"en\",\n    \"text\" : \"text 1\"\n  }, {\n    \"locale\" : \"de\",\n    \"text\" : \"text 2\"\n  } ]\n}\nActual:   {\"locales\":[{\"code\":\"en\"},{\"code\":\"de\"}],\"localizedTexts\":[{\"locale\":\"en\",\"text\":\"text 1\"},{\"locale\":\"de\",\"text\":\"text 2\"}]}\njava.lang.AssertionError: Serialization produced wrong output.\nExpected: {\n  \"locales\" : [ {\n    \"code\" : \"en\"\n  }, {\n    \"code\" : \"de\"\n  } ],\n  \"localizedTexts\" : [ {\n    \"locale\" : \"en\",\n    \"text\" : \"text 1\"\n  }, {\n    \"locale\" : \"de\",\n    \"text\" : \"text 2\"\n  } ]\n}\nActual:   {\"locales\":[{\"code\":\"en\"},{\"code\":\"de\"}],\"localizedTexts\":[{\"locale\":\"en\",\"text\":\"text 1\"},{\"locale\":\"de\",\"text\":\"text 2\"}]}\njava.lang.AssertionError: Serialization produced wrong output.\nExpected: {\n  \"locales\" : [ {\n    \"code\" : \"en\"\n  }, {\n    \"code\" : \"de\"\n  } ],\n  \"localizedTexts\" : [ {\n    \"locale\" : \"en\",\n    \"text\" : \"text 1\"\n  }, {\n    \"locale\" : \"de\",\n    \"text\" : \"text 2\"\n  } ]\n}\nActual:   {\"locales\":[{\"code\":\"en\"},{\"code\":\"de\"}],\"localizedTexts\":[{\"locale\":\"en\",\"text\":\"text 1\"},{\"locale\":\"de\",\"text\":\"text 2\"}]}\njava.lang.AssertionError: Serialization produced wrong output.\nExpected: {\n  \"locales\" : [ {\n    \"code\" : \"en\"\n  }, {\n    \"code\" : \"de\"\n  } ],\n  \"localizedTexts\" : [ {\n    \"locale\" : \"en\",\n    \"text\" : \"text 1\"\n  }, {\n    \"locale\" : \"de\",\n    \"text\" : \"text 2\"\n  } ]\n}\nActual:   {\"locales\":[{\"code\":\"en\"},{\"code\":\"de\"}],\"localizedTexts\":[{\"locale\":\"en\",\"text\":\"text 1\"},{\"locale\":\"de\",\"text\":\"text 2\"}]}\njava.lang.AssertionError: Serialization produced wrong output.\nExpected: {\n  \"locales\" : [ {\n    \"code\" : \"en\"\n  }, {\n    \"code\" : \"de\"\n  } ],\n  \"localizedTexts\" : [ {\n    \"locale\" : \"en\",\n    \"text\" : \"text 1\"\n  }, {\n    \"locale\" : \"de\",\n    \"text\" : \"text 2\"\n  } ]\n}\nActual:   {\"locales\":[{\"code\":\"en\"},{\"code\":\"de\"}],\"localizedTexts\":[{\"locale\":\"en\",\"text\":\"text 1\"},{\"locale\":\"de\",\"text\":\"text 2\"}]}\njava.lang.AssertionError: Serialization produced wrong output.\nExpected: {\n  \"locales\" : [ {\n    \"code\" : \"en\"\n  }, {\n    \"code\" : \"de\"\n  } ],\n  \"localizedTexts\" : [ {\n    \"locale\" : \"en\",\n    \"text\" : \"text 1\"\n  }, {\n    \"locale\" : \"de\",\n    \"text\" : \"text 2\"\n  } ]\n}\nActual:   {\"locales\":[{\"code\":\"en\"},{\"code\":\"de\"}],\"localizedTexts\":[{\"locale\":\"en\",\"text\":\"text 1\"},{\"locale\":\"de\",\"text\":\"text 2\"}]}\njava.lang.AssertionError: Serialization produced wrong output.\nExpected: {\n  \"locales\" : [ {\n    \"code\" : \"en\"\n  }, {\n    \"code\" : \"de\"\n  } ],\n  \"localizedTexts\" : [ {\n    \"locale\" : \"en\",\n    \"text\" : \"text 1\"\n  }, {\n    \"locale\" : \"de\",\n    \"text\" : \"text 2\"\n  } ]\n}\nActual:   {\"locales\":[{\"code\":\"en\"},{\"code\":\"de\"}],\"localizedTexts\":[{\"locale\":\"en\",\"text\":\"text 1\"},{\"locale\":\"de\",\"text\":\"text 2\"}]} ==> expected: <true> but was: <false>",
+    "type": "org.opentest4j.AssertionFailedError"
+  },
+  {
+    "test": "tools.jackson.databind.mixins.TestMixinSerWithViews.testDataBindingUsage",
+    "kind": "failure",
+    "message": "expected: <true> but was: <false>",
+    "type": "org.opentest4j.AssertionFailedError"
+  },
+  {
+    "test": "tools.jackson.databind.node.NodeFeaturesTest.testBigDecimalForJsonNodeFeature",
+    "kind": "failure",
+    "message": "expected: <0.12345678901234568> but was: <0.1234567890123456789012345678912345>",
+    "type": "org.opentest4j.AssertionFailedError"
+  },
+  {
+    "test": "tools.jackson.databind.seq.SequenceWriterTest.testWithExplicitType",
+    "kind": "error",
+    "message": "Trailing token (`JsonToken.START_OBJECT`) found after value (bound as `tools.jackson.databind.JsonNode`): not allowed as per `DeserializationFeature.FAIL_ON_TRAILING_TOKENS`\n at [Source: (byte[])[21 bytes]; byte offset: #9]",
+    "type": "tools.jackson.databind.exc.MismatchedInputException"
+  },
+  {
+    "test": "tools.jackson.databind.seq.SequenceWriterTest.testSimpleNonArrayNoSeparator",
+    "kind": "error",
+    "message": "Trailing token (`JsonToken.START_OBJECT`) found after value (bound as `tools.jackson.databind.JsonNode`): not allowed as per `DeserializationFeature.FAIL_ON_TRAILING_TOKENS`\n at [Source: (byte[])[12 bytes]; byte offset: #6]",
+    "type": "tools.jackson.databind.exc.MismatchedInputException"
+  },
+  {
+    "test": "tools.jackson.databind.seq.SequenceWriterTest.testSimpleNonArray",
+    "kind": "error",
+    "message": "Trailing token (`JsonToken.START_OBJECT`) found after value (bound as `tools.jackson.databind.JsonNode`): not allowed as per `DeserializationFeature.FAIL_ON_TRAILING_TOKENS`\n at [Source: (byte[])[37 bytes]; byte offset: #7]",
+    "type": "tools.jackson.databind.exc.MismatchedInputException"
+  },
+  {
+    "test": "tools.jackson.databind.seq.SequenceWriterTest.testPolymorphicNonArrayWithoutType",
+    "kind": "error",
+    "message": "Trailing token (`JsonToken.START_OBJECT`) found after value (bound as `tools.jackson.databind.JsonNode`): not allowed as per `DeserializationFeature.FAIL_ON_TRAILING_TOKENS`\n at [Source: (byte[])[34 bytes]; byte offset: #17]",
+    "type": "tools.jackson.databind.exc.MismatchedInputException"
+  },
+  {
+    "test": "tools.jackson.databind.ser.CustomSerializersTest.testCustomEscapes",
+    "kind": "failure",
+    "message": "expected: <\"foo\\u0062\\Ar\"> but was: <\"foobar\">",
+    "type": "org.opentest4j.AssertionFailedError"
+  },
+  {
+    "test": "tools.jackson.databind.ser.SerializationFeaturesTest.testProviderConfig",
+    "kind": "error",
+    "message": "Unexpected end-of-input in VPack value\n at [Source: (byte[])[13 bytes]; byte offset: #13]",
+    "type": "tools.jackson.core.exc.UnexpectedEndOfInputException"
+  },
+  {
+    "test": "tools.jackson.databind.ser.SerializationFeaturesTest.testIndentation",
+    "kind": "failure",
+    "message": "expected: <{\n  \"a\" : 2\n}> but was: <{\"a\":2}>",
+    "type": "org.opentest4j.AssertionFailedError"
+  },
+  {
+    "test": "tools.jackson.databind.ser.SerializationFeaturesTest.testIndentWithPassedGenerator",
+    "kind": "failure",
+    "message": "expected: <{\n  \"a\" : 3\n}> but was: <{\"a\":3}>",
+    "type": "org.opentest4j.AssertionFailedError"
+  },
+  {
+    "test": "tools.jackson.databind.ser.SimpleTypeSerializationTest.testBase64Variants",
+    "kind": "failure",
+    "message": "expected: <\"YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXoxMjM0NTY3ODkwYWJjZGVmZ2hpamtsbW5vcHFyc3R1\\ndnd4eXoxMjM0NTY3ODkwWA==\"> but was: <\"YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXoxMjM0NTY3ODkwYWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXoxMjM0NTY3ODkwWA==\">",
+    "type": "org.opentest4j.AssertionFailedError"
+  },
+  {
+    "test": "tools.jackson.databind.struct.UnwrapSingleArrayTest.testURIAsArray",
+    "kind": "failure",
+    "message": "Expected an exception (tools.jackson.databind.exc.InvalidFormatException) with one of substrings ([from Array value]): got one with message \"Cannot deserialize value of type `java.net.URI` from String \"[\": not a valid textual representation, problem: Illegal character in path at index 0: [\n at [Source: (byte[])[18 bytes]; byte offset: #0]\"",
+    "type": "org.opentest4j.AssertionFailedError"
+  },
+  {
+    "test": "tools.jackson.databind.struct.UnwrapSingleArrayTest.testClassAsArray",
+    "kind": "error",
+    "message": "Cannot construct instance of `java.lang.Class`, problem: [\n at [Source: (byte[])[20 bytes]; byte offset: #0]",
+    "type": "tools.jackson.databind.exc.ValueInstantiationException"
+  },
+  {
+    "test": "tools.jackson.databind.struct.UnwrapSingleArrayTest.testUUIDAsArray",
+    "kind": "failure",
+    "message": "Expected an exception (tools.jackson.databind.exc.InvalidFormatException) with one of substrings ([from Array value]): got one with message \"Cannot deserialize value of type `java.util.UUID` from String \"[\": UUID has to be represented by standard 36-char representation\n at [Source: (byte[])[40 bytes]; byte offset: #0]\"",
+    "type": "org.opentest4j.AssertionFailedError"
+  },
+  {
+    "test": "tools.jackson.databind.struct.UnwrapSingleArrayTest.testSingleElementArrayDisabled",
+    "kind": "error",
+    "message": "tools.jackson.core.exc.StreamReadException: Unexpected character (''' (code 39)): expected a valid value (JSON String, Number (or 'NaN'/'+INF'/'-INF'), Array, Object or token 'null', 'true' or 'false')\n at [Source: REDACTED (`StreamReadFeature.INCLUDE_SOURCE_IN_LOCATION` disabled); byte offset: #UNKNOWN]",
+    "type": "java.lang.RuntimeException"
+  }
+]

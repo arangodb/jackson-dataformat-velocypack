@@ -1,0 +1,512 @@
+{
+  "purpose": "stage 2 exploratory shared-buffer comparison; NON-ACCEPTANCE",
+  "initialRunDirectory": "target/jmh-result/tree-write-20261003T075931Z-OMjAYJ",
+  "baselineRunDirectory": "target/jmh-result/tree-write-20261002T223110Z-Ku1k3Z",
+  "dependencyLockSha256": "2a36a5ee3d04800ea6278188425e974bb446a19b52d4d08871d8e83c5796ea65",
+  "initialComparison": [
+    {
+      "benchmark": "com.arangodb.jackson.dataformat.velocypack.Bench.treeWriteCursor",
+      "params": {
+        "batchSize": "1000",
+        "format": "JSON"
+      },
+      "forks": 1,
+      "threads": 1,
+      "warmupIterations": 3,
+      "warmupTime": "2 s",
+      "measurementIterations": 5,
+      "measurementTime": "2 s",
+      "meanUsPerOp": 5252.790536821316,
+      "errorUsPerOp": 177.64449631976606,
+      "allocatedBytesPerOp": 3494651.408749188
+    },
+    {
+      "benchmark": "com.arangodb.jackson.dataformat.velocypack.Bench.treeWriteCursor",
+      "params": {
+        "batchSize": "1000",
+        "format": "SMILE"
+      },
+      "forks": 1,
+      "threads": 1,
+      "warmupIterations": 3,
+      "warmupTime": "2 s",
+      "measurementIterations": 5,
+      "measurementTime": "2 s",
+      "meanUsPerOp": 2948.195937378829,
+      "errorUsPerOp": 59.87224534203772,
+      "allocatedBytesPerOp": 1439709.021925372
+    },
+    {
+      "benchmark": "com.arangodb.jackson.dataformat.velocypack.Bench.treeWriteCursor",
+      "params": {
+        "batchSize": "1000",
+        "format": "VPACK"
+      },
+      "forks": 1,
+      "threads": 1,
+      "warmupIterations": 3,
+      "warmupTime": "2 s",
+      "measurementIterations": 5,
+      "measurementTime": "2 s",
+      "meanUsPerOp": 7712.1821726352555,
+      "errorUsPerOp": 693.5175595265589,
+      "allocatedBytesPerOp": 9291762.43025003
+    }
+  ],
+  "fixtureOutputBytes": {
+    "VPACK": {
+      "document": 1029,
+      "cursor": 1144774,
+      "sequence": 1144546
+    }
+  },
+  "stackDiagnostic": {
+    "method": "ThreadMXBean stack sampling at 2 ms, separate process; safepoint-biased, no JFR",
+    "samples": 3875,
+    "topFramesPercent": {
+      "writeName": 43.59,
+      "writeString": 14.14,
+      "_verifyValueWrite": 10.76,
+      "_ensurePayload": 5.91,
+      "vbyteWidth": 5.08,
+      "_writeVByte": 5.03
+    },
+    "pathInclusivePercent": {
+      "writeName": 48.36,
+      "writeString": 20.9,
+      "_closeContainer": 13.01,
+      "String.getBytes": 4.05
+    },
+    "interpretation": "Property-name/string writes and context checks dominate observed paths. Do not interpret safepoint-biased counts as precise CPU percentages. Output-array creation and arena growth still allocate; UTF-8 work is deferred."
+  },
+  "auxiliaryRunDirectory": "target/jmh-result/tree-write-20261003T080738Z-33mye1",
+  "auxiliaryRegressions": [
+    {
+      "benchmark": "com.arangodb.jackson.dataformat.velocypack.Bench.pojoWriteCursor",
+      "params": {
+        "batchSize": "1",
+        "format": "JSON"
+      },
+      "forks": 1,
+      "threads": 1,
+      "warmupIterations": 3,
+      "warmupTime": "2 s",
+      "measurementIterations": 5,
+      "measurementTime": "2 s",
+      "meanUsPerOp": 4.639501963850739,
+      "errorUsPerOp": 0.03382316384548497,
+      "allocatedBytesPerOp": 3568.0160502053272
+    },
+    {
+      "benchmark": "com.arangodb.jackson.dataformat.velocypack.Bench.pojoWriteCursor",
+      "params": {
+        "batchSize": "1",
+        "format": "SMILE"
+      },
+      "forks": 1,
+      "threads": 1,
+      "warmupIterations": 3,
+      "warmupTime": "2 s",
+      "measurementIterations": 5,
+      "measurementTime": "2 s",
+      "meanUsPerOp": 3.8073372034911146,
+      "errorUsPerOp": 0.017715082560897235,
+      "allocatedBytesPerOp": 3704.013156237045
+    },
+    {
+      "benchmark": "com.arangodb.jackson.dataformat.velocypack.Bench.pojoWriteCursor",
+      "params": {
+        "batchSize": "1",
+        "format": "VPACK"
+      },
+      "forks": 1,
+      "threads": 1,
+      "warmupIterations": 3,
+      "warmupTime": "2 s",
+      "measurementIterations": 5,
+      "measurementTime": "2 s",
+      "meanUsPerOp": 5.77598943334783,
+      "errorUsPerOp": 0.12626468898624685,
+      "allocatedBytesPerOp": 9976.020335735604
+    },
+    {
+      "benchmark": "com.arangodb.jackson.dataformat.velocypack.Bench.pojoWriteCursor",
+      "params": {
+        "batchSize": "1000",
+        "format": "JSON"
+      },
+      "forks": 1,
+      "threads": 1,
+      "warmupIterations": 3,
+      "warmupTime": "2 s",
+      "measurementIterations": 5,
+      "measurementTime": "2 s",
+      "meanUsPerOp": 4546.048669676165,
+      "errorUsPerOp": 47.341954877515654,
+      "allocatedBytesPerOp": 3727139.5943060825
+    },
+    {
+      "benchmark": "com.arangodb.jackson.dataformat.velocypack.Bench.pojoWriteCursor",
+      "params": {
+        "batchSize": "1000",
+        "format": "SMILE"
+      },
+      "forks": 1,
+      "threads": 1,
+      "warmupIterations": 3,
+      "warmupTime": "2 s",
+      "measurementIterations": 5,
+      "measurementTime": "2 s",
+      "meanUsPerOp": 2822.311075827204,
+      "errorUsPerOp": 84.76206679945936,
+      "allocatedBytesPerOp": 1672203.3330917344
+    },
+    {
+      "benchmark": "com.arangodb.jackson.dataformat.velocypack.Bench.pojoWriteCursor",
+      "params": {
+        "batchSize": "1000",
+        "format": "VPACK"
+      },
+      "forks": 1,
+      "threads": 1,
+      "warmupIterations": 3,
+      "warmupTime": "2 s",
+      "measurementIterations": 5,
+      "measurementTime": "2 s",
+      "meanUsPerOp": 5524.36040677281,
+      "errorUsPerOp": 127.59647908271627,
+      "allocatedBytesPerOp": 9524237.101508122
+    },
+    {
+      "benchmark": "com.arangodb.jackson.dataformat.velocypack.Bench.sequenceWrite",
+      "params": {
+        "batchSize": "1",
+        "format": "JSON"
+      },
+      "forks": 1,
+      "threads": 1,
+      "warmupIterations": 3,
+      "warmupTime": "2 s",
+      "measurementIterations": 5,
+      "measurementTime": "2 s",
+      "meanUsPerOp": 3.778397293415021,
+      "errorUsPerOp": 0.020227514168170754,
+      "allocatedBytesPerOp": 4336.013056186797
+    },
+    {
+      "benchmark": "com.arangodb.jackson.dataformat.velocypack.Bench.sequenceWrite",
+      "params": {
+        "batchSize": "1",
+        "format": "SMILE"
+      },
+      "forks": 1,
+      "threads": 1,
+      "warmupIterations": 3,
+      "warmupTime": "2 s",
+      "measurementIterations": 5,
+      "measurementTime": "2 s",
+      "meanUsPerOp": 2.8881478770300024,
+      "errorUsPerOp": 0.011486134357328204,
+      "allocatedBytesPerOp": 3856.0099798557158
+    },
+    {
+      "benchmark": "com.arangodb.jackson.dataformat.velocypack.Bench.sequenceWrite",
+      "params": {
+        "batchSize": "1",
+        "format": "VPACK"
+      },
+      "forks": 1,
+      "threads": 1,
+      "warmupIterations": 3,
+      "warmupTime": "2 s",
+      "measurementIterations": 5,
+      "measurementTime": "2 s",
+      "meanUsPerOp": 4.505460792817371,
+      "errorUsPerOp": 0.1515522957855025,
+      "allocatedBytesPerOp": 10192.015587020633
+    },
+    {
+      "benchmark": "com.arangodb.jackson.dataformat.velocypack.Bench.sequenceWrite",
+      "params": {
+        "batchSize": "1000",
+        "format": "JSON"
+      },
+      "forks": 1,
+      "threads": 1,
+      "warmupIterations": 3,
+      "warmupTime": "2 s",
+      "measurementIterations": 5,
+      "measurementTime": "2 s",
+      "meanUsPerOp": 4321.497824831046,
+      "errorUsPerOp": 37.71774893629462,
+      "allocatedBytesPerOp": 3843513.7771634264
+    },
+    {
+      "benchmark": "com.arangodb.jackson.dataformat.velocypack.Bench.sequenceWrite",
+      "params": {
+        "batchSize": "1000",
+        "format": "SMILE"
+      },
+      "forks": 1,
+      "threads": 1,
+      "warmupIterations": 3,
+      "warmupTime": "2 s",
+      "measurementIterations": 5,
+      "measurementTime": "2 s",
+      "meanUsPerOp": 2788.8132571170654,
+      "errorUsPerOp": 11.657419547117705,
+      "allocatedBytesPerOp": 1731994.0947274223
+    },
+    {
+      "benchmark": "com.arangodb.jackson.dataformat.velocypack.Bench.sequenceWrite",
+      "params": {
+        "batchSize": "1000",
+        "format": "VPACK"
+      },
+      "forks": 1,
+      "threads": 1,
+      "warmupIterations": 3,
+      "warmupTime": "2 s",
+      "measurementIterations": 5,
+      "measurementTime": "2 s",
+      "meanUsPerOp": 4716.103669880092,
+      "errorUsPerOp": 61.994989384101,
+      "allocatedBytesPerOp": 5712640.294076277
+    },
+    {
+      "benchmark": "com.arangodb.jackson.dataformat.velocypack.Bench.streamingWriteCursor",
+      "params": {
+        "batchSize": "1",
+        "format": "JSON"
+      },
+      "forks": 1,
+      "threads": 1,
+      "warmupIterations": 3,
+      "warmupTime": "2 s",
+      "measurementIterations": 5,
+      "measurementTime": "2 s",
+      "meanUsPerOp": 4.314752992239423,
+      "errorUsPerOp": 0.00868161895306501,
+      "allocatedBytesPerOp": 4968.014909112069
+    },
+    {
+      "benchmark": "com.arangodb.jackson.dataformat.velocypack.Bench.streamingWriteCursor",
+      "params": {
+        "batchSize": "1",
+        "format": "SMILE"
+      },
+      "forks": 1,
+      "threads": 1,
+      "warmupIterations": 3,
+      "warmupTime": "2 s",
+      "measurementIterations": 5,
+      "measurementTime": "2 s",
+      "meanUsPerOp": 3.246416596817588,
+      "errorUsPerOp": 0.022768371519220083,
+      "allocatedBytesPerOp": 4672.0112179459775
+    },
+    {
+      "benchmark": "com.arangodb.jackson.dataformat.velocypack.Bench.streamingWriteCursor",
+      "params": {
+        "batchSize": "1",
+        "format": "VPACK"
+      },
+      "forks": 1,
+      "threads": 1,
+      "warmupIterations": 3,
+      "warmupTime": "2 s",
+      "measurementIterations": 5,
+      "measurementTime": "2 s",
+      "meanUsPerOp": 4.679483139933131,
+      "errorUsPerOp": 0.05920085898605254,
+      "allocatedBytesPerOp": 11200.016169664364
+    },
+    {
+      "benchmark": "com.arangodb.jackson.dataformat.velocypack.Bench.streamingWriteCursor",
+      "params": {
+        "batchSize": "1000",
+        "format": "JSON"
+      },
+      "forks": 1,
+      "threads": 1,
+      "warmupIterations": 3,
+      "warmupTime": "2 s",
+      "measurementIterations": 5,
+      "measurementTime": "2 s",
+      "meanUsPerOp": 4311.300829793288,
+      "errorUsPerOp": 18.042780154658736,
+      "allocatedBytesPerOp": 3737649.4729032265
+    },
+    {
+      "benchmark": "com.arangodb.jackson.dataformat.velocypack.Bench.streamingWriteCursor",
+      "params": {
+        "batchSize": "1000",
+        "format": "SMILE"
+      },
+      "forks": 1,
+      "threads": 1,
+      "warmupIterations": 3,
+      "warmupTime": "2 s",
+      "measurementIterations": 5,
+      "measurementTime": "2 s",
+      "meanUsPerOp": 2268.2821430608888,
+      "errorUsPerOp": 17.24331616564169,
+      "allocatedBytesPerOp": 1626358.3946560256
+    },
+    {
+      "benchmark": "com.arangodb.jackson.dataformat.velocypack.Bench.streamingWriteCursor",
+      "params": {
+        "batchSize": "1000",
+        "format": "VPACK"
+      },
+      "forks": 1,
+      "threads": 1,
+      "warmupIterations": 3,
+      "warmupTime": "2 s",
+      "measurementIterations": 5,
+      "measurementTime": "2 s",
+      "meanUsPerOp": 4730.160903604241,
+      "errorUsPerOp": 123.56518793445278,
+      "allocatedBytesPerOp": 9512840.363714011
+    },
+    {
+      "benchmark": "com.arangodb.jackson.dataformat.velocypack.Bench.treeWriteDocument",
+      "params": {
+        "batchSize": "1",
+        "format": "JSON"
+      },
+      "forks": 1,
+      "threads": 1,
+      "warmupIterations": 3,
+      "warmupTime": "2 s",
+      "measurementIterations": 5,
+      "measurementTime": "2 s",
+      "meanUsPerOp": 3.518309630082881,
+      "errorUsPerOp": 0.016273698090414217,
+      "allocatedBytesPerOp": 2848.0121572641465
+    },
+    {
+      "benchmark": "com.arangodb.jackson.dataformat.velocypack.Bench.treeWriteDocument",
+      "params": {
+        "batchSize": "1",
+        "format": "SMILE"
+      },
+      "forks": 1,
+      "threads": 1,
+      "warmupIterations": 3,
+      "warmupTime": "2 s",
+      "measurementIterations": 5,
+      "measurementTime": "2 s",
+      "meanUsPerOp": 2.666902161217983,
+      "errorUsPerOp": 0.024767085665800926,
+      "allocatedBytesPerOp": 2704.0092151264494
+    },
+    {
+      "benchmark": "com.arangodb.jackson.dataformat.velocypack.Bench.treeWriteDocument",
+      "params": {
+        "batchSize": "1",
+        "format": "VPACK"
+      },
+      "forks": 1,
+      "threads": 1,
+      "warmupIterations": 3,
+      "warmupTime": "2 s",
+      "measurementIterations": 5,
+      "measurementTime": "2 s",
+      "meanUsPerOp": 4.077973667157799,
+      "errorUsPerOp": 0.45581080617934705,
+      "allocatedBytesPerOp": 8888.014103819787
+    },
+    {
+      "benchmark": "com.arangodb.jackson.dataformat.velocypack.Bench.treeWriteDocument",
+      "params": {
+        "batchSize": "1000",
+        "format": "JSON"
+      },
+      "forks": 1,
+      "threads": 1,
+      "warmupIterations": 3,
+      "warmupTime": "2 s",
+      "measurementIterations": 5,
+      "measurementTime": "2 s",
+      "meanUsPerOp": 3.9236602052674163,
+      "errorUsPerOp": 0.03003585808017185,
+      "allocatedBytesPerOp": 2848.013557854346
+    },
+    {
+      "benchmark": "com.arangodb.jackson.dataformat.velocypack.Bench.treeWriteDocument",
+      "params": {
+        "batchSize": "1000",
+        "format": "SMILE"
+      },
+      "forks": 1,
+      "threads": 1,
+      "warmupIterations": 3,
+      "warmupTime": "2 s",
+      "measurementIterations": 5,
+      "measurementTime": "2 s",
+      "meanUsPerOp": 2.6056485544185555,
+      "errorUsPerOp": 0.021059608494886292,
+      "allocatedBytesPerOp": 2704.009003600461
+    },
+    {
+      "benchmark": "com.arangodb.jackson.dataformat.velocypack.Bench.treeWriteDocument",
+      "params": {
+        "batchSize": "1000",
+        "format": "VPACK"
+      },
+      "forks": 1,
+      "threads": 1,
+      "warmupIterations": 3,
+      "warmupTime": "2 s",
+      "measurementIterations": 5,
+      "measurementTime": "2 s",
+      "meanUsPerOp": 4.0887704612243025,
+      "errorUsPerOp": 0.06995642055925706,
+      "allocatedBytesPerOp": 8888.0141285239
+    }
+  ],
+  "timingRevisionNote": "Initial cursor exploration precedes context-close polish. Auxiliary timing includes context-close polish but precedes final streamed-binary integration. Bench fixtures do not use InputStream binary calls. No compiled classes changed during either timing invocation.",
+  "finalValidation": {
+    "focusedTests": 128,
+    "focusedFailures": 0,
+    "focusedErrors": 0,
+    "fullSuiteSurefireSummary": {
+      "tests": 6438,
+      "failures": 12,
+      "errors": 10,
+      "skipped": 3
+    },
+    "failureComparison": {
+      "xmlCounts": {
+        "tests": 6487,
+        "failures": 61,
+        "errors": 10,
+        "skipped": 3
+      },
+      "distinctFailingMethods": 22,
+      "newFailures": [],
+      "removedFailures": []
+    },
+    "productionSourceSha256": "f8d89c83335dadf4b162c2148959e1463007f2a4678505e0315a0ef7b1706920"
+  },
+  "payloadDiagnostic": {
+    "purpose": "Separate instrumented generator traversal, not timing data; same seed-42 cursor tree, default layouts",
+    "outputBytes": 1144774,
+    "equalToFixture": true,
+    "arenaAllocations": 22,
+    "arenaAllocatedCapacitiesBytes": 3854439,
+    "arenaFinalCapacityBytes": 1284995,
+    "arenaGrowthCopyBytes": 2569444,
+    "containerCloses": 16624,
+    "headerCompactionContentBytes": 5585181,
+    "sortingCopyBytes": 0,
+    "stringGetBytesCalls": 98284,
+    "temporaryStringEncodedBytes": 870931,
+    "temporaryStringByteNote": "Excludes per-array headers/alignment and internal UTF-16 encoder temporaries",
+    "peakLiveOffsets": 1031,
+    "offsetCapacity": 1303,
+    "peakOpenDepth": 7,
+    "transientFailure": "First diagnostic launch raced Maven recompilation (NoClassDefFoundError). Serial rerun passed; neither timing invocation was affected."
+  }
+}
