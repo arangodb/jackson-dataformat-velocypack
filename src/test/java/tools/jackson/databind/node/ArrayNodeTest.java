@@ -1,0 +1,598 @@
+package tools.jackson.databind.node;
+
+import org.junit.jupiter.api.Test;
+import tools.jackson.core.*;
+import tools.jackson.databind.*;
+import tools.jackson.databind.VPackUtils;
+import tools.jackson.databind.exc.JsonNodeException;
+import tools.jackson.databind.exc.MismatchedInputException;
+import tools.jackson.databind.testutil.DatabindTestUtil;
+import tools.jackson.databind.util.RawValue;
+
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.stream.Collectors;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+/**
+ * Additional tests for {@link ArrayNode} container class.
+ */
+public class ArrayNodeTest
+    extends DatabindTestUtil
+{
+    private final ObjectMapper MAPPER = newVPackMapper();
+
+    private final JsonNodeFactory NODE_F = MAPPER.getNodeFactory();
+
+    @Test
+    public void testDirectCreation()
+    {
+        ArrayNode n = new ArrayNode(NODE_F);
+
+        assertFalse(n.isBoolean());
+        assertFalse(n.isString());
+        assertFalse(n.isNumber());
+        assertFalse(n.canConvertToInt());
+        assertFalse(n.canConvertToLong());
+        assertFalse(n.canConvertToExactIntegral());
+        assertTrue(n.isArray());
+        assertFalse(n.isObject());
+        assertTrue(n.isContainer());
+
+        assertStandardEquals(n);
+        assertFalse(n.values().iterator().hasNext());
+        assertTrue(n.propertyNames().isEmpty());
+        assertTrue(n.isEmpty());
+        StringNode text = StringNode.valueOf("x");
+        n.add(text);
+        assertEquals(1, n.size());
+        assertFalse(n.isEmpty());
+        assertNotEquals(0, n.hashCode());
+        assertTrue(n.values().iterator().hasNext());
+        // no field names for arrays
+        assertNull(n.get("x")); // not used with arrays
+        assertTrue(n.path("x").isMissingNode());
+        assertFalse(n.optional("x").isPresent());
+        assertSame(text, n.get(0));
+
+        // single element, so:
+        assertFalse(n.has("field"));
+        assertFalse(n.hasNonNull("field"));
+        assertTrue(n.has(0));
+        assertTrue(n.hasNonNull(0));
+        assertFalse(n.has(1));
+        assertFalse(n.hasNonNull(1));
+
+        // add null node too
+        n.add((JsonNode) null);
+        assertEquals(2, n.size());
+        assertTrue(n.get(1).isNull());
+        assertTrue(n.has(1));
+        assertFalse(n.hasNonNull(1));
+        // change to text
+        n.set(1, text);
+        assertSame(text, n.get(1));
+        n.set(0, (JsonNode) null);
+        assertTrue(n.get(0).isNull());
+
+        // and finally, clear it all
+        ArrayNode n2 = new ArrayNode(NODE_F);
+        n2.add("foobar");
+        assertFalse(n.equals(n2));
+        n.addAll(n2);
+        assertEquals(3, n.size());
+
+        assertFalse(n.get(0).isString());
+        assertNotNull(n.remove(0));
+        assertEquals(2, n.size());
+        assertTrue(n.get(0).isString());
+        assertNull(n.remove(-1));
+        assertNull(n.remove(100));
+        assertEquals(2, n.size());
+
+        ArrayList<JsonNode> nodes = new ArrayList<>();
+        nodes.add(text);
+        n.addAll(nodes);
+        assertEquals(3, n.size());
+        assertNull(n.get(10000));
+        assertNull(n.remove(-4));
+
+        StringNode text2 = StringNode.valueOf("b");
+        n.insert(0, text2);
+        assertEquals(4, n.size());
+        assertSame(text2, n.get(0));
+
+        assertNotNull(n.addArray());
+        assertEquals(5, n.size());
+        n.addPOJO("foo");
+        assertEquals(6, n.size());
+
+        n.removeAll();
+        assertEquals(0, n.size());
+    }
+
+    @Test
+    public void testDirectCreation2()
+    {
+        ArrayList<JsonNode> list = new ArrayList<>();
+        list.add(NODE_F.booleanNode(true));
+        list.add(NODE_F.stringNode("foo"));
+        ArrayNode n = new ArrayNode(NODE_F, list);
+        assertEquals(2, n.size());
+        assertTrue(n.get(0).isBoolean());
+        assertTrue(n.get(1).isString());
+
+        // also, should fail with invalid set attempt
+        try {
+            n.set(2, NODE_F.nullNode());
+            fail("Should not pass");
+        } catch (JsonNodeException e) {
+            verifyException(e, "illegal index");
+        }
+        n.insert(1, (String) null);
+        assertEquals(3, n.size());
+        assertTrue(n.get(0).isBoolean());
+        assertTrue(n.get(1).isNull());
+        assertTrue(n.get(2).isString());
+
+        n.removeAll();
+        n.insert(0, (JsonNode) null);
+        assertEquals(1, n.size());
+        assertTrue(n.get(0).isNull());
+    }
+
+    @Test
+    public void testArraySet() {
+        final ArrayNode array = NODE_F.arrayNode();
+        for (int i = 0; i < 20; i++) {
+            array.add("Original Data");
+        }
+
+        array.setPOJO(0, "MyPojo");
+        array.setRawValue(1, new RawValue("MyRawValue"));
+        array.setNull(2);
+        array.set(3, (short) 155);
+        array.set(4, Short.valueOf((short) 130));
+        array.set(5, 132);
+        array.set(6, Integer.valueOf(452));
+        array.set(7, 4342L);
+        array.set(8, Long.valueOf(154242L));
+        array.set(9, 1.25f);
+        array.set(10, Float.valueOf(242.25f));
+        array.set(11, 132.25D);
+        array.set(12, Double.valueOf(231.5D));
+        array.set(13, BigDecimal.TEN);
+        array.set(14, BigInteger.ONE);
+        array.set(15, "Modified Data");
+        array.set(16, true);
+        array.set(17, Boolean.FALSE);
+        array.set(18, new byte[]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10});
+
+        assertEquals("MyPojo", ((POJONode) array.get(0)).getPojo());
+        assertEquals(new RawValue("MyRawValue"), ((POJONode) array.get(1)).getPojo());
+        assertEquals(NullNode.instance, array.get(2));
+        assertEquals((short) 155, array.get(3).shortValue());
+        assertEquals((short) 130, array.get(4).shortValue());
+        assertEquals(132, array.get(5).intValue());
+        assertEquals(452, array.get(6).intValue());
+        assertEquals(4342L, array.get(7).longValue());
+        assertEquals(154242L, array.get(8).longValue());
+        assertEquals(1.25f, array.get(9).floatValue(), 0.00001f);
+        assertEquals(242.25f, array.get(10).floatValue(), 0.00001f);
+        assertEquals(132.25D, array.get(11).doubleValue(), 0.000000001d);
+        assertEquals(231.5D, array.get(12).doubleValue(), 0.000000001d);
+        assertEquals(0, BigDecimal.TEN.compareTo(array.get(13).decimalValue()));
+        assertEquals(BigInteger.ONE, array.get(14).bigIntegerValue());
+        assertEquals("Modified Data", array.get(15).stringValue());
+        assertTrue(array.get(16).booleanValue());
+        assertFalse(array.get(17).booleanValue());
+        assertArrayEquals(new byte[]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, array.get(18).binaryValue());
+
+        assertEquals(20, array.size());
+        for (int i = 0; i < 20; i++) {
+            if (i <= 18) {
+                if (i != 1) { // in 3.0, RawValue not convertible to String
+                    assertNotEquals("Original Data", array.get(i).asString());
+                }
+            } else {
+                assertEquals("Original Data", array.get(i).stringValue());
+            }
+        }
+    }
+
+    @Test
+    public void testArrayReplace() {
+        final ArrayNode array = NODE_F.arrayNode();
+        array.add("foo");
+
+        // First replace with boolean node
+        JsonNode old = array.replace(0, NODE_F.booleanNode(true));
+        assertEquals("foo", old.stringValue());
+
+        // second, with null
+        old = array.replace(0, null);
+        assertTrue(old.booleanValue());
+
+        // and then out of bounds case
+        try {
+            array.replace(100, null);
+            fail("Should not pass");
+        } catch (JsonNodeException e) {
+            verifyException(e, "Illegal index 100, array size 1");
+        }
+    }
+
+    @Test
+    public void testArrayViaMapper()
+    {
+        final String JSON = "[[[-0.027512,51.503221],[-0.008497,51.503221],[-0.008497,51.509744],[-0.027512,51.509744]]]";
+
+        JsonNode n = MAPPER.readTree(VPackUtils.toVPack(JSON));
+        assertNotNull(n);
+        assertTrue(n.isArray());
+        ArrayNode an = (ArrayNode) n;
+        assertEquals(1, an.size());
+        ArrayNode an2 = (ArrayNode) n.get(0);
+        assertTrue(an2.isArray());
+        assertEquals(4, an2.size());
+    }
+
+    @Test
+    public void testAdds()
+    {
+        ArrayNode n = new ArrayNode(NODE_F);
+        assertNotNull(n.addArray());
+        assertNotNull(n.addObject());
+        n.addPOJO("foobar");
+        n.add(Integer.valueOf(1));
+        n.add(Long.valueOf(1L));
+        n.add((short) 13);
+        n.add(Double.valueOf(0.5));
+        n.add(Float.valueOf(0.5f));
+        n.add(0.25f);
+        n.add(new BigDecimal("0.2"));
+        n.add(BigInteger.TEN);
+        assertEquals(11, n.size());
+        assertFalse(n.isEmpty());
+
+        assertNotNull(n.insertArray(0));
+        assertNotNull(n.insertObject(0));
+        n.insertPOJO(2, "xxx");
+        assertEquals(14, n.size());
+
+        n.insert(0, BigInteger.ONE);
+        n.insert(0, new BigDecimal("0.1"));
+        assertEquals(16, n.size());
+    }
+
+    @Test
+    public void testInserts()
+    {
+        ArrayNode n = NODE_F.arrayNode(16);
+        n.insert(0, (short) 3);
+        n.insert(0, Short.valueOf((short) 5));
+        n.insert(0, (Short) null);
+
+        n.insert(0, 1);
+        n.insert(0, Integer.valueOf(2));
+        n.insert(0, (Integer) null);
+
+        n.insert(0, 1L);
+        n.insert(0, Long.valueOf(2L));
+        n.insert(0, (Long) null);
+
+        n.insert(0, 0.0f);
+        n.insert(0, Float.valueOf(1.0f));
+        n.insert(0, (Float) null);
+
+        n.insert(0, 0.5);
+        n.insert(0, Double.valueOf(2.0));
+        n.insert(0, (Double) null);
+
+        n.insert(0, NODE_F.pojoNode("foobar"));
+
+        assertEquals(16, n.size());
+    }
+    
+    @Test
+    public void testNullAdds()
+    {
+        ArrayNode array = NODE_F.arrayNode(14);
+
+        array.add((BigDecimal) null);
+        array.add((BigInteger) null);
+        array.add((Boolean) null);
+        array.add((byte[]) null);
+        array.add((Double) null);
+        array.add((Float) null);
+        array.add((Integer) null);
+        array.add((JsonNode) null);
+        array.add((Long) null);
+        array.add((String) null);
+
+        assertEquals(10, array.size());
+
+        for (JsonNode node : array) {
+            assertTrue(node.isNull());
+        }
+    }
+
+    @Test
+    public void testAddAllWithNullInCollection()
+    {
+        // preparation
+        final ArrayNode array = JsonNodeFactory.instance.arrayNode();
+
+        // test
+        array.addAll(Arrays.asList(null, JsonNodeFactory.instance.objectNode()));
+
+        // assertions
+        assertEquals(2, array.size());
+
+        for (JsonNode node : array) {
+            assertNotNull(node);
+        }
+        assertEquals(NullNode.getInstance(), array.get(0));
+    }
+
+    @Test
+    public void testNullInserts()
+    {
+        JsonNodeFactory f = MAPPER.getNodeFactory();
+        ArrayNode array = f.arrayNode(3);
+
+        array.insert(0, (BigDecimal) null);
+        array.insert(0, (BigInteger) null);
+        array.insert(0, (Boolean) null);
+        // Offsets out of the range are fine; negative become 0;
+        // super big just add at the end
+        array.insert(-56, (byte[]) null);
+        array.insert(0, (Double) null);
+        array.insert(200, (Float) null);
+        array.insert(0, (Integer) null);
+        array.insert(1, (JsonNode) null);
+        array.insert(array.size(), (Long) null);
+        array.insert(1, (String) null);
+
+        assertEquals(10, array.size());
+
+        for (JsonNode node : array) {
+            assertTrue(node.isNull());
+        }
+    }
+
+    @Test
+    public void testNullSet()
+    {
+        JsonNodeFactory f = MAPPER.getNodeFactory();
+        ArrayNode array = f.arrayNode(3);
+
+        for (int i = 0; i < 14; i++) {
+            array.add("Not Null");
+        }
+
+        for (JsonNode node : array) {
+            assertFalse(node.isNull());
+        }
+
+        array.set(0, (BigDecimal) null);
+        array.set(1, (BigInteger) null);
+        array.set(2, (Boolean) null);
+        array.set(3, (byte[]) null);
+        array.set(4, (Double) null);
+        array.set(5, (Float) null);
+        array.set(6, (Integer) null);
+        array.set(7, (Short) null);
+        array.set(8, (JsonNode) null);
+        array.set(9, (Long) null);
+        array.set(10, (String) null);
+        array.setNull(11);
+        array.setRawValue(12, null);
+        array.setPOJO(13, null);
+
+        assertEquals(14, array.size());
+
+        for (JsonNode node : array) {
+            assertTrue(node.isNull());
+        }
+    }
+
+    @Test
+    public void testNullChecking()
+    {
+        ArrayNode a1 = JsonNodeFactory.instance.arrayNode();
+        ArrayNode a2 = JsonNodeFactory.instance.arrayNode();
+        // used to throw NPE before fix:
+        a1.addAll(a2);
+        assertEquals(0, a1.size());
+        assertEquals(0, a2.size());
+
+        a2.addAll(a1);
+        assertEquals(0, a1.size());
+        assertEquals(0, a2.size());
+    }
+
+    @Test
+    public void testNullChecking2()
+    {
+        ArrayNode src = MAPPER.createArrayNode();
+        ArrayNode dest = MAPPER.createArrayNode();
+        src.add("element");
+        dest.addAll(src);
+    }
+
+    @Test
+    public void testParser()
+    {
+        ArrayNode n = new ArrayNode(JsonNodeFactory.instance);
+        n.add(123);
+        TreeTraversingParser p = new TreeTraversingParser(n, ObjectReadContext.empty());
+        assertNotNull(p.objectReadContext());
+        assertNotNull(p.streamReadContext());
+        assertTrue(p.streamReadContext().inRoot());
+        assertNotNull(p.currentTokenLocation());
+        assertNotNull(p.currentLocation());
+        assertNull(p.getEmbeddedObject());
+        assertNull(p.currentNode());
+
+        //assertNull(p.getNumberType());
+
+        assertToken(JsonToken.START_ARRAY, p.nextToken());
+        assertNotNull(p.streamReadContext());
+        assertTrue(p.streamReadContext().inArray());
+        p.skipChildren();
+        assertToken(JsonToken.END_ARRAY, p.currentToken());
+        p.close();
+
+        p = new TreeTraversingParser(n, ObjectReadContext.empty());
+        p.nextToken();
+        assertToken(JsonToken.VALUE_NUMBER_INT, p.nextToken());
+        assertEquals(JsonParser.NumberType.INT, p.getNumberType());
+        p.close();
+    }
+
+    @Test
+    public void testArrayNodeEquality()
+    {
+        ArrayNode n1 = new ArrayNode(null);
+        ArrayNode n2 = new ArrayNode(null);
+
+        assertTrue(n1.equals(n2));
+        assertTrue(n2.equals(n1));
+
+        n1.add(StringNode.valueOf("Test"));
+
+        assertFalse(n1.equals(n2));
+        assertFalse(n2.equals(n1));
+
+        n2.add(StringNode.valueOf("Test"));
+
+        assertTrue(n1.equals(n2));
+        assertTrue(n2.equals(n1));
+    }
+
+    @Test
+    public void testSimpleArray()
+    {
+        ArrayNode result = MAPPER.createArrayNode();
+
+        assertTrue(result.isArray());
+        assertType(result, ArrayNode.class);
+
+        assertFalse(result.isObject());
+        assertFalse(result.isNumber());
+        assertFalse(result.isNull());
+        assertFalse(result.isString());
+
+        // and let's add stuff...
+        result.add(false);
+        result.insertNull(0);
+
+        // should be equal to itself no matter what
+        assertEquals(result, result);
+        assertFalse(result.equals(null)); // but not to null
+
+        // plus see that we can access stuff
+        assertEquals(NullNode.instance, result.path(0));
+        assertEquals(NullNode.instance, result.get(0));
+        assertEquals(NullNode.instance, result.optional(0).get());
+        assertEquals(BooleanNode.FALSE, result.path(1));
+        assertEquals(BooleanNode.FALSE, result.get(1));
+        assertEquals(BooleanNode.FALSE, result.optional(1).get());
+        assertEquals(2, result.size());
+
+        assertNull(result.get(-1));
+        assertNull(result.get(2));
+        assertFalse(result.optional(-1).isPresent());
+        assertFalse(result.optional(2).isPresent());
+        JsonNode missing = result.path(2);
+        assertTrue(missing.isMissingNode());
+        assertTrue(result.path(-100).isMissingNode());
+
+        // then construct and compare
+        ArrayNode array2 = MAPPER.createArrayNode();
+        array2.addNull();
+        array2.add(false);
+        assertEquals(result, array2);
+
+        // plus remove entries
+        JsonNode rm1 = array2.remove(0);
+        assertEquals(NullNode.instance, rm1);
+        assertEquals(1, array2.size());
+        assertEquals(BooleanNode.FALSE, array2.get(0));
+        assertFalse(result.equals(array2));
+
+        JsonNode rm2 = array2.remove(0);
+        assertEquals(BooleanNode.FALSE, rm2);
+        assertEquals(0, array2.size());
+    }
+
+    @Test
+    public void testSimpleMismatch()
+    {
+        try {
+            MAPPER.readValue(VPackUtils.toVPack(" 123 "), ArrayNode.class);
+            fail("Should not pass");
+        } catch (MismatchedInputException e) {
+            verifyException(e, "from Integer value (token `JsonToken.VALUE_NUMBER_INT`)");
+        }
+    }
+
+    // [databind#4863]: valueStream(), entryStream(), forEachEntry()
+    @Test
+    public void testStreamMethods()
+    {
+        ArrayNode arr = MAPPER.createArrayNode();
+        arr.add(1).add("foo");
+        JsonNode n1 = arr.get(0);
+        JsonNode n2 = arr.get(1);
+
+        // First, valueStream() testing
+        assertEquals(2, arr.valueStream().count());
+        assertEquals(Arrays.asList(n1, n2),
+                arr.valueStream().collect(Collectors.toList()));
+
+        // And then entryStream() (empty)
+        assertEquals(0, arr.propertyStream().count());
+        assertEquals(Arrays.asList(),
+                arr.propertyStream().collect(Collectors.toList()));
+
+        // And then empty forEachEntry()
+        arr.forEachEntry((k, v) -> { throw new UnsupportedOperationException(); });
+    }
+
+    @Test
+    public void testRemoveAll()
+    {
+        assertEquals(_arrayNode("[]"),
+                _arrayNode("['a', 2, null, true]").removeAll());
+    }
+
+    // [databind#4955]: remove methods
+    @Test
+    public void testRemoveIf()
+    {
+        assertEquals(_arrayNode("[3]"),
+                _arrayNode("[2, 1, 3]")
+                .removeIf(value -> value.asInt() <= 2));
+        assertEquals(_arrayNode("[1]"),
+                _arrayNode("[1, 2, 3]")
+                .removeIf(value -> value.asInt() > 1));
+    }
+
+    // [databind#4955]: remove methods
+    @Test
+    public void testRemoveNulls()
+    {
+        assertEquals(_arrayNode("[2]"),
+                _arrayNode("[null, null, 2, null]")
+                .removeNulls());
+    }
+
+    private ArrayNode _arrayNode(String json) {
+        return (ArrayNode) MAPPER.readTree(VPackUtils.toVPack(a2q(json)));
+    }
+}

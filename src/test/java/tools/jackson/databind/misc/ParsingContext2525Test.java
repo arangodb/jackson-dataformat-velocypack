@@ -1,0 +1,246 @@
+package tools.jackson.databind.misc;
+
+import org.junit.jupiter.api.Test;
+import tools.jackson.core.*;
+import tools.jackson.databind.*;
+import tools.jackson.databind.VPackUtils;
+import tools.jackson.databind.testutil.DatabindTestUtil;
+import tools.jackson.databind.util.TokenBuffer;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+public class ParsingContext2525Test extends DatabindTestUtil
+{
+    private final ObjectMapper MAPPER = sharedMapper();
+
+    private final String MINIMAL_ARRAY_DOC = "[ 42 ]";
+
+    private final String MINIMAL_OBJECT_DOC = "{\"answer\" : 42 }";
+
+    private final String FULL_DOC = a2q("{'a':123,'array':[1,2,[3],5,{'obInArray':4}],"
+            +"'ob':{'first':[false,true],'second':{'sub':37}},'b':true}");
+
+    /*
+    /**********************************************************************
+    /* Baseline sanity check first
+    /**********************************************************************
+     */
+
+    @Test
+    public void testAllWithRegularParser() throws Exception
+    {
+        try (JsonParser p = MAPPER.createParser(VPackUtils.toVPack(MINIMAL_ARRAY_DOC))) {
+            _testSimpleArrayUsingPathAsPointer(p);
+        }
+        try (JsonParser p = MAPPER.createParser(VPackUtils.toVPack(MINIMAL_OBJECT_DOC))) {
+            _testSimpleObjectUsingPathAsPointer(p);
+        }
+        try (JsonParser p = MAPPER.createParser(VPackUtils.toVPack(FULL_DOC))) {
+            _testFullDocUsingPathAsPointer(p);
+        }
+    }
+
+    /*
+    /**********************************************************************
+    /* Then TokenBuffer-backed tests
+    /**********************************************************************
+     */
+
+    @Test
+    public void testSimpleArrayWithBuffer() throws Exception
+    {
+        try (TokenBuffer buf = _readAsTokenBuffer(MINIMAL_ARRAY_DOC)) {
+            _testSimpleArrayUsingPathAsPointer(buf.asParser());
+        }
+    }
+
+    @Test
+    public void testSimpleObjectWithBuffer() throws Exception
+    {
+        try (TokenBuffer buf = _readAsTokenBuffer(MINIMAL_OBJECT_DOC)) {
+            _testSimpleObjectUsingPathAsPointer(buf.asParser());
+        }
+    }
+
+    @Test
+    public void testFullDocWithBuffer() throws Exception
+    {
+        try (TokenBuffer buf = _readAsTokenBuffer(FULL_DOC)) {
+            _testFullDocUsingPathAsPointer(buf.asParser());
+        }
+    }
+
+    private TokenBuffer _readAsTokenBuffer(String doc)
+    {
+        try (JsonParser p = MAPPER.createParser(VPackUtils.toVPack(doc))) {
+            p.nextToken();
+            try (TokenBuffer tb = TokenBuffer.forBuffering(p, ObjectReadContext.empty())) {
+                tb.copyCurrentStructure(p);
+                return tb.overrideParentContext(null);
+            }
+        }
+    }
+
+    /*
+    /**********************************************************************
+    /* And Tree-backed tests
+    /**********************************************************************
+     */
+
+    @Test
+    public void testSimpleArrayWithTree() throws Exception
+    {
+        JsonNode root = MAPPER.readTree(VPackUtils.toVPack(MINIMAL_ARRAY_DOC));
+        try (JsonParser p = root.traverse(ObjectReadContext.empty())) {
+            _testSimpleArrayUsingPathAsPointer(p);
+        }
+    }
+
+    @Test
+    public void testSimpleObjectWithTree() throws Exception
+    {
+        JsonNode root = MAPPER.readTree(VPackUtils.toVPack(MINIMAL_OBJECT_DOC));
+        try (JsonParser p = root.traverse(ObjectReadContext.empty())) {
+            _testSimpleObjectUsingPathAsPointer(p);
+        }
+    }
+
+    @Test
+    public void testFullDocWithTree() throws Exception
+    {
+        JsonNode root = MAPPER.readTree(VPackUtils.toVPack(FULL_DOC));
+        try (JsonParser p = root.traverse(ObjectReadContext.empty())) {
+            _testFullDocUsingPathAsPointer(p);
+        }
+    }
+
+    /*
+    /**********************************************************************
+    /* Shared helper methods
+    /**********************************************************************
+     */
+
+    private void _testSimpleArrayUsingPathAsPointer(JsonParser p) throws Exception
+    {
+        assertSame(JsonPointer.empty(), p.streamReadContext().pathAsPointer());
+        assertTrue(p.streamReadContext().inRoot());
+
+        assertToken(JsonToken.START_ARRAY, p.nextToken());
+        assertSame(JsonPointer.empty(), p.streamReadContext().pathAsPointer());
+        assertTrue(p.streamReadContext().inArray());
+
+        assertToken(JsonToken.VALUE_NUMBER_INT, p.nextToken());
+        assertEquals("/0", p.streamReadContext().pathAsPointer().toString());
+
+        assertToken(JsonToken.END_ARRAY, p.nextToken());
+        assertSame(JsonPointer.empty(), p.streamReadContext().pathAsPointer());
+        assertTrue(p.streamReadContext().inRoot());
+
+        assertNull(p.nextToken());
+    }
+
+    private void _testSimpleObjectUsingPathAsPointer(JsonParser p) throws Exception
+    {
+        assertSame(JsonPointer.empty(), p.streamReadContext().pathAsPointer());
+        assertTrue(p.streamReadContext().inRoot());
+
+        assertToken(JsonToken.START_OBJECT, p.nextToken());
+        assertSame(JsonPointer.empty(), p.streamReadContext().pathAsPointer());
+        assertTrue(p.streamReadContext().inObject());
+
+        assertToken(JsonToken.PROPERTY_NAME, p.nextToken());
+        assertEquals("/answer", p.streamReadContext().pathAsPointer().toString());
+        assertToken(JsonToken.VALUE_NUMBER_INT, p.nextToken());
+        assertEquals(42, p.getIntValue());
+        assertEquals("/answer", p.streamReadContext().pathAsPointer().toString());
+
+        assertToken(JsonToken.END_OBJECT, p.nextToken());
+        assertSame(JsonPointer.empty(), p.streamReadContext().pathAsPointer());
+        assertTrue(p.streamReadContext().inRoot());
+
+        assertNull(p.nextToken());
+    }
+
+    private void _testFullDocUsingPathAsPointer(JsonParser p) throws Exception
+    {
+        // by default should just get "empty"
+        assertSame(JsonPointer.empty(), p.streamReadContext().pathAsPointer());
+        assertTrue(p.streamReadContext().inRoot());
+
+        // let's just traverse, then:
+        assertToken(JsonToken.START_OBJECT, p.nextToken());
+        assertSame(JsonPointer.empty(), p.streamReadContext().pathAsPointer());
+        assertTrue(p.streamReadContext().inObject());
+
+        assertToken(JsonToken.PROPERTY_NAME, p.nextToken()); // a
+        assertEquals("/a", p.streamReadContext().pathAsPointer().toString());
+
+        assertToken(JsonToken.VALUE_NUMBER_INT, p.nextToken());
+        assertEquals("/a", p.streamReadContext().pathAsPointer().toString());
+
+        assertToken(JsonToken.PROPERTY_NAME, p.nextToken()); // array
+        assertEquals("/array", p.streamReadContext().pathAsPointer().toString());
+        assertToken(JsonToken.START_ARRAY, p.nextToken());
+        assertEquals("/array", p.streamReadContext().pathAsPointer().toString());
+        assertToken(JsonToken.VALUE_NUMBER_INT, p.nextToken()); // 1
+        assertEquals("/array/0", p.streamReadContext().pathAsPointer().toString());
+        assertToken(JsonToken.VALUE_NUMBER_INT, p.nextToken()); // 2
+        assertEquals("/array/1", p.streamReadContext().pathAsPointer().toString());
+        assertToken(JsonToken.START_ARRAY, p.nextToken());
+        assertEquals("/array/2", p.streamReadContext().pathAsPointer().toString());
+        assertToken(JsonToken.VALUE_NUMBER_INT, p.nextToken()); // 3
+        assertEquals("/array/2/0", p.streamReadContext().pathAsPointer().toString());
+        assertToken(JsonToken.END_ARRAY, p.nextToken());
+        assertEquals("/array/2", p.streamReadContext().pathAsPointer().toString());
+        assertToken(JsonToken.VALUE_NUMBER_INT, p.nextToken()); // 5
+        assertEquals("/array/3", p.streamReadContext().pathAsPointer().toString());
+        assertToken(JsonToken.START_OBJECT, p.nextToken());
+        assertEquals("/array/4", p.streamReadContext().pathAsPointer().toString());
+        assertToken(JsonToken.PROPERTY_NAME, p.nextToken()); // obInArray
+        assertEquals("/array/4/obInArray", p.streamReadContext().pathAsPointer().toString());
+        assertToken(JsonToken.VALUE_NUMBER_INT, p.nextToken()); // 4
+        assertEquals("/array/4/obInArray", p.streamReadContext().pathAsPointer().toString());
+        assertToken(JsonToken.END_OBJECT, p.nextToken());
+        assertEquals("/array/4", p.streamReadContext().pathAsPointer().toString());
+        assertToken(JsonToken.END_ARRAY, p.nextToken()); // /array
+        assertEquals("/array", p.streamReadContext().pathAsPointer().toString());
+
+        assertToken(JsonToken.PROPERTY_NAME, p.nextToken()); // ob
+        assertEquals("/ob", p.streamReadContext().pathAsPointer().toString());
+        assertToken(JsonToken.START_OBJECT, p.nextToken());
+        assertEquals("/ob", p.streamReadContext().pathAsPointer().toString());
+        assertToken(JsonToken.PROPERTY_NAME, p.nextToken()); // first
+        assertEquals("/ob/first", p.streamReadContext().pathAsPointer().toString());
+        assertToken(JsonToken.START_ARRAY, p.nextToken());
+        assertEquals("/ob/first", p.streamReadContext().pathAsPointer().toString());
+        assertToken(JsonToken.VALUE_FALSE, p.nextToken());
+        assertEquals("/ob/first/0", p.streamReadContext().pathAsPointer().toString());
+        assertToken(JsonToken.VALUE_TRUE, p.nextToken());
+        assertEquals("/ob/first/1", p.streamReadContext().pathAsPointer().toString());
+        assertToken(JsonToken.END_ARRAY, p.nextToken());
+        assertEquals("/ob/first", p.streamReadContext().pathAsPointer().toString());
+        assertToken(JsonToken.PROPERTY_NAME, p.nextToken()); // second
+        assertEquals("/ob/second", p.streamReadContext().pathAsPointer().toString());
+        assertToken(JsonToken.START_OBJECT, p.nextToken());
+        assertEquals("/ob/second", p.streamReadContext().pathAsPointer().toString());
+        assertToken(JsonToken.PROPERTY_NAME, p.nextToken()); // sub
+        assertEquals("/ob/second/sub", p.streamReadContext().pathAsPointer().toString());
+        assertToken(JsonToken.VALUE_NUMBER_INT, p.nextToken()); // 37
+        assertEquals("/ob/second/sub", p.streamReadContext().pathAsPointer().toString());
+        assertToken(JsonToken.END_OBJECT, p.nextToken());
+        assertEquals("/ob/second", p.streamReadContext().pathAsPointer().toString());
+        assertToken(JsonToken.END_OBJECT, p.nextToken()); // /ob
+        assertEquals("/ob", p.streamReadContext().pathAsPointer().toString());
+
+        assertToken(JsonToken.PROPERTY_NAME, p.nextToken()); // b
+        assertEquals("/b", p.streamReadContext().pathAsPointer().toString());
+        assertToken(JsonToken.VALUE_TRUE, p.nextToken());
+        assertEquals("/b", p.streamReadContext().pathAsPointer().toString());
+
+        assertToken(JsonToken.END_OBJECT, p.nextToken());
+        assertSame(JsonPointer.empty(), p.streamReadContext().pathAsPointer());
+        assertTrue(p.streamReadContext().inRoot());
+
+        assertNull(p.nextToken());
+    }
+}

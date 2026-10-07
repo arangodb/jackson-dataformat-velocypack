@@ -1,0 +1,255 @@
+package tools.jackson.databind.deser.creators;
+
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import org.junit.jupiter.api.Test;
+import tools.jackson.databind.*;
+import tools.jackson.databind.VPackUtils;
+import tools.jackson.databind.cfg.MapperConfig;
+import tools.jackson.databind.introspect.AnnotatedMember;
+import tools.jackson.databind.introspect.AnnotatedParameter;
+import tools.jackson.databind.introspect.JacksonAnnotationIntrospector;
+import tools.jackson.databind.testutil.DatabindTestUtil;
+
+import java.util.Arrays;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
+public class SingleArgCreatorTest extends DatabindTestUtil
+{
+    // [databind#430]: single arg BUT named; should not delegate
+    static class SingleNamedStringBean {
+        final String _ss;
+
+        @JsonCreator
+        public SingleNamedStringBean(@JsonProperty("value") String ss){
+            this._ss = ss;
+        }
+
+        public String getSs() { return _ss; }
+    }
+
+    // For [databind#614]
+    static class SingleNamedButStillDelegating {
+        protected final String value;
+
+        @JsonCreator(mode=JsonCreator.Mode.DELEGATING)
+        public SingleNamedButStillDelegating(@JsonProperty("foobar") String v) {
+            value = v;
+        }
+
+        public String getFoobar() { return "x"; }
+    }
+
+    // For [databind#557]
+    static class StringyBean
+    {
+        public final String value;
+
+        protected StringyBean(String value) { this.value = value; }
+
+        public String getValue() {
+            return value;
+        }
+    }
+
+    static class StringyBeanWithProps
+    {
+        public final String value;
+
+        @JsonCreator
+        private StringyBeanWithProps(String v) { value = v; }
+
+        public String getValue() {
+            return value;
+        }
+    }
+
+    @SuppressWarnings("serial")
+    static class MyParamIntrospector extends JacksonAnnotationIntrospector
+    {
+        private final String name;
+
+        public MyParamIntrospector(String n) { name = n; }
+
+        @Override
+        public String findImplicitPropertyName(MapperConfig<?> config, AnnotatedMember param) {
+            if (param instanceof AnnotatedParameter ap) {
+                switch (ap.getIndex()) {
+                case 0: return name;
+                }
+                return "param"+ap.getIndex();
+            }
+            return super.findImplicitPropertyName(config, param);
+        }
+    }
+
+    // [databind#660]
+    static class ExplicitFactoryBeanA {
+        private String value;
+
+        private ExplicitFactoryBeanA(String str) {
+            throw new IllegalStateException("Should not get called!");
+        }
+
+        private ExplicitFactoryBeanA(String str, boolean b) {
+            value = str;
+        }
+
+        @JsonCreator
+        public static ExplicitFactoryBeanA create(String str) {
+            ExplicitFactoryBeanA bean = new ExplicitFactoryBeanA(str, false);
+            bean.value = str;
+            return bean;
+        }
+
+        public String value() { return value; }
+    }
+
+    // [databind#660]
+    static class ExplicitFactoryBeanB {
+        private String value;
+
+        @JsonCreator
+        private ExplicitFactoryBeanB(String str) {
+            value = str;
+        }
+
+        public static ExplicitFactoryBeanB valueOf(String str) {
+            return new ExplicitFactoryBeanB(null);
+        }
+
+        public String value() { return value; }
+    }
+
+    static class XY {
+        public int x, y;
+    }
+
+    // [databind#1383]
+    static class SingleArgWithImplicit {
+        protected XY _value;
+
+        private SingleArgWithImplicit() {
+            throw new Error("Should not get called");
+        }
+        private SingleArgWithImplicit(XY v, boolean bogus) {
+            _value = v;
+        }
+
+        @JsonCreator
+        public static SingleArgWithImplicit from(XY v) {
+            return new SingleArgWithImplicit(v, true);
+        }
+
+        public XY getFoobar() { return _value; }
+    }
+
+    // [databind#3062]
+    static class DecVector3062 {
+        List<Double> elems;
+
+        public DecVector3062() { super(); }
+        public DecVector3062(List<Double> e) { elems = e; }
+        public DecVector3062(double elem) { elems = Arrays.asList(elem); }
+        public DecVector3062(Double elem) { elems = Arrays.asList(elem); }
+
+        public List<Double> getElems() { return elems; }
+    }
+
+    /*
+    /**********************************************************************
+    /* Test methods
+    /**********************************************************************
+     */
+
+    private final ObjectMapper MAPPER = newVPackMapper();
+
+    @Test
+    public void testNamedSingleArg() throws Exception
+    {
+        SingleNamedStringBean bean = MAPPER.readValue(VPackUtils.toVPack(a2q("{'value':'foobar'}")),
+                SingleNamedStringBean.class);
+        assertEquals("foobar", bean._ss);
+    }
+
+    @Test
+    public void testSingleStringArgWithImplicitName() throws Exception
+    {
+        final ObjectMapper mapper = vpackMapperBuilder()
+                .annotationIntrospector(new MyParamIntrospector("value"))
+                .build();
+        // 23-May-2024, tatu: [databind#4515] Clarifies handling to make
+        //   1-param Constructor with implicit name auto-discoverable
+        //   This is compatibility change so hopefully won't bite us but...
+        //   it seems like the right thing to do.
+//        StringyBean bean = mapper.readValue(VPackUtils.toVPack(q("foobar")), StringyBean.class);
+        StringyBean bean = mapper.readValue(VPackUtils.toVPack(a2q("{'value':'foobar'}")), StringyBean.class);
+        assertEquals("foobar", bean.getValue());
+    }
+
+    // [databind#714]
+    @Test
+    public void testSingleImplicitlyNamedNotDelegating() throws Exception
+    {
+        final ObjectMapper mapper = vpackMapperBuilder()
+                .annotationIntrospector(new MyParamIntrospector("value"))
+                .build();
+        StringyBeanWithProps bean = mapper.readValue(VPackUtils.toVPack("{\"value\":\"x\"}"), StringyBeanWithProps.class);
+        assertEquals("x", bean.getValue());
+    }
+
+    // [databind#714]
+    @Test
+    public void testSingleExplicitlyNamedButDelegating() throws Exception
+    {
+        SingleNamedButStillDelegating bean = MAPPER.readValue(VPackUtils.toVPack(q("xyz")),
+                SingleNamedButStillDelegating.class);
+        assertEquals("xyz", bean.value);
+    }
+
+    @Test
+    public void testExplicitFactory660a() throws Exception
+    {
+        // First, explicit override for factory
+        ExplicitFactoryBeanA bean = MAPPER.readValue(VPackUtils.toVPack(q("abc")), ExplicitFactoryBeanA.class);
+        assertNotNull(bean);
+        assertEquals("abc", bean.value());
+    }
+
+    @Test
+    public void testExplicitFactory660b() throws Exception
+    {
+        // and then one for private constructor
+        ExplicitFactoryBeanB bean2 = MAPPER.readValue(VPackUtils.toVPack(q("def")), ExplicitFactoryBeanB.class);
+        assertNotNull(bean2);
+        assertEquals("def", bean2.value());
+    }
+
+    // [databind#1383]
+    @Test
+    public void testSingleImplicitDelegating() throws Exception
+    {
+        final ObjectMapper mapper = vpackMapperBuilder()
+                .annotationIntrospector(new MyParamIntrospector("value"))
+                .build();
+        SingleArgWithImplicit bean = mapper.readValue(VPackUtils.toVPack(a2q("{'x':1,'y':2}")),
+                SingleArgWithImplicit.class);
+        XY v = bean.getFoobar();
+        assertNotNull(v);
+        assertEquals(1, v.x);
+        assertEquals(2, v.y);
+    }
+
+    // [databind#3062]
+    @Test
+    public void testMultipleDoubleCreators3062() throws Exception
+    {
+        DecVector3062 vector = new DecVector3062(Arrays.asList(1.0, 2.0, 3.0));
+        String result = VPackUtils.toJson(MAPPER.writeValueAsBytes(vector));
+        DecVector3062 deser = MAPPER.readValue(VPackUtils.toVPack(result), DecVector3062.class);
+        assertEquals(vector.elems, deser.elems);
+    }
+}

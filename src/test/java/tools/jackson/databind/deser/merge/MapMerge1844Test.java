@@ -1,0 +1,77 @@
+package tools.jackson.databind.deser.merge;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+import org.junit.jupiter.api.Test;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.VPackUtils;
+
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static tools.jackson.databind.testutil.DatabindTestUtil.a2q;
+import static tools.jackson.databind.testutil.DatabindTestUtil.vpackMapperBuilder;
+
+// for [databind#1844]
+public class MapMerge1844Test
+{
+    static class TestMap1844 {
+        public Map<String, Integer> getMapStringInteger() {
+            return mapStringInteger;
+        }
+
+        @JsonProperty("key1")
+        public void setMapStringInteger(Map<String, Integer> mapStringInteger) {
+            this.mapStringInteger = mapStringInteger;
+        }
+
+        public Map<Integer, Integer> getMapIntegerInteger() {
+            return mapIntegerInteger;
+        }
+
+        @JsonProperty("key2")
+        public void setMapIntegerInteger(Map<Integer, Integer> mapIntegerInteger) {
+            this.mapIntegerInteger = mapIntegerInteger;
+        }
+
+        private Map<String, Integer> mapStringInteger = new LinkedHashMap<>();
+
+        private Map<Integer, Integer> mapIntegerInteger = new LinkedHashMap<>();
+    }
+
+    // for [databind#1844]
+    @Test
+    public void testMap1844() throws Exception
+    {
+        final ObjectMapper mapper = vpackMapperBuilder()
+                .defaultMergeable(true)
+                .build();
+
+        final String f1 = a2q(
+"{ 'key1' : {\n"
++"  '1': 1, '2': 2, '3': 3\n"
++"}, 'key2': {\n"
++"  '1': 1, '2': 2, '3': 3\n"
++"} }"
+);
+        final String f2 = a2q(
+"{ 'key1' : {\n"
++"  '1': 2, '2': 3, '4': 5\n"
++"}, 'key2': {\n"
++"  '1': 2, '2': 3, '4': 5\n"
++"} }"
+);
+        TestMap1844 testMap = mapper.readerFor(TestMap1844.class).readValue(VPackUtils.toVPack(f1));
+        testMap = mapper.readerForUpdating(testMap).readValue(VPackUtils.toVPack(f2));
+
+        assertEquals(Integer.valueOf(2), testMap.getMapStringInteger().get("1"));
+        assertEquals(Integer.valueOf(3), testMap.getMapStringInteger().get("2"));
+        assertEquals(Integer.valueOf(3), testMap.getMapStringInteger().get("3"));
+        assertEquals(Integer.valueOf(5), testMap.getMapStringInteger().get("4"));
+
+        assertEquals(Integer.valueOf(2), testMap.getMapIntegerInteger().get(1));
+        assertEquals(Integer.valueOf(3), testMap.getMapIntegerInteger().get(2));
+        assertEquals(Integer.valueOf(3), testMap.getMapIntegerInteger().get(3));
+        assertEquals(Integer.valueOf(5), testMap.getMapIntegerInteger().get(4));
+    }
+}

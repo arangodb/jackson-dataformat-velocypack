@@ -1,0 +1,147 @@
+package tools.jackson.databind.jsontype.vld;
+
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import org.junit.jupiter.api.Test;
+import tools.jackson.databind.*;
+import tools.jackson.databind.VPackUtils;
+import tools.jackson.databind.exc.InvalidDefinitionException;
+import tools.jackson.databind.jsontype.PolymorphicTypeValidator;
+import tools.jackson.databind.testutil.DatabindTestUtil;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+/**
+ * Tests to verify working of customizable {@PolymorphicTypeValidator},
+ * see [databind#2195], regarding verification of base type checks.
+ *
+ * @since 2.10
+ */
+public class ValidatePolymBaseTypeTest extends DatabindTestUtil
+{
+    // // // Value types
+
+    static abstract class BaseValue {
+        public int x = 3;
+    }
+
+    static class BadValue extends BaseValue { }
+    static class GoodValue extends BaseValue { }
+
+    // // // Wrapper types
+
+    static final class AnnotatedGoodWrapper {
+        @JsonTypeInfo(use = JsonTypeInfo.Id.CLASS)
+        public GoodValue value;
+
+        protected AnnotatedGoodWrapper() { value = new GoodValue(); }
+    }
+
+    static final class AnnotatedBadWrapper {
+        @JsonTypeInfo(use = JsonTypeInfo.Id.CLASS)
+        public BadValue value;
+
+        protected AnnotatedBadWrapper() { value = new BadValue(); }
+    }
+
+    static final class DefTypeGoodWrapper {
+        public GoodValue value;
+
+        protected DefTypeGoodWrapper() { value = new GoodValue(); }
+    }
+
+    static final class DefTypeBadWrapper {
+        public BadValue value;
+
+        protected DefTypeBadWrapper() { value = new BadValue(); }
+    }
+
+    // // // Validator implementations
+
+    static class BaseTypeValidator extends PolymorphicTypeValidator {
+        private static final long serialVersionUID = 1L;
+
+        @Override
+        public Validity validateBaseType(DatabindContext ctxt, JavaType baseType) {
+            final Class<?> raw = baseType.getRawClass();
+            if (raw == BadValue.class) {
+                return Validity.DENIED;
+            }
+            if (raw == GoodValue.class) {
+                return Validity.ALLOWED;
+            }
+            // defaults to denied, then:
+            return Validity.INDETERMINATE;
+        }
+
+        @Override
+        public Validity validateSubClassName(DatabindContext ctxt, JavaType baseType, String subClassName) {
+            return Validity.DENIED;
+        }
+
+        @Override
+        public Validity validateSubType(DatabindContext ctxt, JavaType baseType, JavaType subType) {
+            return Validity.DENIED;
+        }
+    }
+
+    // // // Mappers with Default Typing
+
+    // // // Mappers without Default Typing (explicit annotation needed)
+
+    private final ObjectMapper MAPPER_ANNOTATED = vpackMapperBuilder()
+            .polymorphicTypeValidator(new BaseTypeValidator())
+            .build();
+
+    private final ObjectMapper MAPPER_DEF_TYPING = vpackMapperBuilder()
+            // Since GoodBalue, BadValue not abstraction need to use non-final
+            .activateDefaultTyping( new BaseTypeValidator(), DefaultTyping.NON_FINAL)
+            .build();
+
+    /*
+    /**********************************************************************
+    /* Test methods: annotated
+    /**********************************************************************
+     */
+
+    @Test
+    public void testAnnotedGood() throws Exception {
+        final String json = VPackUtils.toJson(MAPPER_ANNOTATED.writeValueAsBytes(new AnnotatedGoodWrapper()));
+        // should work ok
+        assertNotNull(MAPPER_DEF_TYPING.readValue(VPackUtils.toVPack(json), AnnotatedGoodWrapper.class));
+    }
+
+    @Test
+    public void testAnnotedBad() throws Exception {
+        final String json = VPackUtils.toJson(MAPPER_ANNOTATED.writeValueAsBytes(new AnnotatedBadWrapper()));
+        // should fail
+        InvalidDefinitionException e = assertThrows(InvalidDefinitionException.class,
+                () -> MAPPER_ANNOTATED.readValue(VPackUtils.toVPack(json), AnnotatedBadWrapper.class));
+        verifyException(e, "Configured `PolymorphicTypeValidator`");
+        verifyException(e, "denied resolution of");
+        verifyException(e, "all subtypes of base type");
+    }
+
+    /*
+    /**********************************************************************
+    /* Test methods: default typing
+    /**********************************************************************
+     */
+
+    @Test
+    public void testDefaultGood() throws Exception {
+        final String json = VPackUtils.toJson(MAPPER_DEF_TYPING.writeValueAsBytes(new DefTypeGoodWrapper()));
+        // should work ok
+        assertNotNull(MAPPER_DEF_TYPING.readValue(VPackUtils.toVPack(json), DefTypeGoodWrapper.class));
+    }
+
+    @Test
+    public void testDefaultBad() throws Exception {
+        final String json = VPackUtils.toJson(MAPPER_DEF_TYPING.writeValueAsBytes(new DefTypeBadWrapper()));
+        // should fail
+        InvalidDefinitionException e = assertThrows(InvalidDefinitionException.class,
+                () -> MAPPER_DEF_TYPING.readValue(VPackUtils.toVPack(json), DefTypeBadWrapper.class));
+        verifyException(e, "Configured `PolymorphicTypeValidator`");
+        verifyException(e, "denied resolution of");
+        verifyException(e, "all subtypes of base type");
+    }
+}

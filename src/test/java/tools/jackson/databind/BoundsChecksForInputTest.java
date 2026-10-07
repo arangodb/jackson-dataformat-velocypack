@@ -1,0 +1,82 @@
+package tools.jackson.databind;
+
+import org.junit.jupiter.api.Test;
+import tools.jackson.core.exc.StreamReadException;
+
+import static org.junit.jupiter.api.Assertions.fail;
+import static tools.jackson.databind.testutil.DatabindTestUtil.newVPackMapper;
+import static tools.jackson.databind.testutil.DatabindTestUtil.verifyException;
+
+// Tests for verifying [databind#3572]
+public class BoundsChecksForInputTest
+{
+    interface ByteBackedCreation {
+        void call(byte[] data, int offset, int len) throws Exception;
+    }
+
+    interface CharBackedCreation {
+        void call(char[] data, int offset, int len) throws Exception;
+    }
+
+    private final ObjectMapper MAPPER = newVPackMapper();
+    private final ObjectReader OBJ_READER = MAPPER.reader();
+
+    /*
+    /**********************************************************************
+    /* Test methods, byte[] backed
+    /**********************************************************************
+     */
+
+    @Test
+    public void testBoundsWithByteArrayInput() throws Exception {
+        _testBoundsWithByteArrayInput(
+                (data,offset,len)->MAPPER.createParser(data, offset, len));
+        _testBoundsWithByteArrayInput(
+                (data,offset,len)->OBJ_READER.createParser(data, offset, len));
+
+        _testBoundsWithByteArrayInput(
+                (data,offset,len)->MAPPER.readTree(data, offset, len));
+
+        _testBoundsWithByteArrayInput(
+                (data,offset,len)->MAPPER.readValue(data, offset, len, Object.class));
+        _testBoundsWithByteArrayInput(
+                (data,offset,len)->OBJ_READER.readValue(data, offset, len));
+
+        final JavaType TYPE = MAPPER.constructType(String.class);
+        _testBoundsWithByteArrayInput(
+                (data,offset,len)->MAPPER.readValue(data, offset, len, TYPE));
+    }
+
+    private void _testBoundsWithByteArrayInput(ByteBackedCreation creator) throws Exception
+    {
+        final byte[] DATA = new byte[10];
+        _testBoundsWithByteArrayInput(creator, DATA, -1, 1);
+        _testBoundsWithByteArrayInput(creator, DATA, 4, -1);
+        _testBoundsWithByteArrayInput(creator, DATA, 4, -6);
+        _testBoundsWithByteArrayInput(creator, DATA, 9, 5);
+        // and the integer overflow, too
+        _testBoundsWithByteArrayInput(creator, DATA, Integer.MAX_VALUE, 4);
+        _testBoundsWithByteArrayInput(creator, DATA, Integer.MAX_VALUE, Integer.MAX_VALUE);
+        // and null checks too
+        _testBoundsWithByteArrayInput(creator, null, 0, 3);
+    }
+
+    private void _testBoundsWithByteArrayInput(ByteBackedCreation creator,
+            byte[] data, int offset, int len) throws Exception
+    {
+        try {
+            creator.call(data, offset, len);
+            fail("Should not pass");
+        } catch (IllegalArgumentException e) {
+            // If it gets to TokenStreamFactory we'll have:
+            // verifyException(e, "Invalid `byte[]` argument: `null`");
+            // But ObjectMapper/ObjectReader use different exception
+            verifyException(e, "argument \"");
+            verifyException(e, "is null");
+        } catch (StreamReadException e) {
+            verifyException(e, "Invalid 'offset'");
+            verifyException(e, "'len'");
+            verifyException(e, "arguments for `byte[]` of length "+data.length);
+        }
+    }
+}

@@ -1,0 +1,27 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.arangodb</groupId><artifactId>velocypack-native-interop-tests</artifactId><version>1.0-SNAPSHOT</version>
+  <properties>
+    <maven.compiler.release>25</maven.compiler.release><project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <jackson.version>3.2.0</jackson.version><production.version>4.6.4</production.version>
+    <interop.seed>1592614637</interop.seed><interop.jsonCases>10000</interop.jsonCases><interop.typedCases>5000</interop.typedCases>
+  </properties>
+  <dependencyManagement><dependencies><dependency>
+    <groupId>tools.jackson</groupId><artifactId>jackson-bom</artifactId><version>${jackson.version}</version><type>pom</type><scope>import</scope>
+  </dependency></dependencies></dependencyManagement>
+  <dependencies>
+    <dependency><groupId>com.arangodb</groupId><artifactId>jackson-dataformat-velocypack</artifactId><version>${production.version}</version><scope>test</scope></dependency>
+    <dependency><groupId>tools.jackson.core</groupId><artifactId>jackson-core</artifactId><scope>test</scope></dependency>
+    <dependency><groupId>tools.jackson.core</groupId><artifactId>jackson-databind</artifactId><scope>test</scope></dependency>
+    <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><version>5.12.2</version><scope>test</scope></dependency>
+  </dependencies>
+  <build><plugins>
+    <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-enforcer-plugin</artifactId><version>3.5.0</version><executions><execution><goals><goal>enforce</goal></goals><configuration><rules><requireJavaVersion><version>[25,26)</version></requireJavaVersion><requireMavenVersion><version>[3.9,)</version></requireMavenVersion><dependencyConvergence/></rules></configuration></execution></executions></plugin>
+    <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId><version>3.14.0</version></plugin>
+    <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-surefire-plugin</artifactId><version>3.5.3</version><configuration>
+      <argLine>--enable-native-access=ALL-UNNAMED -Xmx1g</argLine><forkCount>1</forkCount><reuseForks>true</reuseForks>
+      <systemPropertyVariables><interop.seed>${interop.seed}</interop.seed><interop.jsonCases>${interop.jsonCases}</interop.jsonCases><interop.typedCases>${interop.typedCases}</interop.typedCases><interop.jacksonVersion>${jackson.version}</interop.jacksonVersion></systemPropertyVariables>
+    </configuration></plugin>
+  </plugins></build>
+</project>

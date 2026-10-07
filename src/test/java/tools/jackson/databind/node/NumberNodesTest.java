@@ -1,0 +1,496 @@
+package tools.jackson.databind.node;
+
+import org.junit.jupiter.api.Test;
+import tools.jackson.core.JsonParser;
+import tools.jackson.core.JsonToken;
+import tools.jackson.core.StreamWriteFeature;
+import tools.jackson.databind.*;
+import tools.jackson.databind.VPackUtils;
+import com.arangodb.jackson.dataformat.velocypack.VPackFactory;
+import com.arangodb.jackson.dataformat.velocypack.VPackMapper;
+
+import java.math.BigDecimal;
+import java.math.BigInteger;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+/**
+ * Basic tests for {@link JsonNode} implementations that
+ * contain numeric values.
+ */
+public class NumberNodesTest extends NodeTestBase
+{
+    private static void assertJsonNumericEquals(String expected, String actual) {
+        assertEquals(normalizeJsonNumbers(expected), normalizeJsonNumbers(actual));
+    }
+
+    private static String normalizeJsonNumbers(String json) {
+        StringBuilder sb = new StringBuilder();
+        int i = 0;
+        while (i < json.length()) {
+            char c = json.charAt(i);
+            if (c == '"') {
+                sb.append(c);
+                i++;
+                while (i < json.length()) {
+                    char q = json.charAt(i);
+                    sb.append(q);
+                    i++;
+                    if (q == '\\') { if (i < json.length()) { sb.append(json.charAt(i)); i++; } }
+                    else if (q == '"') break;
+                }
+            } else if (c == '-' || (c >= '0' && c <= '9')) {
+                int start = i;
+                if (c == '-') i++;
+                while (i < json.length() && json.charAt(i) >= '0' && json.charAt(i) <= '9') i++;
+                if (i < json.length() && json.charAt(i) == '.') {
+                    i++;
+                    while (i < json.length() && json.charAt(i) >= '0' && json.charAt(i) <= '9') i++;
+                }
+                if (i < json.length() && (json.charAt(i) == 'e' || json.charAt(i) == 'E')) {
+                    i++;
+                    if (i < json.length() && (json.charAt(i) == '+' || json.charAt(i) == '-')) i++;
+                    while (i < json.length() && json.charAt(i) >= '0' && json.charAt(i) <= '9') i++;
+                }
+                String numStr = json.substring(start, i);
+                try {
+                    sb.append(new BigDecimal(numStr).stripTrailingZeros().toPlainString());
+                } catch (NumberFormatException e) {
+                    sb.append(numStr);
+                }
+            } else {
+                sb.append(c);
+                i++;
+            }
+        }
+        return sb.toString();
+    }
+    private final ObjectMapper MAPPER = objectMapper();
+
+    @Test
+    public void testShort()
+    {
+        ShortNode n = ShortNode.valueOf((short) 1);
+        assertStandardEquals(n);
+        assertTrue(0 != n.hashCode());
+        assertEquals(JsonToken.VALUE_NUMBER_INT, n.asToken());
+        assertEquals(JsonParser.NumberType.INT, n.numberType());	// should be SHORT
+        assertEquals(1, n.intValue());
+        assertEquals(1L, n.longValue());
+        assertEquals(BigDecimal.ONE, n.decimalValue());
+        assertEquals(BigInteger.ONE, n.bigIntegerValue());
+        assertEquals("1", n.asString());
+
+        assertNodeNumbers(n, 1, 1.0);
+
+        assertTrue(ShortNode.valueOf((short) 0).canConvertToInt());
+        assertTrue(ShortNode.valueOf(Short.MAX_VALUE).canConvertToInt());
+        assertTrue(ShortNode.valueOf(Short.MIN_VALUE).canConvertToInt());
+
+        assertTrue(ShortNode.valueOf((short) 0).canConvertToLong());
+        assertTrue(ShortNode.valueOf(Short.MAX_VALUE).canConvertToLong());
+        assertTrue(ShortNode.valueOf(Short.MIN_VALUE).canConvertToLong());
+
+        assertNonContainerStreamMethods(n);
+    }
+
+    @Test
+    public void testIntViaMapper() throws Exception
+    {
+        int value = -90184;
+        JsonNode result = MAPPER.readTree(VPackUtils.toVPack(String.valueOf(value)));
+        assertTrue(result.isNumber());
+        assertTrue(result.isIntegralNumber());
+        assertTrue(result.isInt());
+        assertType(result, IntNode.class);
+        assertFalse(result.isLong());
+        assertFalse(result.isFloatingPointNumber());
+        assertFalse(result.isDouble());
+        assertFalse(result.isNull());
+        assertFalse(result.isString());
+        assertFalse(result.isMissingNode());
+
+        assertTrue(result.canConvertToInt());
+        assertTrue(result.canConvertToLong());
+        assertTrue(result.canConvertToExactIntegral());
+
+        assertEquals(value, result.numberValue().intValue());
+        assertEquals(value, result.intValue());
+        assertEquals(String.valueOf(value), result.asString());
+        assertEquals((double) value, result.doubleValue());
+        assertEquals((long) value, result.longValue());
+
+        // also, equality should work ok
+        assertEquals(result, IntNode.valueOf(value));
+    }
+
+    @Test
+    public void testInt()
+    {
+        IntNode n = IntNode.valueOf(1);
+        assertStandardEquals(n);
+        assertTrue(0 != n.hashCode());
+        assertEquals(JsonToken.VALUE_NUMBER_INT, n.asToken());
+        assertEquals(JsonParser.NumberType.INT, n.numberType());
+        assertEquals(1, n.intValue());
+        assertEquals(1L, n.longValue());
+        assertEquals(BigDecimal.ONE, n.decimalValue());
+        assertEquals(BigInteger.ONE, n.bigIntegerValue());
+        assertEquals("1", n.asString());
+        // 2.4
+        assertEquals("1", n.asString("foo"));
+
+        assertNodeNumbers(n, 1, 1.0);
+
+        assertTrue(IntNode.valueOf(0).canConvertToInt());
+        assertTrue(IntNode.valueOf(Integer.MAX_VALUE).canConvertToInt());
+        assertTrue(IntNode.valueOf(Integer.MIN_VALUE).canConvertToInt());
+
+        assertTrue(IntNode.valueOf(0).canConvertToLong());
+        assertTrue(IntNode.valueOf(Integer.MAX_VALUE).canConvertToLong());
+        assertTrue(IntNode.valueOf(Integer.MIN_VALUE).canConvertToLong());
+
+        assertNonContainerStreamMethods(n);
+    }
+
+    @Test
+    public void testLong()
+    {
+        LongNode n = LongNode.valueOf(1L);
+        assertStandardEquals(n);
+        assertTrue(0 != n.hashCode());
+        assertEquals(JsonToken.VALUE_NUMBER_INT, n.asToken());
+        assertEquals(JsonParser.NumberType.LONG, n.numberType());
+        assertEquals(1, n.intValue());
+        assertEquals(1L, n.longValue());
+        assertEquals(BigDecimal.ONE, n.decimalValue());
+        assertEquals(BigInteger.ONE, n.bigIntegerValue());
+        assertEquals("1", n.asString());
+
+        assertNodeNumbers(n, 1, 1.0);
+
+        // ok if contains small enough value
+        assertTrue(LongNode.valueOf(0).canConvertToInt());
+        assertTrue(LongNode.valueOf(Integer.MAX_VALUE).canConvertToInt());
+        assertTrue(LongNode.valueOf(Integer.MIN_VALUE).canConvertToInt());
+        // but not in other cases
+        assertFalse(LongNode.valueOf(1L + Integer.MAX_VALUE).canConvertToInt());
+        assertFalse(LongNode.valueOf(-1L + Integer.MIN_VALUE).canConvertToInt());
+
+        assertTrue(LongNode.valueOf(0L).canConvertToLong());
+        assertTrue(LongNode.valueOf(Long.MAX_VALUE).canConvertToLong());
+        assertTrue(LongNode.valueOf(Long.MIN_VALUE).canConvertToLong());
+
+        assertNonContainerStreamMethods(n);
+    }
+
+    @Test
+    public void testLongViaMapper() throws Exception
+    {
+        // need to use something beyond 32-bit value space
+        long value = 12345678L << 32;
+        JsonNode result = MAPPER.readTree(VPackUtils.toVPack(String.valueOf(value)));
+        assertTrue(result.isNumber());
+        assertTrue(result.isIntegralNumber());
+        assertTrue(result.isLong());
+        assertType(result, LongNode.class);
+        assertFalse(result.isInt());
+        assertFalse(result.isFloatingPointNumber());
+        assertFalse(result.isDouble());
+        assertFalse(result.isNull());
+        assertFalse(result.isString());
+        assertFalse(result.isMissingNode());
+
+        assertEquals(value, result.numberValue().longValue());
+        assertEquals(value, result.longValue());
+        assertEquals(String.valueOf(value), result.asString());
+        assertEquals((double) value, result.doubleValue());
+
+        assertFalse(result.canConvertToInt());
+        assertTrue(result.canConvertToLong());
+        assertTrue(result.canConvertToExactIntegral());
+
+        // also, equality should work ok
+        assertEquals(result, LongNode.valueOf(value));
+    }
+
+    @Test
+    public void testDouble() throws Exception
+    {
+        DoubleNode n = DoubleNode.valueOf(0.25);
+        assertStandardEquals(n);
+        assertTrue(0 != n.hashCode());
+        assertEquals(JsonToken.VALUE_NUMBER_FLOAT, n.asToken());
+        assertEquals(JsonParser.NumberType.DOUBLE, n.numberType());
+        // No longer legal in 3.0 due to fractional part
+        //assertEquals(0, n.intValue());
+        assertEquals(0.25, n.doubleValue());
+        assertNotNull(n.decimalValue());
+        assertEquals("0.25", n.asString());
+
+        // No longer legal in 3.0 due to fractional part
+        //assertEquals(BigInteger.ZERO, n.bigIntegerValue());
+        //assertNodeNumbers(DoubleNode.valueOf(4.5), 4, 4.5);
+
+        assertTrue(DoubleNode.valueOf(0).canConvertToInt());
+        assertTrue(DoubleNode.valueOf(Integer.MAX_VALUE).canConvertToInt());
+        assertTrue(DoubleNode.valueOf(Integer.MIN_VALUE).canConvertToInt());
+        assertFalse(DoubleNode.valueOf(1L + Integer.MAX_VALUE).canConvertToInt());
+        assertFalse(DoubleNode.valueOf(-1L + Integer.MIN_VALUE).canConvertToInt());
+
+        assertTrue(DoubleNode.valueOf(0L).canConvertToLong());
+        assertTrue(DoubleNode.valueOf(Long.MAX_VALUE).canConvertToLong());
+        assertTrue(DoubleNode.valueOf(Long.MIN_VALUE).canConvertToLong());
+
+        JsonNode num = objectMapper().readTree(VPackUtils.toVPack(" -0.0"));
+        assertTrue(num.isDouble());
+        n = (DoubleNode) num;
+        assertEquals(-0.0, n.doubleValue());
+        assertEquals("-0.0", String.valueOf(n.doubleValue()));
+
+        assertNonContainerStreamMethods(n);
+    }
+
+    @Test
+    public void testDoubleViaMapper() throws Exception
+    {
+        double value = 3.04;
+        JsonNode result = MAPPER.readTree(VPackUtils.toVPack(String.valueOf(value)));
+        assertTrue(result.isNumber());
+        assertFalse(result.isNull());
+        assertType(result, DoubleNode.class);
+        assertTrue(result.isFloatingPointNumber());
+        assertFalse(result.isIntegralNumber());
+        assertFalse(result.canConvertToExactIntegral());
+        assertTrue(result.isDouble());
+        assertFalse(result.isInt());
+        assertFalse(result.isLong());
+        assertFalse(result.isIntegralNumber());
+        assertFalse(result.isString());
+        assertFalse(result.isMissingNode());
+
+        assertEquals(value, result.doubleValue());
+        assertEquals(value, result.numberValue().doubleValue());
+
+        // CANNOT convert to int due to fractional part
+        //assertEquals((int) value, result.intValue());
+        //assertEquals((long) value, result.longValue());
+
+        assertEquals(String.valueOf(value), result.asString());
+
+        // also, equality should work ok
+        assertEquals(result, DoubleNode.valueOf(value));
+    }
+
+    // @since 2.2
+    @Test
+    public void testFloat()
+    {
+        FloatNode n = FloatNode.valueOf(0.45f);
+        assertStandardEquals(n);
+        assertTrue(0 != n.hashCode());
+        assertEquals(JsonToken.VALUE_NUMBER_FLOAT, n.asToken());
+        assertEquals(JsonParser.NumberType.FLOAT, n.numberType());
+        assertEquals(0, n.intValue(0));
+        assertTrue(n.isFloatingPointNumber());
+        assertFalse(n.isIntegralNumber());
+        assertFalse(n.canConvertToExactIntegral());
+
+        // NOTE: conversion to double NOT as simple as with exact numbers like 0.25:
+        assertEquals(0.45f, n.floatValue());
+        assertEquals("0.45", n.asString());
+
+        // so; as double we'll get more complex number; however, should round-trip
+        // to something that gets printed the same way. But not exact value, alas, hence:
+        assertEquals("0.45",  String.valueOf((float) n.doubleValue()));
+
+        assertNotNull(n.decimalValue());
+        assertEquals("0.45", n.asString());
+
+        // No longer legal to convert to integral numbers, due to fractional part
+        // assertEquals(BigInteger.ZERO, n.bigIntegerValue());
+        //assertNodeNumbers(FloatNode.valueOf(4.5f), 4, 4.5f);
+
+        assertTrue(FloatNode.valueOf(0).canConvertToInt());
+        assertTrue(FloatNode.valueOf(Integer.MAX_VALUE).canConvertToInt());
+        assertTrue(FloatNode.valueOf(Integer.MIN_VALUE).canConvertToInt());
+
+        // rounding errors if we just add/sub 1... so:
+        assertFalse(FloatNode.valueOf(1000L + Integer.MAX_VALUE).canConvertToInt());
+        assertFalse(FloatNode.valueOf(-1000L + Integer.MIN_VALUE).canConvertToInt());
+
+        assertTrue(FloatNode.valueOf(0L).canConvertToLong());
+        assertTrue(FloatNode.valueOf(Integer.MAX_VALUE).canConvertToLong());
+        assertTrue(FloatNode.valueOf(Integer.MIN_VALUE).canConvertToLong());
+
+        assertNonContainerStreamMethods(n);
+    }
+
+    @Test
+    public void testDecimalNode() throws Exception
+    {
+        DecimalNode n = DecimalNode.valueOf(BigDecimal.ONE);
+        assertStandardEquals(n);
+        assertTrue(n.equals(new DecimalNode(BigDecimal.ONE)));
+        assertEquals(JsonToken.VALUE_NUMBER_FLOAT, n.asToken());
+        assertEquals(JsonParser.NumberType.BIG_DECIMAL, n.numberType());
+        assertTrue(n.isNumber());
+        assertFalse(n.isIntegralNumber());
+        assertFalse(n.isArray());
+        assertTrue(n.isBigDecimal());
+        assertEquals(BigDecimal.ONE, n.numberValue());
+        assertEquals(1, n.intValue());
+        assertEquals(1L, n.longValue());
+        assertEquals(BigDecimal.ONE, n.decimalValue());
+        assertEquals("1", n.asString());
+
+        assertNodeNumbers(n, 1, 1.0);
+
+        assertTrue(DecimalNode.valueOf(BigDecimal.ZERO).canConvertToInt());
+        assertTrue(DecimalNode.valueOf(BigDecimal.valueOf(Integer.MAX_VALUE)).canConvertToInt());
+        assertTrue(DecimalNode.valueOf(BigDecimal.valueOf(Integer.MIN_VALUE)).canConvertToInt());
+        assertFalse(DecimalNode.valueOf(BigDecimal.valueOf(1L + Integer.MAX_VALUE)).canConvertToInt());
+        assertFalse(DecimalNode.valueOf(BigDecimal.valueOf(-1L + Integer.MIN_VALUE)).canConvertToInt());
+
+        assertTrue(DecimalNode.valueOf(BigDecimal.ZERO).canConvertToLong());
+        assertTrue(DecimalNode.valueOf(BigDecimal.valueOf(Long.MAX_VALUE)).canConvertToLong());
+        assertTrue(DecimalNode.valueOf(BigDecimal.valueOf(Long.MIN_VALUE)).canConvertToLong());
+
+        // no "natural" way to get it, must construct
+        BigDecimal value = new BigDecimal("0.1");
+        JsonNode result = DecimalNode.valueOf(value);
+
+        assertFalse(result.isObject());
+        assertTrue(result.isNumber());
+        assertFalse(result.isIntegralNumber());
+        assertFalse(result.isLong());
+        assertType(result, DecimalNode.class);
+        assertFalse(result.isInt());
+        assertTrue(result.isFloatingPointNumber());
+        assertTrue(result.isBigDecimal());
+        assertFalse(result.isDouble());
+        assertFalse(result.isNull());
+        assertFalse(result.isString());
+        assertFalse(result.isMissingNode());
+
+        assertFalse(result.canConvertToExactIntegral());
+        // Cannot convert in 3.0, due to fraction
+        assertFalse(result.canConvertToInt());
+        assertFalse(result.canConvertToLong());
+
+        assertEquals(value, result.numberValue());
+        assertEquals(value.toString(), result.asString());
+
+        // also, equality should work ok
+        assertEquals(result, DecimalNode.valueOf(value));
+
+        assertNonContainerStreamMethods(n);
+    }
+
+    @Test
+    public void testDecimalNodeEqualsHashCode()
+    {
+        // NOTE! Equality rules looser in 3.x than 2.x: we won't
+        // try to normalize values.
+
+        BigDecimal b1 = BigDecimal.ONE;
+        BigDecimal b2 = new BigDecimal("1");
+        BigDecimal b3 = new BigDecimal("0.01e2");
+
+        DecimalNode node1 = new DecimalNode(b1);
+        DecimalNode node2 = new DecimalNode(b2);
+        DecimalNode node3 = new DecimalNode(b3);
+
+        assertEquals(node1.hashCode(), node2.hashCode());
+        assertEquals(node2.hashCode(), node3.hashCode());
+
+        assertEquals(node1, node2);
+        assertEquals(node2, node1);
+        assertEquals(node2, node3);
+    }
+
+    @Test
+    public void testBigIntegerNode() throws Exception
+    {
+        BigIntegerNode n = BigIntegerNode.valueOf(BigInteger.ONE);
+        assertStandardEquals(n);
+        assertTrue(n.equals(new BigIntegerNode(BigInteger.ONE)));
+        assertEquals(JsonToken.VALUE_NUMBER_INT, n.asToken());
+        assertEquals(JsonParser.NumberType.BIG_INTEGER, n.numberType());
+        assertTrue(n.isNumber());
+        assertTrue(n.isIntegralNumber());
+        assertTrue(n.isBigInteger());
+        assertEquals(BigInteger.ONE, n.numberValue());
+        assertEquals(1, n.intValue());
+        assertEquals(1L, n.longValue());
+        assertEquals(BigInteger.ONE, n.bigIntegerValue());
+        assertEquals("1", n.asString());
+        assertNodeNumbers(n, 1, 1.0);
+
+        BigInteger maxLong = BigInteger.valueOf(Long.MAX_VALUE);
+
+        n = BigIntegerNode.valueOf(maxLong);
+        assertEquals(Long.MAX_VALUE, n.longValue());
+
+        ObjectMapper mapper = new VPackMapper();
+        JsonNode n2 = mapper.readTree(VPackUtils.toVPack(maxLong.toString()));
+        assertEquals(Long.MAX_VALUE, n2.longValue());
+
+        // then over long limit:
+        BigInteger beyondLong = maxLong.shiftLeft(2); // 4x max long
+        n2 = mapper.readTree(VPackUtils.toVPack(beyondLong.toString()));
+        assertEquals(beyondLong, n2.bigIntegerValue());
+
+        assertTrue(BigIntegerNode.valueOf(BigInteger.ZERO).canConvertToInt());
+        assertTrue(BigIntegerNode.valueOf(BigInteger.valueOf(Integer.MAX_VALUE)).canConvertToInt());
+        assertTrue(BigIntegerNode.valueOf(BigInteger.valueOf(Integer.MIN_VALUE)).canConvertToInt());
+        assertFalse(BigIntegerNode.valueOf(BigInteger.valueOf(1L + Integer.MAX_VALUE)).canConvertToInt());
+        assertFalse(BigIntegerNode.valueOf(BigInteger.valueOf(-1L + Integer.MIN_VALUE)).canConvertToInt());
+
+        assertTrue(BigIntegerNode.valueOf(BigInteger.ZERO).canConvertToLong());
+        assertTrue(BigIntegerNode.valueOf(BigInteger.valueOf(Long.MAX_VALUE)).canConvertToLong());
+        assertTrue(BigIntegerNode.valueOf(BigInteger.valueOf(Long.MIN_VALUE)).canConvertToLong());
+
+        assertNonContainerStreamMethods(n);
+    }
+
+    @Test
+    public void testBigDecimalAsPlain() throws Exception
+    {
+        ObjectMapper mapper = VPackMapper.builder(VPackFactory.builder()
+                .enable(StreamWriteFeature.WRITE_BIGDECIMAL_AS_PLAIN)
+                .build())
+                .enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
+                .build();
+        final String INPUT = "{\"x\":1e2}";
+        final JsonNode node = mapper.readTree(VPackUtils.toVPack(INPUT));
+        String result = VPackUtils.toJson(mapper.writeValueAsBytes(node));
+        assertJsonNumericEquals("{\"x\":100}", result);
+
+        // also via ObjectWriter:
+        assertJsonNumericEquals("{\"x\":100}", VPackUtils.toJson(mapper.writer().writeValueAsBytes(node)));
+
+        // and once more for [core#175]:
+        BigDecimal bigDecimal = new BigDecimal(100);
+        JsonNode tree = mapper.valueToTree(bigDecimal);
+        assertJsonNumericEquals("100", VPackUtils.toJson(mapper.writeValueAsBytes(tree)));
+    }
+
+    // Related to [databind#333]
+    @Test
+    public void testCanonicalNumbers() throws Exception
+    {
+        JsonNodeFactory f = new JsonNodeFactory();
+        NumericNode n = f.numberNode(123);
+        assertTrue(n.isInt());
+        n = f.numberNode(1L + Integer.MAX_VALUE);
+        assertFalse(n.isInt());
+        assertTrue(n.isLong());
+
+        // 19-May-2015, tatu: Actually, no, coercion should not happen by default.
+        //   But it should be possible to change it if necessary.
+        // but "too small" number will be 'int'...
+        n = f.numberNode(123L);
+        assertTrue(n.isLong());
+    }
+}

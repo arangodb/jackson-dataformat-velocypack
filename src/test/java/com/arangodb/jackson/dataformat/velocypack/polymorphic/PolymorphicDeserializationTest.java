@@ -21,15 +21,13 @@
 package com.arangodb.jackson.dataformat.velocypack.polymorphic;
 
 import com.arangodb.jackson.dataformat.velocypack.VPackMapper;
-import com.arangodb.velocypack.VPackSlice;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.is;
+import static org.assertj.core.api.Assertions.assertThat;
+
 
 /**
  * @author Michele Rastelli
@@ -37,7 +35,7 @@ import static org.hamcrest.Matchers.is;
 public class PolymorphicDeserializationTest {
 
 	@Test
-	public void serialize() throws IOException {
+	public void serialize() {
 		Map<String, PolyType> attributes = new HashMap<>();
 
 		FirstType ft = new FirstType();
@@ -57,13 +55,13 @@ public class PolymorphicDeserializationTest {
 		VPackMapper mapper = new VPackMapper();
 		byte[] bytes = mapper.writeValueAsBytes(container);
 
-		String json = new VPackSlice(bytes).toString();
-		System.out.println("Serialized: " + json);
+        String json = mapper.readTree(bytes).toString();
+        System.out.println("Serialized: " + json);
 
-		Container result = mapper.readValue(bytes, Container.class);
-		assertThat(result, is(container));
+        Container result = mapper.readValue(bytes, Container.class);
+        assertThat(result).isEqualTo(container);
 
-		System.out.println("Deserialized: " + result);
+        System.out.println("Deserialized: " + result);
 	}
 
 }

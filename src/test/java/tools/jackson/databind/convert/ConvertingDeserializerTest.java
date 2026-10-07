@@ -1,0 +1,308 @@
+package tools.jackson.databind.convert;
+
+import org.junit.jupiter.api.Test;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.VPackUtils;
+import tools.jackson.databind.annotation.JsonDeserialize;
+import tools.jackson.databind.util.StdConverter;
+
+import java.math.BigDecimal;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicReference;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static tools.jackson.databind.testutil.DatabindTestUtil.*;
+
+public class ConvertingDeserializerTest
+{
+    @JsonDeserialize(converter=ConvertingBeanConverter.class)
+    static class ConvertingBean
+    {
+        protected int x, y;
+
+        protected ConvertingBean(int x, int y) {
+            this.x = x;
+            this.y = y;
+        }
+    }
+
+    static class Point
+    {
+        protected int x, y;
+
+        public Point(int v1, int v2) {
+            x = v1;
+            y = v2;
+        }
+    }
+
+    static class ConvertingBeanContainer
+    {
+        public List<ConvertingBean> values;
+
+        public ConvertingBeanContainer() { }
+        public ConvertingBeanContainer(ConvertingBean... beans) {
+            values = Arrays.asList(beans);
+        }
+    }
+
+    static class ConvertingBeanConverter extends StdConverter<int[],ConvertingBean>
+    {
+        @Override
+        public ConvertingBean convert(int[] values) {
+            return new ConvertingBean(values[0], values[1]);
+        }
+    }
+
+    private static class PointConverter extends StdConverter<int[], Point>
+    {
+        @Override public Point convert(int[] value) {
+            return new Point(value[0], value[1]);
+        }
+    }
+
+    static class PointWrapper {
+        @JsonDeserialize(converter=PointConverter.class)
+        public Point value;
+
+        protected PointWrapper() { }
+        protected PointWrapper(int x, int y) {
+            value = new Point(x, y);
+        }
+    }
+
+    static class PointWrapperArray {
+        @JsonDeserialize(contentConverter=PointConverter.class)
+        public Point[] values;
+    }
+
+    static class PointWrapperList {
+        @JsonDeserialize(contentConverter=PointConverter.class)
+        public List<Point> values;
+    }
+
+    static class PointWrapperMap {
+        @JsonDeserialize(contentConverter=PointConverter.class)
+        public Map<String,Point> values;
+    }
+
+    // [databind#5870]
+    enum EnumKey { A, B }
+
+    static class PointWrapperEnumMap {
+        @JsonDeserialize(contentConverter=PointConverter.class)
+        public EnumMap<EnumKey, Point> values;
+    }
+
+    static class PointWrapperEnumSet {
+        @JsonDeserialize(contentConverter=EnumKeyConverter.class)
+        public EnumSet<EnumKey> values;
+    }
+
+    static class EnumKeyConverter extends StdConverter<String, EnumKey> {
+        @Override public EnumKey convert(String value) {
+            return EnumKey.valueOf(value.toUpperCase());
+        }
+    }
+
+    static class PointWrapperReference {
+        @JsonDeserialize(contentConverter=PointConverter.class)
+        public AtomicReference<Point> ref;
+    }
+
+    // @since Jackson 3.0
+    static class PointWrapperOptional {
+        @JsonDeserialize(contentConverter=PointConverter.class)
+        public Optional<Point> opt;
+    }
+    
+    static class LowerCaser extends StdConverter<String, String>
+    {
+        @Override
+        public String convert(String value) {
+            return value.toLowerCase();
+        }
+    }
+
+    static class LowerCaseText {
+        @JsonDeserialize(converter=LowerCaser.class)
+        public String text;
+    }
+
+    static class LowerCaseTextArray {
+        @JsonDeserialize(contentConverter=LowerCaser.class)
+        public String[] texts;
+    }
+
+    // for [databind#795]
+
+    static class ToNumberConverter extends StdConverter<String,Number>
+    {
+        @Override
+        public Number convert(String value) {
+            return new BigDecimal(value);
+        }
+    }
+
+    static class Issue795Bean
+    {
+        @JsonDeserialize(converter=ToNumberConverter.class)
+        public Number value;
+    }
+
+    /*
+    /**********************************************************************
+    /* Test methods
+    /**********************************************************************
+     */
+
+    private final ObjectMapper MAPPER = newVPackMapper();
+    
+    @Test
+    public void testClassAnnotationSimple() throws Exception
+    {
+        ConvertingBean bean = MAPPER.readerFor(ConvertingBean.class).readValue(VPackUtils.toVPack("[1,2]"));
+        assertNotNull(bean);
+        assertEquals(1, bean.x);
+        assertEquals(2, bean.y);
+    }
+
+    @Test
+    public void testClassAnnotationForLists() throws Exception
+    {
+        ConvertingBeanContainer container = MAPPER.readerFor(ConvertingBeanContainer.class)
+                .readValue(VPackUtils.toVPack("{\"values\":[[1,2],[3,4]]}"));
+        assertNotNull(container);
+        assertNotNull(container.values);
+        assertEquals(2, container.values.size());
+        assertEquals(4, container.values.get(1).y);
+    }
+
+    @Test
+    public void testPropertyAnnotationSimple() throws Exception
+    {
+        PointWrapper wrapper = MAPPER.readerFor(PointWrapper.class).readValue(VPackUtils.toVPack("{\"value\":[3,4]}"));
+        assertNotNull(wrapper);
+        assertNotNull(wrapper.value);
+        assertEquals(3, wrapper.value.x);
+        assertEquals(4, wrapper.value.y);
+    }
+
+    @Test
+    public void testPropertyAnnotationLowerCasing() throws Exception
+    {
+        LowerCaseText text = MAPPER.readerFor(LowerCaseText.class).readValue(VPackUtils.toVPack("{\"text\":\"Yay!\"}"));
+        assertNotNull(text);
+        assertNotNull(text.text);
+        assertEquals("yay!", text.text);
+    }
+
+    @Test
+    public void testPropertyAnnotationArrayLC() throws Exception
+    {
+        LowerCaseTextArray texts = MAPPER.readerFor(LowerCaseTextArray.class).readValue(VPackUtils.toVPack("{\"texts\":[\"ABC\"]}"));
+        assertNotNull(texts);
+        assertNotNull(texts.texts);
+        assertEquals(1, texts.texts.length);
+        assertEquals("abc", texts.texts[0]);
+    }
+
+    @Test
+    public void testPropertyAnnotationForArrays() throws Exception
+    {
+        PointWrapperArray array = MAPPER.readerFor(PointWrapperArray.class)
+                .readValue(VPackUtils.toVPack("{\"values\":[[4,5],[5,4]]}"));
+        assertNotNull(array);
+        assertNotNull(array.values);
+        assertEquals(2, array.values.length);
+        assertEquals(5, array.values[1].x);
+    }
+
+    @Test
+    public void testPropertyAnnotationForLists() throws Exception
+    {
+        PointWrapperList array = MAPPER.readerFor(PointWrapperList.class)
+                .readValue(VPackUtils.toVPack("{\"values\":[[7,8],[8,7]]}"));
+        assertNotNull(array);
+        assertNotNull(array.values);
+        assertEquals(2, array.values.size());
+        assertEquals(7, array.values.get(0).x);
+    }
+
+    @Test
+    public void testPropertyAnnotationForMaps() throws Exception
+    {
+        PointWrapperMap map = MAPPER.readerFor(PointWrapperMap.class)
+                .readValue(VPackUtils.toVPack("{\"values\":{\"a\":[1,2]}}"));
+        assertNotNull(map);
+        assertNotNull(map.values);
+        assertEquals(1, map.values.size());
+        Point p = map.values.get("a");
+        assertNotNull(p);
+        assertEquals(1, p.x);
+        assertEquals(2, p.y);
+    }
+
+    // [databind#5870]
+    @Test
+    public void testPropertyAnnotationForEnumMaps() throws Exception
+    {
+        PointWrapperEnumMap map = MAPPER.readerFor(PointWrapperEnumMap.class)
+                .readValue(VPackUtils.toVPack(a2q("{'values':{'A':[1,2]}}")));
+        assertNotNull(map);
+        assertNotNull(map.values);
+        assertEquals(1, map.values.size());
+        Point p = map.values.get(EnumKey.A);
+        assertNotNull(p);
+        assertEquals(1, p.x);
+        assertEquals(2, p.y);
+    }
+
+    // [databind#5870]
+    @Test
+    public void testPropertyAnnotationForEnumSets() throws Exception
+    {
+        PointWrapperEnumSet set = MAPPER.readerFor(PointWrapperEnumSet.class)
+                .readValue(VPackUtils.toVPack(a2q("{'values':['a','b']}")));
+        assertNotNull(set);
+        assertNotNull(set.values);
+        assertEquals(EnumSet.of(EnumKey.A, EnumKey.B), set.values);
+    }
+
+    @Test
+    public void testPropertyAnnotationForReferences() throws Exception
+    {
+        PointWrapperReference w = MAPPER.readerFor(PointWrapperReference.class)
+                .readValue(VPackUtils.toVPack("{\"ref\": [1,2]}"));
+        assertNotNull(w);
+        assertNotNull(w.ref);
+        Point p = w.ref.get();
+        assertNotNull(p);
+        assertEquals(1, p.x);
+        assertEquals(2, p.y);
+    }
+
+    @Test
+    public void testPropertyAnnotationForOptionals() throws Exception
+    {
+        PointWrapperOptional w = MAPPER.readerFor(PointWrapperOptional.class)
+                .readValue(VPackUtils.toVPack("{\"opt\": [2,3]}"));
+        assertNotNull(w);
+        assertNotNull(w.opt);
+        Point p = w.opt.get();
+        assertNotNull(p);
+        assertEquals(2, p.x);
+        assertEquals(3, p.y);
+    }
+
+    // [databind#795]
+    @Test
+    public void testConvertToAbstract() throws Exception
+    {
+        Issue795Bean bean = MAPPER.readerFor(Issue795Bean.class)
+                .readValue(VPackUtils.toVPack("{\"value\":\"1.25\"}"));
+        assertNotNull(bean.value);
+        assertInstanceOf(BigDecimal.class, bean.value, "Type not BigDecimal but "+bean.value.getClass());
+        assertEquals(new BigDecimal("1.25"), bean.value);
+    }
+}

@@ -1,0 +1,85 @@
+package tools.jackson.databind.deser.filter;
+
+import com.fasterxml.jackson.annotation.*;
+import org.junit.jupiter.api.Test;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.VPackUtils;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static tools.jackson.databind.testutil.DatabindTestUtil.newVPackMapper;
+
+public class IgnoreUnknownPropertyUsingPropertyBasedTest
+{
+
+  private final ObjectMapper MAPPER = newVPackMapper();
+
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  static class IgnoreUnknownAnySetter {
+
+    int a, b;
+
+    @JsonCreator
+    public IgnoreUnknownAnySetter(@JsonProperty("a") int a, @JsonProperty("b") int b) {
+      this.a = a;
+      this.b = b;
+    }
+
+    Map<String, Object> props = new HashMap<>();
+
+    @JsonAnySetter
+    public void addProperty(String key, Object value) {
+      props.put(key, value);
+    }
+
+    @JsonAnyGetter
+    public Map<String, Object> getProperties() {
+      return props;
+    }
+  }
+
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  static class IgnoreUnknownUnwrapped {
+
+    int a, b;
+
+    @JsonCreator
+    public IgnoreUnknownUnwrapped(@JsonProperty("a") int a, @JsonProperty("b") int b) {
+      this.a = a;
+      this.b = b;
+    }
+
+    @JsonUnwrapped
+    UnwrappedChild child;
+
+    static class UnwrappedChild {
+      public int x, y;
+    }
+  }
+
+  @Test
+  public void testAnySetterWithFailOnUnknownDisabled() throws Exception {
+    IgnoreUnknownAnySetter value = MAPPER.readValue(
+            VPackUtils.toVPack("{\"a\":1, \"b\":2, \"x\":3, \"y\": 4}"), IgnoreUnknownAnySetter.class);
+    assertNotNull(value);
+    assertEquals(1, value.a);
+    assertEquals(2, value.b);
+    assertEquals(3, value.props.get("x"));
+    assertEquals(4, value.props.get("y"));
+    assertEquals(2, value.props.size());
+  }
+
+  @Test
+  public void testUnwrappedWithFailOnUnknownDisabled() throws Exception {
+    IgnoreUnknownUnwrapped value = MAPPER.readValue(
+            VPackUtils.toVPack("{\"a\":1, \"b\": 2, \"x\":3, \"y\":4}"), IgnoreUnknownUnwrapped.class);
+    assertNotNull(value);
+    assertEquals(1, value.a);
+    assertEquals(2, value.b);
+    assertEquals(3, value.child.x);
+    assertEquals(4, value.child.y);
+  }
+}

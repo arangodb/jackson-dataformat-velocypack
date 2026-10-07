@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 ## [Unreleased]
 
+- Reworked VelocyPack container writing around shared payload storage and primitive
+  frame/index stacks, eliminating recursive per-value captures and final generator
+  document copies. UTF-8 text now encodes directly; known-length binary streams
+  fill shared container storage or use bounded root output storage.
+- Fixed lost/misplaced tag prefixes around object values and nested containers;
+  wrapped values now contribute exactly one item/pair and include tags in offsets.
+- Reject ambiguous nested `writeRaw`/`writeBytes` fragments, empty/None nested raw
+  values and incomplete nested tagged/object values. Root raw byte-block
+  pass-through and valid pre-encoded custom values remain supported.
+- Prevent replay after partial output failures, honor target ownership during
+  failed close, preserve the first exception when target close also fails, and
+  clear generator payload/scratch references on close. Only the separate
+  recyclable output buffer is returned to IOContext.
+- Preserve legacy malformed-surrogate replacement, UTF-8 headers and raw byte
+  behavior. Exploratory measurements and known limitations are documented in
+  `docs/writer-rewrite-progress.md`; final 5x acceptance remains unverified.
+
 ## [4.6.4] - 2026-03-06
 
 - added support to Jackson 2.21

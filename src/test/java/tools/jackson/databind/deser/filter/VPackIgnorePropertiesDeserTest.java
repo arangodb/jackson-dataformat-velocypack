@@ -1,0 +1,281 @@
+package tools.jackson.databind.deser.filter;
+
+import com.fasterxml.jackson.annotation.JsonAnySetter;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
+import org.junit.jupiter.api.Test;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.VPackUtils;
+import tools.jackson.databind.exc.UnrecognizedPropertyException;
+
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static tools.jackson.databind.testutil.DatabindTestUtil.*;
+
+public class VPackIgnorePropertiesDeserTest
+{
+    // [databind#426]
+    @JsonIgnoreProperties({ "userId" })
+    static class User {
+        public String firstName;
+        Integer userId;
+
+        public Integer getUserId() {
+            return userId;
+        }
+
+        public void setUserId(CharSequence id) {
+            userId = Integer.valueOf(id.toString());
+        }
+
+        public void setUserId(Integer v) {
+            this.userId = v;
+        }
+
+        public void setUserId(User u) {
+            // bogus
+        }
+
+        public void setUserId(boolean b) {
+            // bogus
+        }
+    }
+
+    // [databind#1217]
+    static class IgnoreObject {
+        public int x = 1;
+        public int y = 2;
+    }
+
+    final static class TestIgnoreObject {
+        @JsonIgnoreProperties({ "x" })
+        public IgnoreObject obj;
+
+        @JsonIgnoreProperties({ "y" })
+        public IgnoreObject obj2;
+    }
+
+    // [databind#1595]
+    @JsonIgnoreProperties(value = {"name"}, allowSetters = true)
+    @JsonPropertyOrder(alphabetic=true)
+    static class Simple1595 {
+        private int id;
+        private String name;
+
+        public int getId() { return id; }
+        public void setId(int id) { this.id = id; }
+
+        public String getName() { return name; }
+        public void setName(String name) { this.name = name; }
+    }
+
+    // [databind#2627]
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    static class MyPojoValue {
+        @JsonIgnoreProperties(ignoreUnknown = true)
+        MyPojo2627 value;
+
+        public MyPojo2627 getValue() {
+            return value;
+        }
+    }
+
+    static class MyPojo2627 {
+        public String name;
+    }
+
+    // [databind#2803]
+    static class Building2803 {
+        @JsonIgnoreProperties({"something"})
+        @JsonProperty
+        private Room2803 lobby;
+    }
+
+    static class Museum2803 extends Building2803 {
+    }
+
+    static class Room2803 {
+        public Building2803 something;
+        public String id;
+    }
+
+    /*
+    /****************************************************************
+    /* Unit tests
+    /****************************************************************
+     */
+
+    private final ObjectMapper MAPPER = newVPackMapper();
+
+    // [databind#426]
+    @Test
+    public void testIssue426() throws Exception
+    {
+        final String JSON = a2q("{'userId': 9, 'firstName': 'Mike' }");
+        User result = MAPPER.readerFor(User.class).readValue(VPackUtils.toVPack(JSON));
+        assertNotNull(result);
+        assertEquals("Mike", result.firstName);
+        assertNull(result.userId);
+    }
+
+    // [databind#1217]
+    @Test
+    public void testIgnoreOnProperty1217() throws Exception
+    {
+        TestIgnoreObject result = MAPPER.readValue(
+                VPackUtils.toVPack(a2q("{'obj':{'x': 10, 'y': 20}, 'obj2':{'x': 10, 'y': 20}}")),
+                TestIgnoreObject.class);
+        assertEquals(20, result.obj.y);
+        assertEquals(10, result.obj2.x);
+
+        assertEquals(1, result.obj.x);
+        assertEquals(2, result.obj2.y);
+
+        TestIgnoreObject result1 = MAPPER.readValue(
+                  VPackUtils.toVPack(a2q("{'obj':{'x': 20, 'y': 30}, 'obj2':{'x': 20, 'y': 40}}")),
+                  TestIgnoreObject.class);
+        assertEquals(1, result1.obj.x);
+        assertEquals(30, result1.obj.y);
+
+        assertEquals(20, result1.obj2.x);
+        assertEquals(2, result1.obj2.y);
+    }
+
+    // [databind#1217]
+    @Test
+    public void testIgnoreViaConfigOverride1217() throws Exception
+    {
+        ObjectMapper mapper = vpackMapperBuilder()
+                .withConfigOverride(Point.class,
+                        o -> o.setIgnorals(JsonIgnoreProperties.Value.forIgnoredProperties("y")))
+                .build();
+        Point p = mapper.readValue(VPackUtils.toVPack(a2q("{'x':1,'y':2}")), Point.class);
+        // bind 'x', but ignore 'y'
+        assertEquals(1, p.x);
+        assertEquals(0, p.y);
+    }
+
+    // [databind#3721]
+    @Test
+    public void testIgnoreUnknownViaConfigOverride() throws Exception
+    {
+        final String DOC = a2q("{'x':2,'foobar':3}");
+
+        // First, fail without overrides
+        try {
+            MAPPER.readerFor(Point.class)
+                    .with(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                    .readValue(VPackUtils.toVPack(DOC));
+            fail("Should not pass");
+        } catch (UnrecognizedPropertyException e) {
+            verifyException(e, "foobar"); // message varies between 2.x and 3.x
+        }
+
+        // But pass with specific class override:
+        ObjectMapper mapper = vpackMapperBuilder()
+            .withConfigOverride(Point.class,
+                cfg -> cfg.setIgnorals(JsonIgnoreProperties.Value.forIgnoreUnknown(true)))
+            .build();
+        Point p = mapper.readValue(VPackUtils.toVPack(DOC), Point.class);
+        assertEquals(2, p.x);
+
+        // 13-Jan-2023, tatu: Alas, no global defaulting yet!
+    }
+
+    // [databind#1595]
+    @Test
+    public void testIgnoreGetterNotSetter1595() throws Exception
+    {
+        Simple1595 config = new Simple1595();
+        config.setId(123);
+        config.setName("jack");
+        String json = VPackUtils.toJson(MAPPER.writeValueAsBytes(config));
+        assertEquals(a2q("{'id':123}"), json);
+        Simple1595 des = MAPPER.readValue(VPackUtils.toVPack(a2q("{'id':123,'name':'jack'}")), Simple1595.class);
+        assertEquals("jack", des.getName());
+    }
+
+    // [databind#2627]
+    @Test
+    public void testIgnoreUnknownOnField() throws IOException
+    {
+        String json = "{\"value\": {\"name\": \"my_name\", \"extra\": \"val\"}, \"type\":\"Json\"}";
+        MyPojoValue value = MAPPER.readValue(VPackUtils.toVPack(json), MyPojoValue.class);
+        assertNotNull(value);
+        assertNotNull(value.getValue());
+        assertEquals("my_name", value.getValue().name);
+    }
+
+    // [databind#2803]: fails on 2.x, passes on 3.0
+    @Test
+    public void testIgnoreProps2803() throws Exception {
+        final String DOC = "{\"lobby\":{\"id\":\"L1\"}}";
+
+        // Important! Must do both calls, in this order
+        Museum2803 museum = MAPPER.readValue(VPackUtils.toVPack(DOC), Museum2803.class);
+        assertNotNull(museum);
+        Building2803 building = MAPPER.readValue(VPackUtils.toVPack(DOC), Building2803.class);
+        assertNotNull(building);
+    }
+
+    // [databind#5865]: @JsonIgnoreProperties should work with FAIL_ON_UNKNOWN_PROPERTIES
+    @Test
+    public void testIgnorePropertiesWithFailOnUnknown5865() throws Exception
+    {
+        // Test with Record type
+        final ObjectMapper strictMapper = vpackMapperBuilder()
+                .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                .build();
+        final String json = a2q("{'name':'test','type':'animal'}");
+
+        Simple5865Record result = strictMapper.readValue(VPackUtils.toVPack(json), Simple5865Record.class);
+        assertNotNull(result);
+        assertEquals("test", result.name);
+
+        // Test with POJO type
+        Simple5865Pojo pojoResult = strictMapper.readValue(VPackUtils.toVPack(json), Simple5865Pojo.class);
+        assertNotNull(pojoResult);
+        assertEquals("test", pojoResult.name);
+    }
+
+    // [databind#5865]
+    @JsonIgnoreProperties({"type"})
+    record Simple5865Record(String name) { }
+
+    // [databind#5865]
+    @JsonIgnoreProperties({"type"})
+    static class Simple5865Pojo {
+        public String name;
+    }
+
+    // [databind#5865]: @JsonIgnoreProperties should take precedence over @JsonAnySetter
+    @Test
+    public void testIgnorePropertiesNotPassedToAnySetter5865() throws Exception
+    {
+        final String json = a2q("{'name':'test','type':'animal','extra':'value'}");
+        AnySetter5865Pojo result = MAPPER.readValue(VPackUtils.toVPack(json), AnySetter5865Pojo.class);
+        assertEquals("test", result.name);
+        // "type" is ignored, should NOT appear in any-setter map
+        assertFalse(result.other.containsKey("type"));
+        // "extra" is not ignored, should be captured by any-setter
+        assertEquals("value", result.other.get("extra"));
+    }
+
+    // [databind#5865]
+    @JsonIgnoreProperties({"type"})
+    static class AnySetter5865Pojo {
+        public String name;
+        public Map<String, Object> other = new HashMap<>();
+
+        @JsonAnySetter
+        public void setOther(String key, Object value) {
+            other.put(key, value);
+        }
+    }
+}
+

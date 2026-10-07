@@ -1,0 +1,95 @@
+package tools.jackson.databind.format;
+
+import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonValue;
+import org.junit.jupiter.api.Test;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.VPackUtils;
+import tools.jackson.databind.exc.InvalidFormatException;
+import tools.jackson.databind.exc.MismatchedInputException;
+import tools.jackson.databind.testutil.DatabindTestUtil;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
+// [databind#3580] Enum (de)serialization in conjunction with JsonFormat.Shape.NUMBER_INT
+public class EnumNumberFormatShape3580PojoTest
+    extends DatabindTestUtil
+{
+    public static class Pojo3580 {
+        public PojoStateInt3580 state;
+        public Pojo3580() {}
+        public Pojo3580(PojoStateInt3580 state) {this.state = state;}
+    }
+
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER_INT)
+    public enum PojoStateInt3580 {
+        OFF(17),
+        ON(31),
+        UNKNOWN(99);
+
+        private int value;
+
+        PojoStateInt3580(int value) { this.value = value; }
+
+        @JsonValue
+        public int value() {return this.value;}
+    }
+
+    public static class PojoNum3580 {
+        public PojoStateNum3580 state;
+        public PojoNum3580() {}
+        public PojoNum3580(PojoStateNum3580 state) {this.state = state;}
+    }
+
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
+    public enum PojoStateNum3580 {
+        OFF(17),
+        ON(31),
+        UNKNOWN(99);
+
+        private int value;
+
+        PojoStateNum3580(int value) { this.value = value; }
+
+        @JsonValue
+        public int value() {return this.value;}
+    }
+
+    private final ObjectMapper MAPPER = newVPackMapper();
+
+    @Test
+    void enumNumberIntFormatShape3580() throws Exception
+    {
+
+        // Serialize
+        assertEquals("{\"state\":17}", VPackUtils.toJson(MAPPER.writeValueAsBytes(new Pojo3580(PojoStateInt3580.OFF))));
+        assertEquals("{\"state\":31}", VPackUtils.toJson(MAPPER.writeValueAsBytes(new Pojo3580(PojoStateInt3580.ON))));
+        assertEquals("{\"state\":99}", VPackUtils.toJson(MAPPER.writeValueAsBytes(new Pojo3580(PojoStateInt3580.UNKNOWN))));
+
+        // Pass Deserialize
+        assertEquals(PojoStateInt3580.OFF, MAPPER.readValue(VPackUtils.toVPack("{\"state\":17}"), Pojo3580.class).state);
+        assertEquals(PojoStateInt3580.ON, MAPPER.readValue(VPackUtils.toVPack("{\"state\":31}"), Pojo3580.class).state);
+        assertEquals(PojoStateInt3580.UNKNOWN, MAPPER.readValue(VPackUtils.toVPack("{\"state\":99}"), Pojo3580.class).state);
+
+        // Fail : Try to use ordinal number
+        assertThrows(InvalidFormatException.class, () -> MAPPER.readValue(VPackUtils.toVPack("{\"state\":0}"), Pojo3580.class));
+    }
+
+    @Test
+    void enumNumberFormatShape3580() throws Exception
+    {
+        // Serialize
+        assertEquals("{\"state\":17}", VPackUtils.toJson(MAPPER.writeValueAsBytes(new PojoNum3580(PojoStateNum3580.OFF))));
+        assertEquals("{\"state\":31}", VPackUtils.toJson(MAPPER.writeValueAsBytes(new PojoNum3580(PojoStateNum3580.ON))));
+        assertEquals("{\"state\":99}", VPackUtils.toJson(MAPPER.writeValueAsBytes(new PojoNum3580(PojoStateNum3580.UNKNOWN))));
+
+        // Pass Deserialize
+        assertEquals(PojoStateNum3580.OFF, MAPPER.readValue(VPackUtils.toVPack("{\"state\":17}"), PojoNum3580.class).state);
+        assertEquals(PojoStateNum3580.ON, MAPPER.readValue(VPackUtils.toVPack("{\"state\":31}"), PojoNum3580.class).state);
+        assertEquals(PojoStateNum3580.UNKNOWN, MAPPER.readValue(VPackUtils.toVPack("{\"state\":99}"), PojoNum3580.class).state);
+
+        // Fail : Try to use ordinal number
+        assertThrows(MismatchedInputException.class, () -> MAPPER.readValue(VPackUtils.toVPack("{\"state\":0}"), PojoStateNum3580.class));
+    }
+}

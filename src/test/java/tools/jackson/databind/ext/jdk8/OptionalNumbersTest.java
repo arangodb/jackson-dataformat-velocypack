@@ -1,0 +1,371 @@
+package tools.jackson.databind.ext.jdk8;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import org.junit.jupiter.api.Test;
+import tools.jackson.databind.*;
+import tools.jackson.databind.VPackUtils;
+import tools.jackson.databind.exc.MismatchedInputException;
+import tools.jackson.databind.testutil.DatabindTestUtil;
+
+import java.util.OptionalDouble;
+import java.util.OptionalInt;
+import java.util.OptionalLong;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+public class OptionalNumbersTest
+    extends DatabindTestUtil
+{
+    static class OptionalIntBean {
+        public OptionalInt value;
+
+        public OptionalIntBean() { value = OptionalInt.empty(); }
+        OptionalIntBean(int v) {
+           this(OptionalInt.of(v));
+        }
+        OptionalIntBean(OptionalInt v) {
+            value = v;
+        }
+    }
+
+    static class OptionalLongBean {
+        public OptionalLong value;
+
+        public OptionalLongBean() { value = OptionalLong.empty(); }
+        OptionalLongBean(long v) {
+            this(OptionalLong.of(v));
+        }
+        OptionalLongBean(OptionalLong v) {
+            value = v;
+        }
+    }
+
+    static class OptionalDoubleBean {
+        public OptionalDouble value;
+
+        public OptionalDoubleBean() { value = OptionalDouble.empty(); }
+        OptionalDoubleBean(double v) {
+            this(OptionalDouble.of(v));
+        }
+        OptionalDoubleBean(OptionalDouble v) {
+            value = v;
+        }
+    }
+
+    private final ObjectMapper MAPPER = newVPackMapper();
+    private final ObjectMapper MAPPER_WITHOUT_COERCION = MAPPER.rebuild()
+            .disable(MapperFeature.ALLOW_COERCION_OF_SCALARS)
+            .build();
+
+    /*
+    /**********************************************************
+    /* Test methods, OptionalInt
+    /**********************************************************
+     */
+
+    @Test
+    public void testOptionalIntNull() throws Exception
+    {
+        assertFalse(MAPPER.readValue(VPackUtils.toVPack("null"), OptionalInt.class).isPresent());
+    }
+
+    @Test
+    public void testOptionalIntAbsent() throws Exception
+    {
+        String json = VPackUtils.toJson(MAPPER.writeValueAsBytes(OptionalInt.empty()));
+        assertFalse(MAPPER.readValue(VPackUtils.toVPack(json), OptionalInt.class).isPresent());
+    }
+
+    @Test
+    public void testOptionalIntInArrayAbsent() throws Exception
+    {
+        OptionalInt[] ints = MAPPER.readValue(VPackUtils.toVPack("[null]"), OptionalInt[].class);
+        assertEquals(1, ints.length);
+        assertNotNull(ints[0]);
+        assertFalse(ints[0].isPresent());
+    }
+
+    @Test
+    public void testOptionalIntPresent() throws Exception
+    {
+        assertEquals(5, MAPPER.readValue(MAPPER.writeValueAsBytes(OptionalInt.of(5)), OptionalInt.class).getAsInt());
+    }
+
+    @Test
+    public void testOptionalIntCoerceFromString() throws Exception
+    {
+        OptionalInt opt = MAPPER.readValue(VPackUtils.toVPack(q("123")), OptionalInt.class);
+        assertEquals(123, opt.getAsInt());
+        opt = MAPPER.readValue(VPackUtils.toVPack("\"\""), OptionalInt.class);
+        assertNotNull(opt);
+        assertFalse(opt.isPresent());
+
+        OptionalIntBean bean = MAPPER.readValue(VPackUtils.toVPack(a2q("{'value':null}")),
+                OptionalIntBean.class);
+        assertNotNull(bean.value);
+        assertFalse(bean.value.isPresent());
+
+        bean = MAPPER.readValue(VPackUtils.toVPack(a2q("{'value':'-37'}")), OptionalIntBean.class);
+        assertNotNull(bean.value);
+        assertEquals(-37L, bean.value.getAsInt());
+    }
+
+    @Test
+    public void testOptionalIntInvalid() throws Exception
+    {
+        try {
+            MAPPER.readValue(VPackUtils.toVPack("true"), OptionalInt.class);
+            fail("Should fail");
+        } catch (MismatchedInputException e) {
+            verifyException(e, "Cannot deserialize value of type `java.util.OptionalInt`");
+            verifyException(e, "from Boolean value (token");
+        }
+    }
+
+    /*
+    /**********************************************************
+    /* Test methods, OptionalLong
+    /**********************************************************
+     */
+
+    @Test
+    public void testOptionalLongNull() throws Exception
+    {
+        assertFalse(MAPPER.readValue(VPackUtils.toVPack("null"), OptionalLong.class).isPresent());
+    }
+
+    @Test
+    public void testOptionalLongAbsent() throws Exception
+    {
+        assertFalse(MAPPER.readValue(MAPPER.writeValueAsBytes(OptionalLong.empty()),
+                OptionalLong.class).isPresent());
+    }
+
+    @Test
+    public void testOptionalLongInArrayAbsent() throws Exception
+    {
+        OptionalLong[] arr = MAPPER.readValue(VPackUtils.toVPack("[null]"), OptionalLong[].class);
+        assertEquals(1, arr.length);
+        assertNotNull(arr[0]);
+        assertFalse(arr[0].isPresent());
+    }
+
+    @Test
+    public void testOptionalLongPresent() throws Exception
+    {
+        assertEquals(Long.MAX_VALUE, MAPPER.readValue(MAPPER.writeValueAsBytes(OptionalLong.of(Long.MAX_VALUE)), OptionalLong.class).getAsLong());
+    }
+
+    @Test
+    public void testOptionalLongBoundaryValues() throws Exception {
+        // Test with Long.MAX_VALUE
+        OptionalLongBean maxWrapper = new OptionalLongBean(OptionalLong.of(Long.MAX_VALUE));
+        String maxJson = VPackUtils.toJson(MAPPER.writeValueAsBytes(maxWrapper));
+        OptionalLongBean maxResult = MAPPER.readValue(VPackUtils.toVPack(maxJson), OptionalLongBean.class);
+        assertTrue(maxResult.value.isPresent());
+        assertEquals(Long.MAX_VALUE, maxResult.value.getAsLong());
+
+        // Test with Long.MIN_VALUE
+        OptionalLongBean minWrapper = new OptionalLongBean(OptionalLong.of(Long.MIN_VALUE));
+        String minJson = VPackUtils.toJson(MAPPER.writeValueAsBytes(minWrapper));
+        OptionalLongBean minResult = MAPPER.readValue(VPackUtils.toVPack(minJson), OptionalLongBean.class);
+        assertTrue(minResult.value.isPresent());
+        assertEquals(Long.MIN_VALUE, minResult.value.getAsLong());
+    }
+    
+    @Test
+    public void testOptionalLongCoerceFromString() throws Exception
+    {
+        OptionalLong opt = MAPPER.readValue(VPackUtils.toVPack(q("123")), OptionalLong.class);
+        assertEquals(123L, opt.getAsLong());
+
+        // should coerce from empty String too (by default)
+        opt = MAPPER.readValue(VPackUtils.toVPack("\"\""), OptionalLong.class);
+        assertNotNull(opt);
+        assertFalse(opt.isPresent());
+
+        OptionalLongBean bean = MAPPER.readValue(VPackUtils.toVPack(a2q("{'value':null}")),
+                OptionalLongBean.class);
+        assertNotNull(bean.value);
+        assertFalse(bean.value.isPresent());
+
+        bean = MAPPER.readValue(VPackUtils.toVPack(a2q("{'value':'19'}")), OptionalLongBean.class);
+        assertNotNull(bean.value);
+        assertEquals(19L, bean.value.getAsLong());
+    }
+
+    @Test
+    public void testOptionalLongSerializeFilter() throws Exception
+    {
+        ObjectMapper mapper = vpackMapperBuilder()
+                .changeDefaultPropertyInclusion(incl -> incl.withValueInclusion(JsonInclude.Include.NON_NULL))
+                .build();
+        assertEquals(a2q("{'value':123}"),
+                VPackUtils.toJson(mapper.writeValueAsBytes(new OptionalLongBean(123L))));
+        // absent is not strictly null so
+        assertEquals(a2q("{'value':null}"),
+                VPackUtils.toJson(mapper.writeValueAsBytes(new OptionalLongBean())));
+
+        // however:
+        mapper = vpackMapperBuilder()
+                .changeDefaultPropertyInclusion(incl -> incl.withValueInclusion(JsonInclude.Include.NON_ABSENT))
+                .build();
+        assertEquals(a2q("{'value':456}"),
+                VPackUtils.toJson(mapper.writeValueAsBytes(new OptionalLongBean(456L))));
+        assertEquals(a2q("{}"),
+                VPackUtils.toJson(mapper.writeValueAsBytes(new OptionalLongBean())));
+    }
+
+    @Test
+    public void testOptionalLongInvalid() throws Exception
+    {
+        try {
+            MAPPER.readValue(VPackUtils.toVPack("true"), OptionalLong.class);
+            fail("Should fail");
+        } catch (MismatchedInputException e) {
+            verifyException(e, "Cannot deserialize value of type `java.util.OptionalLong`");
+            verifyException(e, "from Boolean value (token");
+        }
+    }
+
+    /*
+    /**********************************************************
+    /* Test methods, OptionalDouble
+    /**********************************************************
+     */
+
+    @Test
+    public void testOptionalDoubleNull() throws Exception
+    {
+        assertFalse(MAPPER.readValue(VPackUtils.toVPack("null"), OptionalDouble.class).isPresent());
+    }
+
+    @Test
+    public void testOptionalDoubleAbsent() throws Exception
+    {
+        assertFalse(MAPPER.readValue(MAPPER.writeValueAsBytes(OptionalDouble.empty()),
+                OptionalDouble.class).isPresent());
+    }
+
+    @Test
+    public void testOptionalDoubleInArrayAbsent() throws Exception
+    {
+        OptionalDouble[] arr = MAPPER.readValue(VPackUtils.toVPack("[null]"), OptionalDouble[].class);
+        assertEquals(1, arr.length);
+        assertNotNull(arr[0]);
+        assertFalse(arr[0].isPresent());
+    }
+
+    @Test
+    public void testOptionalDoublePresent() throws Exception
+    {
+        assertEquals(Double.MIN_VALUE,
+                MAPPER.readValue(MAPPER.writeValueAsBytes(OptionalDouble.of(Double.MIN_VALUE)), OptionalDouble.class).getAsDouble());
+    }
+
+    @Test
+    public void testOptionalDoubleCoerceFromString() throws Exception
+    {
+        OptionalDouble opt = MAPPER.readValue(VPackUtils.toVPack(q("0.25")), OptionalDouble.class);
+        assertEquals(0.25, opt.getAsDouble());
+
+        // should coerce from empty String too (by default)
+        opt = MAPPER.readValue(VPackUtils.toVPack("\"\""), OptionalDouble.class);
+        assertNotNull(opt);
+        assertFalse(opt.isPresent());
+
+        OptionalDoubleBean bean = MAPPER.readValue(VPackUtils.toVPack(a2q("{'value':null}")),
+                OptionalDoubleBean.class);
+        assertNotNull(bean.value);
+        assertFalse(bean.value.isPresent());
+
+        bean = MAPPER.readValue(VPackUtils.toVPack(a2q("{'value':'0.5'}")), OptionalDoubleBean.class);
+        assertNotNull(bean.value);
+        assertEquals(0.5, bean.value.getAsDouble());
+    }
+
+    @Test
+    public void testOptionalDoubleInArraySpecialValues() throws Exception
+    {
+        OptionalDouble[] actual = MAPPER.readValue(
+                VPackUtils.toVPack("[null,\"NaN\",\"Infinity\",\"-Infinity\",1,\"2\"]"),
+                OptionalDouble[].class);
+        OptionalDouble[] expected = new OptionalDouble[] {
+                OptionalDouble.empty(),
+                OptionalDouble.of(Double.NaN),
+                OptionalDouble.of(Double.POSITIVE_INFINITY),
+                OptionalDouble.of(Double.NEGATIVE_INFINITY),
+                OptionalDouble.of(1D),
+                OptionalDouble.of(2D)
+        };
+        assertArrayEquals(expected, actual);
+    }
+
+    @Test
+    public void testOptionalDoubleInArraySpecialValuesWithoutCoercion() throws Exception
+    {
+        OptionalDouble[] actual = MAPPER_WITHOUT_COERCION.readValue(
+                VPackUtils.toVPack(a2q("[null,'NaN','Infinity','-Infinity',1]")),
+                OptionalDouble[].class);
+        OptionalDouble[] expected = new OptionalDouble[] {
+                OptionalDouble.empty(),
+                OptionalDouble.of(Double.NaN),
+                OptionalDouble.of(Double.POSITIVE_INFINITY),
+                OptionalDouble.of(Double.NEGATIVE_INFINITY),
+                OptionalDouble.of(1D)
+        };
+        assertArrayEquals(expected, actual);
+    }
+
+    @Test
+    public void testQuotedOptionalDoubleWithoutCoercion()
+    {
+        assertThrows(MismatchedInputException.class,
+                () -> MAPPER_WITHOUT_COERCION.readValue(VPackUtils.toVPack(a2q("['1']")), OptionalDouble[].class));
+    }
+
+    @Test
+    public void testOptionalDoubleBeanSpecialValuesWithoutCoercion_null() throws Exception
+    {
+        OptionalDoubleBean bean = MAPPER_WITHOUT_COERCION.readValue(
+                VPackUtils.toVPack(a2q("{'value':null}")), OptionalDoubleBean.class);
+        assertEquals(OptionalDouble.empty(), bean.value);
+    }
+
+    @Test
+    public void testOptionalDoubleBeanSpecialValuesWithoutCoercion_nan() throws Exception
+    {
+        OptionalDoubleBean bean = MAPPER_WITHOUT_COERCION.readValue(
+                VPackUtils.toVPack(a2q("{'value':'NaN'}")), OptionalDoubleBean.class);
+        assertEquals(OptionalDouble.of(Double.NaN), bean.value);
+    }
+
+    @Test
+    public void testOptionalDoubleBeanSpecialValuesWithoutCoercion_positiveInfinity() throws Exception
+    {
+        OptionalDoubleBean bean = MAPPER_WITHOUT_COERCION.readValue(
+                VPackUtils.toVPack(a2q("{'value':'Infinity'}")), OptionalDoubleBean.class);
+        assertEquals(OptionalDouble.of(Double.POSITIVE_INFINITY), bean.value);
+    }
+
+    @Test
+    public void testOptionalDoubleBeanSpecialValuesWithoutCoercion_negativeInfinity() throws Exception
+    {
+        OptionalDoubleBean bean = MAPPER_WITHOUT_COERCION.readValue(
+                VPackUtils.toVPack(a2q("{'value':'-Infinity'}")), OptionalDoubleBean.class);
+        assertEquals(OptionalDouble.of(Double.NEGATIVE_INFINITY), bean.value);
+    }
+
+    @Test
+    public void testOptionalDoubleInvalid() throws Exception
+    {
+        try {
+            MAPPER.readValue(VPackUtils.toVPack("true"), OptionalDouble.class);
+            fail("Should fail");
+        } catch (MismatchedInputException e) {
+            verifyException(e, "Cannot deserialize value of type `java.util.OptionalDouble`");
+            verifyException(e, "from Boolean value (token");
+        }
+    }
+
+}

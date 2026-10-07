@@ -1,0 +1,89 @@
+package tools.jackson.databind.deser;
+
+import com.fasterxml.jackson.annotation.JsonMerge;
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import org.junit.jupiter.api.Test;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.VPackUtils;
+import com.arangodb.jackson.dataformat.velocypack.VPackMapper;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+public class MergePolymorphicTest
+{
+    static class Root {
+        @JsonMerge
+        public Child child;
+    }
+
+    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME)
+    @JsonSubTypes({
+        @JsonSubTypes.Type(value = ChildA.class, name = "ChildA"),
+        @JsonSubTypes.Type(value = ChildB.class, name = "ChildB")
+    })
+    static abstract class Child {
+    }
+
+    static class ChildA extends Child {
+        public String name;
+    }
+
+    static class ChildB extends Child {
+        public String code;
+    }
+
+    private final ObjectMapper MAPPER = VPackMapper.builder()
+            .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+            .build();
+
+    @Test
+    public void testPolymorphicNewObject() throws Exception {
+        Root root = MAPPER.readValue(VPackUtils.toVPack("{\"child\": { \"@type\": \"ChildA\", \"name\": \"I'm child A\" }}"), Root.class);
+        assertInstanceOf(ChildA.class, root.child);
+        assertEquals("I'm child A", ((ChildA) root.child).name);
+    }
+
+    @Test
+    public void testPolymorphicFromNullToNewObject() throws Exception {
+        Root root = new Root();
+        MAPPER.readerForUpdating(root).readValue(VPackUtils.toVPack("{\"child\": { \"@type\": \"ChildA\", \"name\": \"I'm the new name\" }}"));
+        assertInstanceOf(ChildA.class, root.child);
+        assertEquals("I'm the new name", ((ChildA) root.child).name);
+    }
+
+    @Test
+    public void testPolymorphicFromObjectToNull() throws Exception {
+        Root root = new Root();
+        ChildA childA = new ChildA();
+        childA.name = "I'm child A";
+        root.child = childA;
+        MAPPER.readerForUpdating(root).readValue(VPackUtils.toVPack("{\"child\": null }"));
+        assertTrue(root.child == null);
+    }
+
+    @Test
+    public void testPolymorphicPropertyCanBeMerged() throws Exception {
+        Root root = new Root();
+        ChildA childA = new ChildA();
+        childA.name = "I'm child A";
+        root.child = childA;
+        MAPPER.readerForUpdating(root).readValue(VPackUtils.toVPack("{\"child\": { \"@type\": \"ChildA\", \"name\": \"I'm the new name\" }}"));
+        assertInstanceOf(ChildA.class, root.child);
+        assertEquals("I'm the new name", ((ChildA) root.child).name);
+    }
+
+    @Test
+    public void testPolymorphicPropertyTypeCanNotBeChanged() throws Exception {
+        Root root = new Root();
+        ChildA childA = new ChildA();
+        childA.name = "I'm child A";
+        root.child = childA;
+        MAPPER.readerForUpdating(root).readValue(VPackUtils.toVPack("{\"child\": { \"@type\": \"ChildB\", \"code\": \"I'm the code\" }}"));
+        // The polymorphic type can't be changed
+        assertInstanceOf(ChildA.class, root.child);
+        assertEquals("I'm child A", ((ChildA) root.child).name);
+    }
+
+}

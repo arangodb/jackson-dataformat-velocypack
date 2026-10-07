@@ -1,0 +1,493 @@
+package tools.jackson.databind.ext.javatime.deser;
+
+import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonFormat.Feature;
+import com.fasterxml.jackson.annotation.OptBoolean;
+import org.junit.jupiter.api.Test;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.*;
+import tools.jackson.databind.cfg.DateTimeFeature;
+import tools.jackson.databind.exc.MismatchedInputException;
+import tools.jackson.databind.ext.javatime.DateTimeTestBase;
+import tools.jackson.databind.ext.javatime.MockObjectConfiguration;
+
+import java.time.OffsetTime;
+import java.time.ZoneOffset;
+import java.time.temporal.Temporal;
+import java.util.List;
+import java.util.Map;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.*;
+
+public class OffsetTimeDeserTest extends DateTimeTestBase
+{
+
+    private final TypeReference<Map<String, OffsetTime>> MAP_TYPE_REF = new TypeReference<Map<String, OffsetTime>>() { };
+
+    // for [datatype-jsr310#45]
+    static class  Pojo45s {
+        public String name;
+        public List<Pojo45> objects;
+    }
+
+    static class Pojo45 {
+        public java.time.LocalDate partDate;
+        public OffsetTime starttime;
+        public OffsetTime endtime;
+        public String comments;
+    }
+
+    static class WrapperWithReadTimestampsAsNanosDisabled {
+        @JsonFormat(
+            without=Feature.READ_DATE_TIMESTAMPS_AS_NANOSECONDS
+        )
+        public OffsetTime value;
+
+        public WrapperWithReadTimestampsAsNanosDisabled() { }
+        public WrapperWithReadTimestampsAsNanosDisabled(OffsetTime v) { value = v; }
+    }
+
+    static class WrapperWithReadTimestampsAsNanosEnabled {
+        @JsonFormat(
+            with=Feature.READ_DATE_TIMESTAMPS_AS_NANOSECONDS
+        )
+        public OffsetTime value;
+
+        public WrapperWithReadTimestampsAsNanosEnabled() { }
+        public WrapperWithReadTimestampsAsNanosEnabled(OffsetTime v) { value = v; }
+    }
+
+    // For testing custom format (covers withDateFormat)
+    static class WrapperWithCustomPattern {
+        @JsonFormat(pattern = "HH:mm:ssXXX")
+        public OffsetTime value;
+
+        public WrapperWithCustomPattern() { }
+        public WrapperWithCustomPattern(OffsetTime v) { value = v; }
+    }
+
+    // For testing strict mode with custom format
+    static class StrictWrapper {
+        @JsonFormat(pattern = "HH:mmXXX", lenient = OptBoolean.FALSE)
+        public OffsetTime value;
+
+        public StrictWrapper() { }
+        public StrictWrapper(OffsetTime v) { value = v; }
+    }
+
+    private final ObjectMapper MAPPER = newMapper();
+    private final ObjectReader READER = MAPPER.readerFor(OffsetTime.class);
+
+    @Test
+    public void testDeserializationAsTimestamp01() throws Exception
+    {
+        OffsetTime time = OffsetTime.of(15, 43, 0, 0, ZoneOffset.of("+0300"));
+        OffsetTime value = READER
+                .without(DateTimeFeature.READ_DATE_TIMESTAMPS_AS_NANOSECONDS)
+               .readValue(VPackUtils.toVPack("[15,43,\"+0300\"]"));
+
+        assertNotNull(value, "The value should not be null.");
+        assertEquals(time, value, "The value is not correct.");
+    }
+
+    @Test
+    public void testDeserializationAsTimestamp02() throws Exception
+    {
+        OffsetTime time = OffsetTime.of(9, 22, 57, 0, ZoneOffset.of("-0630"));
+        OffsetTime value = READER.readValue(VPackUtils.toVPack("[9,22,57,\"-06:30\"]"));
+
+        assertNotNull(value, "The value should not be null.");
+        assertEquals(time, value, "The value is not correct.");
+    }
+
+    @Test
+    public void testDeserializationAsTimestamp03Nanoseconds() throws Exception
+    {
+        OffsetTime time = OffsetTime.of(9, 22, 0, 57, ZoneOffset.of("-0630"));
+        OffsetTime value = READER
+                .with(DateTimeFeature.READ_DATE_TIMESTAMPS_AS_NANOSECONDS)
+               .readValue(VPackUtils.toVPack("[9,22,0,57,\"-06:30\"]"));
+
+        assertNotNull(value, "The value should not be null.");
+        assertEquals(time, value, "The value is not correct.");
+    }
+
+    @Test
+    public void testDeserializationAsTimestamp03Milliseconds() throws Exception {
+        OffsetTime time = OffsetTime.of(9, 22, 0, 57000000, ZoneOffset.of("-0630"));
+        OffsetTime value = READER
+                .without(DateTimeFeature.READ_DATE_TIMESTAMPS_AS_NANOSECONDS)
+               .readValue(VPackUtils.toVPack("[9,22,0,57,\"-06:30\"]"));
+
+        assertNotNull(value, "The value should not be null.");
+        assertEquals(time, value, "The value is not correct.");
+    }
+
+    @Test
+    public void testDeserializationAsTimestamp04Nanoseconds() throws Exception {
+        OffsetTime time = OffsetTime.of(22, 31, 5, 829837, ZoneOffset.of("+1100"));
+        OffsetTime value = READER
+                .with(DateTimeFeature.READ_DATE_TIMESTAMPS_AS_NANOSECONDS)
+               .readValue(VPackUtils.toVPack("[22,31,5,829837,\"+11:00\"]"));
+
+        assertNotNull(value, "The value should not be null.");
+        assertEquals(time, value, "The value is not correct.");
+    }
+
+    @Test
+    public void testDeserializationAsTimestamp04Milliseconds01() throws Exception
+    {
+        OffsetTime time = OffsetTime.of(22, 31, 5, 829837, ZoneOffset.of("+1100"));
+        OffsetTime value = READER
+                .without(DateTimeFeature.READ_DATE_TIMESTAMPS_AS_NANOSECONDS)
+               .readValue(VPackUtils.toVPack("[22,31,5,829837,\"+11:00\"]"));
+        assertEquals(time, value, "The value is not correct.");
+    }
+
+    @Test
+    public void testDeserializationAsTimestamp04Milliseconds02() throws Exception
+    {
+        OffsetTime time = OffsetTime.of(22, 31, 5, 829000000, ZoneOffset.of("+1100"));
+        OffsetTime value = READER
+                .without(DateTimeFeature.READ_DATE_TIMESTAMPS_AS_NANOSECONDS)
+               .readValue(VPackUtils.toVPack("[22,31,5,829,\"+11:00\"]"));
+        assertEquals(time, value, "The value is not correct.");
+    }
+
+    @Test
+    public void testDeserializationAsTimestamp05Nanoseconds() throws Exception
+    {
+        ObjectReader reader = newMapper().readerFor(WrapperWithReadTimestampsAsNanosEnabled.class);
+        OffsetTime time = OffsetTime.of(9, 22, 0, 57, ZoneOffset.of("-0630"));
+        WrapperWithReadTimestampsAsNanosEnabled actual = reader
+            .with(DateTimeFeature.READ_DATE_TIMESTAMPS_AS_NANOSECONDS)
+            .readValue(VPackUtils.toVPack(a2q("{'value':[9,22,0,57,'-06:30']}")));
+
+        assertNotNull(actual, "The value should not be null.");
+        assertEquals(time, actual.value, "The value is not correct.");
+    }
+
+    @Test
+    public void testDeserializationAsTimestamp05Milliseconds01() throws Exception
+    {
+        ObjectReader reader = newMapper().readerFor(WrapperWithReadTimestampsAsNanosDisabled.class);
+        OffsetTime time = OffsetTime.of(9, 22, 0, 57000000, ZoneOffset.of("-0630"));
+        WrapperWithReadTimestampsAsNanosDisabled actual = reader
+            .with(DateTimeFeature.READ_DATE_TIMESTAMPS_AS_NANOSECONDS)
+            .readValue(VPackUtils.toVPack(a2q("{'value':[9,22,0,57,'-06:30']}")));
+
+        assertNotNull(actual, "The value should not be null.");
+        assertEquals(time, actual.value, "The value is not correct.");
+    }
+
+    @Test
+    public void testDeserializationAsTimestamp05Milliseconds02() throws Exception
+    {
+        ObjectReader reader = newMapper().readerFor(WrapperWithReadTimestampsAsNanosDisabled.class);
+        OffsetTime time = OffsetTime.of(9, 22, 0, 4257, ZoneOffset.of("-0630"));
+        WrapperWithReadTimestampsAsNanosDisabled actual = reader
+            .with(DateTimeFeature.READ_DATE_TIMESTAMPS_AS_NANOSECONDS)
+            .readValue(VPackUtils.toVPack(a2q("{'value':[9,22,0,4257,'-06:30']}")));
+
+        assertNotNull(actual, "The value should not be null.");
+        assertEquals(time, actual.value, "The value is not correct.");
+    }
+
+    @Test
+    public void testDeserializationBadOffset() throws Exception
+    {
+        ObjectReader reader = newMapper().readerFor(WrapperWithReadTimestampsAsNanosDisabled.class);
+        DatabindException de = assertThrows(DatabindException.class, () -> reader
+            .with(DateTimeFeature.READ_DATE_TIMESTAMPS_AS_NANOSECONDS)
+            .readValue(VPackUtils.toVPack(a2q("{'value':[9,22,0,4257,'-25:30']}"))));
+        assertThat(de).hasMessageContaining("value -25 is not in the range -18 to 18");
+    }
+
+    @Test
+    public void testDeserializationCorruptOffset() throws Exception
+    {
+        ObjectReader reader = newMapper().readerFor(WrapperWithReadTimestampsAsNanosDisabled.class);
+        DatabindException de = assertThrows(DatabindException.class, () -> reader
+            .with(DateTimeFeature.READ_DATE_TIMESTAMPS_AS_NANOSECONDS)
+            .readValue(VPackUtils.toVPack(a2q("{'value':[9,22,0,4257,'corrupt-offset']}"))));
+        assertThat(de).hasMessageContaining("Invalid ID for ZoneOffset, invalid format: corrupt-offset");
+    }
+
+    @Test
+    public void testDeserializationFromString01() throws Exception
+    {
+        OffsetTime time = OffsetTime.of(15, 43, 0, 0, ZoneOffset.of("+0300"));
+        OffsetTime value = READER.readValue(VPackUtils.toVPack('"' + time.toString() + '"'));
+        assertEquals(time, value, "The value is not correct.");
+
+        time = OffsetTime.of(9, 22, 57, 0, ZoneOffset.of("-0630"));
+        value = READER.readValue(VPackUtils.toVPack('"' + time.toString() + '"'));
+        assertEquals(time, value, "The value is not correct.");
+
+        time = OffsetTime.of(22, 31, 5, 829837, ZoneOffset.of("+1100"));
+        value = READER.readValue(VPackUtils.toVPack('"' + time.toString() + '"'));
+        assertEquals(time, value, "The value is not correct.");
+
+        assertEquals(OffsetTime.of(12, 0, 0, 0, ZoneOffset.UTC),
+                READER.readValue(VPackUtils.toVPack(a2q("'12:00Z'"))));
+    }
+
+    @Test
+    public void testBadDeserializationFromString01() throws Throwable
+    {
+        try {
+            READER.readValue(VPackUtils.toVPack(q("notanoffsettime")));
+            fail("Should nae pass");
+        } catch (MismatchedInputException e) {
+            verifyException(e, "Cannot deserialize value of type `java.time.OffsetTime` from String");
+        }
+    }
+
+    @Test
+    public void testDeserializationWithTypeInfo01() throws Exception
+    {
+        OffsetTime time = OffsetTime.of(22, 31, 5, 829837, ZoneOffset.of("+1100"));
+
+        final ObjectMapper mapper = newMapperBuilder()
+                .addMixIn(Temporal.class, MockObjectConfiguration.class)
+                .build();
+        Temporal value = mapper.readerFor(Temporal.class)
+                .with(DateTimeFeature.READ_DATE_TIMESTAMPS_AS_NANOSECONDS)
+                .readValue(VPackUtils.toVPack(
+                "[\"" + OffsetTime.class.getName() + "\",[22,31,5,829837,\"+11:00\"]]"));
+        assertInstanceOf(OffsetTime.class, value, "The value should be a OffsetTime.");
+        assertEquals(time, value, "The value is not correct.");
+    }
+
+    @Test
+    public void testDeserializationWithTypeInfo02() throws Exception
+    {
+        OffsetTime time = OffsetTime.of(22, 31, 5, 422000000, ZoneOffset.of("+1100"));
+
+        final ObjectMapper mapper = newMapperBuilder()
+                .addMixIn(Temporal.class, MockObjectConfiguration.class)
+                .build();
+        Temporal value = mapper.readerFor(Temporal.class)
+                .without(DateTimeFeature.READ_DATE_TIMESTAMPS_AS_NANOSECONDS)
+                .readValue(VPackUtils.toVPack("[\"" + OffsetTime.class.getName() + "\",[22,31,5,422,\"+11:00\"]]"));
+
+        assertNotNull(value, "The value should not be null.");
+        assertInstanceOf(OffsetTime.class, value, "The value should be a OffsetTime.");
+        assertEquals(time, value, "The value is not correct.");
+    }
+
+    @Test
+    public void testDeserializationWithTypeInfo03() throws Exception
+    {
+        OffsetTime time = OffsetTime.of(22, 31, 5, 829837, ZoneOffset.of("+1100"));
+
+        final ObjectMapper mapper = newMapperBuilder()
+                .addMixIn(Temporal.class, MockObjectConfiguration.class)
+                .build();
+        Temporal value = mapper.readValue(
+                VPackUtils.toVPack("[\"" + OffsetTime.class.getName() + "\",\"" + time.toString() + "\"]"), Temporal.class
+        );
+        assertInstanceOf(OffsetTime.class, value, "The value should be a OffsetTime.");
+        assertEquals(time, value, "The value is not correct.");
+    }
+
+    // for [datatype-jsr310#45]
+    @Test
+    public void testDeserOfArrayOf() throws Exception
+    {
+        final String JSON = a2q
+                ("{'name':'test','objects':[{'partDate':[2015,10,13],'starttime':[15,7,'+0'],'endtime':[2,14,'+0'],'comments':'in the comments'}]}");
+        Pojo45s result = READER.forType(Pojo45s.class).readValue(VPackUtils.toVPack(JSON));
+        assertNotNull(result);
+        assertNotNull(result.objects);
+        assertEquals(1, result.objects.size());
+    }
+
+    @Test
+    public void testDeserializationAsArrayDisabled() throws Throwable
+    {
+        try {
+            READER.readValue(VPackUtils.toVPack(a2q("['12:00Z']")));
+    	        fail("expected MismatchedInputException");
+        } catch (MismatchedInputException e) {
+            // not the greatest error message...
+            verifyException(e, "Unexpected token (VALUE_STRING) within Array, expected");
+        }
+    }
+
+    @Test
+    public void testDeserializationAsEmptyArrayDisabled() throws Throwable
+    {
+        // works even without the feature enabled
+        assertNull(READER.readValue(VPackUtils.toVPack(a2q("[]"))));
+    }
+
+    @Test
+    public void testDeserializationAsArrayEnabled() throws Throwable
+    {
+        OffsetTime value = READER.with(DeserializationFeature.UNWRAP_SINGLE_VALUE_ARRAYS)
+    			.readValue(VPackUtils.toVPack(a2q("['12:00Z']")));
+        assertEquals(OffsetTime.of(12, 0, 0, 0, ZoneOffset.UTC), value);
+    }
+
+    @Test
+    public void testDeserializationAsEmptyArrayEnabled() throws Throwable
+    {
+        OffsetTime value = READER.with(DeserializationFeature.UNWRAP_SINGLE_VALUE_ARRAYS,
+                    DeserializationFeature.ACCEPT_EMPTY_ARRAY_AS_NULL_OBJECT)
+            .readValue(VPackUtils.toVPack("[]"));
+        assertNull(value);
+    }
+
+    /*
+    /**********************************************************
+    /* Tests for empty string handling
+    /**********************************************************
+     */
+
+    @Test
+    public void testLenientDeserializeFromEmptyString() throws Exception {
+
+        String key = "OffsetTime";
+        ObjectMapper mapper = newMapper();
+        ObjectReader objectReader = mapper.readerFor(MAP_TYPE_REF);
+
+        String valueFromNullStr = VPackUtils.toJson(mapper.writeValueAsBytes(asMap(key, null)));
+        Map<String, OffsetTime> actualMapFromNullStr = objectReader.readValue(VPackUtils.toVPack(valueFromNullStr));
+        OffsetTime actualDateFromNullStr = actualMapFromNullStr.get(key);
+        assertNull(actualDateFromNullStr);
+
+        String valueFromEmptyStr = VPackUtils.toJson(mapper.writeValueAsBytes(asMap(key, "")));
+        Map<String, OffsetTime> actualMapFromEmptyStr = objectReader.readValue(VPackUtils.toVPack(valueFromEmptyStr));
+        OffsetTime actualDateFromEmptyStr = actualMapFromEmptyStr.get(key);
+        assertEquals(null, actualDateFromEmptyStr, "empty string failed to deserialize to null with lenient setting");
+    }
+
+    @Test
+    public void testStrictDeserializeFromEmptyString() throws Exception {
+
+        final String key = "OffsetTime";
+        final ObjectMapper mapper = mapperBuilder()
+                .withConfigOverride(OffsetTime.class,
+                        o -> o.setFormat(JsonFormat.Value.forLeniency(false)))
+                .build();
+
+        final ObjectReader objectReader = mapper.readerFor(MAP_TYPE_REF);
+
+        String valueFromNullStr = VPackUtils.toJson(mapper.writeValueAsBytes(asMap(key, null)));
+        Map<String, OffsetTime> actualMapFromNullStr = objectReader.readValue(VPackUtils.toVPack(valueFromNullStr));
+        assertNull(actualMapFromNullStr.get(key));
+
+        String valueFromEmptyStr = VPackUtils.toJson(mapper.writeValueAsBytes(asMap(key, "")));
+        assertThrows(MismatchedInputException.class, () -> objectReader.readValue(VPackUtils.toVPack(valueFromEmptyStr)));
+    }
+
+    /*
+    /**********************************************************
+    /* Tests for custom pattern/format (covers withDateFormat)
+    /**********************************************************
+     */
+
+    @Test
+    public void testDeserializationWithCustomPattern() throws Exception
+    {
+        ObjectReader reader = MAPPER.readerFor(WrapperWithCustomPattern.class);
+
+        OffsetTime expected = OffsetTime.of(15, 30, 45, 0, ZoneOffset.ofHours(2));
+        WrapperWithCustomPattern result = reader.readValue(VPackUtils.toVPack(a2q("{'value':'15:30:45+02:00'}")));
+        assertEquals(expected, result.value);
+
+        // Also test with UTC offset
+        expected = OffsetTime.of(10, 15, 30, 0, ZoneOffset.UTC);
+        result = reader.readValue(VPackUtils.toVPack(a2q("{'value':'10:15:30Z'}")));
+        assertEquals(expected, result.value);
+    }
+
+    @Test
+    public void testStrictCustomPatternInvalidFormat() throws Exception
+    {
+        // The strict wrapper expects HH:mmXXX format, so full timestamp should fail
+        assertThrows(MismatchedInputException.class,
+                () -> MAPPER.readValue(VPackUtils.toVPack("{\"value\":\"15:30:45+02:00\"}"), StrictWrapper.class));
+    }
+
+    /*
+    /**********************************************************
+    /* Tests for TRUNCATE_TO_MSECS_ON_READ feature
+    /**********************************************************
+     */
+
+    @Test
+    public void testDeserializationTruncateToMillis() throws Exception
+    {
+        ObjectReader reader = MAPPER.readerFor(OffsetTime.class)
+                .with(DateTimeFeature.TRUNCATE_TO_MSECS_ON_READ);
+
+        // From string with nanoseconds
+        OffsetTime result = reader.readValue(VPackUtils.toVPack("\"10:30:45.123456789+02:00\""));
+        assertEquals(123000000, result.getNano(), "Nanoseconds should be truncated to milliseconds");
+        assertEquals(10, result.getHour());
+        assertEquals(30, result.getMinute());
+        assertEquals(45, result.getSecond());
+
+        // From array with nanoseconds
+        result = reader.with(DateTimeFeature.READ_DATE_TIMESTAMPS_AS_NANOSECONDS)
+                .readValue(VPackUtils.toVPack("[10,30,45,123456789,\"+02:00\"]"));
+        assertEquals(123000000, result.getNano(), "Nanoseconds from array should be truncated to milliseconds");
+    }
+
+    @Test
+    public void testDeserializationTruncateToMillisAlreadyTruncated() throws Exception
+    {
+        ObjectReader reader = MAPPER.readerFor(OffsetTime.class)
+                .with(DateTimeFeature.TRUNCATE_TO_MSECS_ON_READ);
+
+        // Value already at millisecond precision should remain unchanged
+        OffsetTime result = reader.readValue(VPackUtils.toVPack("\"10:30:45.123+02:00\""));
+        assertEquals(123000000, result.getNano());
+    }
+
+    /*
+    /**********************************************************
+    /* Tests for error cases
+    /**********************************************************
+     */
+
+    @Test
+    public void testDeserializationFromIntegerFails() throws Exception
+    {
+        // OffsetTime cannot be deserialized from a standalone integer
+        // (needs timezone info)
+        try {
+            READER.readValue(VPackUtils.toVPack("12345"));
+            fail("Should not accept integer for OffsetTime");
+        } catch (MismatchedInputException e) {
+            verifyException(e, "raw timestamp");
+        }
+    }
+
+    @Test
+    public void testDeserializationFromArrayMissingTimeZone() throws Exception
+    {
+        // Array with numeric values but missing timezone string at the end
+        try {
+            READER.readValue(VPackUtils.toVPack("[10,30,45,123]"));
+            fail("Should fail when timezone string is missing");
+        } catch (MismatchedInputException e) {
+            verifyException(e, "Expected string for TimeZone");
+        }
+    }
+
+    @Test
+    public void testDeserializationFromArrayMissingTimeZoneMinimal() throws Exception
+    {
+        // Array with just hour and minute but no timezone
+        try {
+            READER.readValue(VPackUtils.toVPack("[10,30]"));
+            fail("Should fail when timezone string is missing");
+        } catch (MismatchedInputException e) {
+            verifyException(e, "Expected string for TimeZone");
+        }
+    }
+}

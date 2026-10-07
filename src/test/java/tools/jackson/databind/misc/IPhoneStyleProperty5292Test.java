@@ -1,0 +1,105 @@
+package tools.jackson.databind.misc;
+
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
+import org.junit.jupiter.api.Test;
+import tools.jackson.databind.MapperFeature;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.VPackUtils;
+import tools.jackson.databind.testutil.DatabindTestUtil;
+import com.arangodb.jackson.dataformat.velocypack.VPackMapper;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+// [databind#5292] Need support for creators `MapperFeature.FIX_FIELD_NAME_UPPER_CASE_PREFIX`
+public class IPhoneStyleProperty5292Test
+    extends DatabindTestUtil
+{
+    static class AppleSingleNonTarget {
+        private final String name;
+
+        public AppleSingleNonTarget(@ImplicitName("name") String name) {
+            this.name = name;
+        }
+
+        public String getName() {
+            return name;
+        }
+    }
+
+    static class AppleSingleIsTarget {
+        private final String iPhone;
+
+        @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
+        public AppleSingleIsTarget(@ImplicitName("iPhone") String iPhone) {
+            this.iPhone = iPhone;
+        }
+
+        public String getIPhone() {
+            return iPhone;
+        }
+    }
+
+    // Creator order should be used but just in case, define explicit order
+    @JsonPropertyOrder({ "iPhone", "name" })
+    static class AppleDouble {
+        private final String _iphone;
+        private final String name;
+
+        public AppleDouble(@ImplicitName("iPhone") String iPhone,
+                @ImplicitName("name") String name) {
+            this._iphone = iPhone;
+            this.name = name;
+        }
+
+        public String getIPhone() {
+            return _iphone;
+        }
+
+        public String getName() {
+            return name;
+        }
+    }
+
+    private final ObjectMapper MAPPER = VPackMapper.builder()
+        .annotationIntrospector(new ImplicitNameIntrospector())
+        .enable(MapperFeature.FIX_FIELD_NAME_UPPER_CASE_PREFIX)
+        .build();
+
+    @Test
+    public void testDeserDouble() throws Exception
+    {
+        AppleDouble apple = new AppleDouble("iPhone 15", "Jay");
+        String json = VPackUtils.toJson(MAPPER.writeValueAsBytes(apple));
+        assertEquals("{\"iPhone\":\"iPhone 15\",\"name\":\"Jay\"}", json);
+
+        AppleDouble result = MAPPER.readValue(VPackUtils.toVPack(json), AppleDouble.class); // Error thrown
+
+        assertEquals("Jay", result.getName());
+        assertEquals("iPhone 15", result.getIPhone());
+    }
+
+
+    @Test
+    public void testSingleArgCase() throws Exception
+    {
+        AppleSingleIsTarget apple = new AppleSingleIsTarget("iPhone 15");
+        String json = VPackUtils.toJson(MAPPER.writeValueAsBytes(apple));
+        assertEquals("{\"iPhone\":\"iPhone 15\"}", json);
+
+        AppleSingleIsTarget result = MAPPER.readValue(VPackUtils.toVPack(json), AppleSingleIsTarget.class);
+        assertEquals("iPhone 15", result.getIPhone());
+    }
+
+    // Just for comparison
+    @Test
+    public void testHappyCaseSingleArgString() throws Exception
+    {
+        AppleSingleNonTarget apple = new AppleSingleNonTarget("Jay");
+        String json = VPackUtils.toJson(MAPPER.writeValueAsBytes(apple));
+        assertEquals("{\"name\":\"Jay\"}", json);
+
+        AppleSingleNonTarget result = MAPPER.readValue(VPackUtils.toVPack(json), AppleSingleNonTarget.class);
+        assertEquals("Jay", result.getName());
+    }
+}

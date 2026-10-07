@@ -1,0 +1,236 @@
+package tools.jackson.databind.deser.filter;
+
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import org.junit.jupiter.api.Test;
+import tools.jackson.databind.*;
+import tools.jackson.databind.VPackUtils;
+import tools.jackson.databind.testutil.DatabindTestUtil;
+
+import java.beans.ConstructorProperties;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+public class ReadOrWriteOnlyTest extends DatabindTestUtil
+{
+    // for [databind#935], verify read/write-only cases
+    static class ReadXWriteY {
+        @JsonProperty(access=JsonProperty.Access.READ_ONLY)
+        public int x = 1;
+
+        @JsonProperty(access=JsonProperty.Access.WRITE_ONLY)
+        public int y = 2;
+
+        public void setX(int x) {
+            throw new Error("Should NOT set x");
+        }
+
+        public int getY() {
+            throw new Error("Should NOT get y");
+        }
+    }
+
+    public static class Pojo935
+    {
+        private String firstName = "Foo";
+        private String lastName = "Bar";
+
+        @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+        public String getFullName() {
+            return firstName + " " + lastName;
+        }
+
+        public String getFirstName() {
+            return firstName;
+        }
+
+        public void setFirstName(String n) {
+            firstName = n;
+        }
+
+        public String getLastName() {
+            return lastName;
+        }
+
+        public void setLastName(String n) {
+            lastName = n;
+        }
+    }
+
+    // for [databind#1345], emulate way Lombok embellishes classes
+    static class Foo1345 {
+        @JsonProperty(access=JsonProperty.Access.READ_ONLY)
+        public String id;
+        public String name;
+
+        @ConstructorProperties({ "id", "name" })
+        public Foo1345(String id, String name) {
+            this.id = id;
+            this.name = name;
+        }
+
+        protected Foo1345() { }
+    }
+
+    // [databind#1382]
+    static class Foo1382 {
+        @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+        private List<Long> list = new ArrayList<>();
+
+        List<Long> getList() {
+            return list;
+        }
+
+        public Foo1382 setList(List<Long> list) {
+            this.list = list;
+            return this;
+        }
+    }
+
+    // [databind#1805]
+    static class UserWithReadOnly1805 {
+        public String name;
+
+        @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+        public List<String> getRoles() {
+            return Arrays.asList("admin", "monitor");
+        }
+    }
+
+    // [databind#1805]
+    @JsonIgnoreProperties(value={ "roles" }, allowGetters=true)
+    static class UserAllowGetters1805 {
+        public String name;
+
+        public List<String> getRoles() {
+            return Arrays.asList("admin", "monitor");
+        }
+    }
+
+    // [databind#2779]: ignorable property renaming
+    static class Bean2779 {
+        String works;
+
+        @JsonProperty(value = "t", access = JsonProperty.Access.READ_ONLY)
+        public String getDoesntWork() {
+            return "pleaseFixThisBug";
+        }
+
+        public String getWorks() {
+            return works;
+        }
+
+        public void setWorks(String works) {
+            this.works = works;
+        }
+    }
+
+    // for [databind#2951], add feature to inverse access logic
+    static class ReadAWriteB {
+        @JsonProperty(access=JsonProperty.Access.READ_ONLY)
+        public int a = 1;
+
+        @JsonProperty(access=JsonProperty.Access.WRITE_ONLY)
+        public int b = 2;
+    }
+
+    /*
+    /**********************************************************
+    /* Test methods
+    /**********************************************************
+     */
+
+    private final ObjectMapper MAPPER = newVPackMapper();
+
+    // [databind#935]
+    @Test
+    public void testReadOnlyAndWriteOnly() throws Exception
+    {
+        String json = VPackUtils.toJson(MAPPER.writeValueAsBytes(new ReadXWriteY()));
+        assertEquals("{\"x\":1}", json);
+
+        ReadXWriteY result = MAPPER.readValue(VPackUtils.toVPack("{\"x\":5, \"y\":6}"), ReadXWriteY.class);
+        assertNotNull(result);
+        assertEquals(1, result.x);
+        assertEquals(6, result.y);
+    }
+
+    @Test
+    public void testReadOnly935() throws Exception
+    {
+        String json = VPackUtils.toJson(MAPPER.writeValueAsBytes(new Pojo935()));
+        Pojo935 result = MAPPER.readValue(VPackUtils.toVPack(json), Pojo935.class);
+        assertNotNull(result);
+    }
+
+    // [databind#1345]
+    @Test
+    public void testReadOnly1345() throws Exception
+    {
+        Foo1345 result = MAPPER.readValue(VPackUtils.toVPack("{\"name\":\"test\"}"), Foo1345.class);
+        assertNotNull(result);
+        assertEquals("test", result.name);
+        assertNull(result.id);
+    }
+
+    // [databind#1382]
+    @Test
+    public void testReadOnly1382() throws Exception
+    {
+        String payload = "{\"list\":[1,2,3,4]}";
+        Foo1382 foo = MAPPER.readValue(VPackUtils.toVPack(payload), Foo1382.class);
+        assertTrue(foo.getList().isEmpty(), "List should be empty");
+    }
+
+    // [databind#1805]
+    @Test
+    public void testViaReadOnly() throws Exception {
+        UserWithReadOnly1805 user = new UserWithReadOnly1805();
+        user.name = "foo";
+        String json = VPackUtils.toJson(MAPPER.writeValueAsBytes(user));
+        UserWithReadOnly1805 result = MAPPER.readValue(VPackUtils.toVPack(json), UserWithReadOnly1805.class);
+        assertNotNull(result);
+    }
+
+    // [databind#1805]
+    @Test
+    public void testUsingAllowGetters() throws Exception {
+        UserAllowGetters1805 user = new UserAllowGetters1805();
+        user.name = "foo";
+        String json = VPackUtils.toJson(MAPPER.writeValueAsBytes(user));
+        assertTrue(json.contains("roles"));
+        UserAllowGetters1805 result = MAPPER.readValue(VPackUtils.toVPack(json), UserAllowGetters1805.class);
+        assertNotNull(result);
+    }
+
+    // [databind#2779]: ignorable property renaming
+    @Test
+    public void testIssue2779() throws Exception
+    {
+        Bean2779 bean = new Bean2779();
+        bean.setWorks("works");
+
+        String json = VPackUtils.toJson(MAPPER.writeValueAsBytes(bean));
+        Bean2779 newBean = MAPPER.readValue(VPackUtils.toVPack(json), Bean2779.class);
+        assertNotNull(newBean);
+    }
+
+    // [databind#2951] add feature to inverse access logic
+    @Test
+    public void testInverseReadOnlyAndWriteOnly() throws Exception {
+        ObjectMapper mapper = vpackMapperBuilder()
+                .enable(MapperFeature.INVERSE_READ_WRITE_ACCESS)
+                .build();
+
+        String json = VPackUtils.toJson(mapper.writeValueAsBytes(new ReadAWriteB()));
+        assertEquals("{\"b\":2}", json);
+
+        ReadAWriteB result = mapper.readValue(VPackUtils.toVPack("{\"a\":5, \"b\":6}"), ReadAWriteB.class);
+        assertNotNull(result);
+        assertEquals(5, result.a);
+        assertEquals(2, result.b);
+    }
+}

@@ -1,0 +1,56 @@
+{
+  "commit": "622449bb2933604b4d090c86e0e0748b556334a1",
+  "java": "openjdk version \"21.0.12.1\" 2026-08-18 LTS\nOpenJDK Runtime Environment Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS)\nOpenJDK 64-Bit Server VM Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS, mixed mode, sharing)\n",
+  "maven": "Apache Maven 3.9.6 (bc0240f3c744dd6b6ec2920b3cd08dcc295161ae)\nMaven home: /home/codex/.sdkman/candidates/maven/current\nJava version: 21.0.12.1, vendor: Eclipse Adoptium, runtime: /home/codex/.sdkman/candidates/java/21.0.12+1.1-tem\nDefault locale: en, platform encoding: UTF-8\nOS name: \"linux\", version: \"7.2.8-200.fc44.x86_64\", arch: \"amd64\", family: \"unix\"\n",
+  "javaExecutable": "/home/codex/.sdkman/candidates/java/21.0.12+1.1-tem/bin/java",
+  "platform": "Linux-7.2.8-200.fc44.x86_64-x86_64-with-glibc2.43",
+  "cpu": "Architecture:                            x86_64\nCPU op-mode(s):                          32-bit, 64-bit\nAddress sizes:                           46 bits physical, 48 bits virtual\nByte Order:                              Little Endian\nCPU(s):                                  20\nOn-line CPU(s) list:                     0-19\nVendor ID:                               GenuineIntel\nModel name:                              Intel(R) Core(TM) Ultra 7 265T\nCPU family:                              6\nModel:                                   198\nThread(s) per core:                      1\nCore(s) per socket:                      20\nSocket(s):                               1\nStepping:                                2\nCPU(s) scaling MHz:                      102%\nCPU max MHz:                             1700.0000\nCPU min MHz:                             800.0000\nBogoMIPS:                                2995.20\nFlags:                                   fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe syscall nx pdpe1gb rdtscp lm constant_tsc art arch_perfmon pebs bts rep_good nopl xtopology nonstop_tsc cpuid aperfmperf tsc_known_freq pni pclmulqdq dtes64 monitor ds_cpl smx est tm2 ssse3 sdbg fma cx16 xtpr pdcm pcid sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand lahf_lm abm 3dnowprefetch cpuid_fault epb ssbd ibrs ibpb stibp ibrs_enhanced fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid rdt_a rdseed adx smap clflushopt clwb intel_pt sha_ni xsaveopt xsavec xgetbv1 xsaves split_lock_detect user_shstk avx_vnni lass lam wbnoinvd dtherm arat pln pts hwp hwp_notify hwp_act_window hwp_epp hwp_pkg_req hfi umip pku ospke waitpkg gfni vaes vpclmulqdq rdpid bus_lock_detect movdiri movdir64b fsrm md_clear serialize pconfig arch_lbr ibt flush_l1d arch_capabilities\nL1d cache:                               704 KiB (18 instances)\nL1i cache:                               1.1 MiB (18 instances)\nL2 cache:                                36 MiB (11 instances)\nL3 cache:                                30 MiB (1 instance)\nNUMA node(s):                            1\nNUMA node0 CPU(s):                       0-19\nVulnerability Gather data sampling:      Not affected\nVulnerability Ghostwrite:                Not affected\nVulnerability Indirect target selection: Not affected\nVulnerability Itlb multihit:             Not affected\nVulnerability L1tf:                      Not affected\nVulnerability Mds:                       Not affected\nVulnerability Meltdown:                  Not affected\nVulnerability Mmio stale data:           Not affected\nVulnerability Old microcode:             Not affected\nVulnerability Reg file data sampling:    Not affected\nVulnerability Retbleed:                  Not affected\nVulnerability Spec rstack overflow:      Not affected\nVulnerability Spec store bypass:         Mitigation; Speculative Store Bypass disabled via prctl\nVulnerability Spectre v1:                Mitigation; usercopy/swapgs barriers and __user pointer sanitization\nVulnerability Spectre v2:                Mitigation; Enhanced / Automatic IBRS; IBPB conditional; PBRSB-eIBRS Not affected; BHI BHI_DIS_S\nVulnerability Srbds:                     Not affected\nVulnerability Tsa:                       Not affected\nVulnerability Tsx async abort:           Not affected\nVulnerability Vmscape:                   Mitigation; IBPB before exit to userspace\n",
+  "jacksonOverride": "-Djackson.version=3.2.0",
+  "pomSha256": "df323025587edc9e7543c6e6618a90b6c92aefa3dcd17b261dbdb16751c4169f",
+  "initialDirtyState": "",
+  "originalGeneratorSha256": "cc6d9cc29fd2193f283fdc0fd99b6247c37cec91af44d026d68b3c7a3ff16b7b",
+  "benchmarkSourceSha256": {
+    "src/test/java/com/arangodb/jackson/dataformat/velocypack/Bench.java": "c642b0914b1f9fb2689aeaaccdde465fad3c6280710608a39c84d65c392e3170",
+    "src/test/java/com/arangodb/jackson/dataformat/velocypack/ArangoDocuments.java": "b64ba89de50e2791ddbab634317d532abdc467e93c881f10236724a30198f841"
+  },
+  "cachedSnapshotBom": {
+    "path": "tools/jackson/jackson-bom/3.2.0-SNAPSHOT/jackson-bom-3.2.0-SNAPSHOT.pom",
+    "sha256": "774dc930d660685f7d5ae5464e21baf660bd5bdb06b10496e853b648e6c2b82b",
+    "internalJacksonVersion": "3.2.0",
+    "annotations": "2.22"
+  },
+  "dependencyLock": "scripts/tree-write-dependencies.json",
+  "effectivePom": {
+    "path": "target/jmh-result/tree-write-20261002T223110Z-Ku1k3Z/effective-pom.xml",
+    "sha256": "96b73c99f60a01b87260e61b96eed62e97f3f248b74149bf410011a7d46db8c1"
+  },
+  "initialSourceManifest": "target/writer-stage1/initial-source-sha256.txt",
+  "historySha256": {
+    "jmh-result/treeWriteCursor-2026-10-02/build.log": "1fd5e41e4893ede29144d44a3b7a2d3006816256a05e68dfa2d392638ae31310",
+    "jmh-result/treeWriteCursor-2026-10-02/classpath.txt": "6d0564b40227ecf7694459e3b92903809f71c0dbc922380f4decd2e4041cdb95",
+    "jmh-result/treeWriteCursor-2026-10-02/commands.json": "3c391ec3cea0e7a2dd958dab6457fffefc530f253942ab0265c690a113a47471",
+    "jmh-result/treeWriteCursor-2026-10-02/baseline.log": "7e8764600b49432d4696c4825e426128f4066ca55cdaed79efdd0f06a37516a0",
+    "jmh-result/treeWriteCursor-2026-10-02/baseline.json": "84e7a12488ef5c3eb10fa6d8f62f0f1b51415a97c8870470d8ce5a5aee63c42d",
+    "jmh-result/treeWriteCursor-2026-10-02/JfrAnalyze.java": "97cd314169cb6526102e8bc86bf7b3262194f47c1e95cd186880e6599e027814",
+    "jmh-result/treeWriteCursor-2026-10-02/jfr-analysis.json": "5869daa057ad2ec6c8c4bc37f5505dde087208fbe34ba2c9b6bce60eadbe8808",
+    "jmh-result/treeWriteCursor-2026-10-02/jfr-aggregate.json": "f01e7af369c05731eba4d506bfeec02699ce71f8ea61b8255a0600e22bd6c4ed",
+    "jmh-result/treeWriteCursor-2026-10-02/make_report.py": "e3a74dc7fa6196c1605243a1f5aea0b08d7d5017f59a03d340db0bc55217fadd",
+    "jmh-result/treeWriteCursor-2026-10-02/metadata.json": "c96f1b68a1071b5b729176844e27e855648ed605c18dc1ee8b16b68f92259092",
+    "jmh-result/treeWriteCursor-2026-10-02/report.html": "646cf5de09b9659ad9192932c291d0e14fbaee9efbdc2b5b7157ac4e48e7058c",
+    "jmh-result/treeWriteCursor-2026-10-02/vpack-fork-1/run.log": "dd6909a362a71289b0cfe6a29df6e8fbc2e533e6aed7415c65844a3ae5196eb3",
+    "jmh-result/treeWriteCursor-2026-10-02/vpack-fork-1/results.json": "bc24d445884d3fe522c6449e24045c92154613c8cb91325d7a6335dbe63d5b7b",
+    "jmh-result/treeWriteCursor-2026-10-02/vpack-fork-2/run.log": "3db114ad193a35bc4d29debc93f603eeb30ba23eedfb5e48d228b915a22d6029",
+    "jmh-result/treeWriteCursor-2026-10-02/vpack-fork-2/results.json": "b81e34871ca3ecedb04bf384c20401ffe911d6af6b1ef655c5cd7bc7db65b370",
+    "jmh-result/treeWriteCursor-2026-10-02/vpack-fork-3/run.log": "21d654b7354588052712eead985abafd3406e2436b2f603fb4aa5512344f669a",
+    "jmh-result/treeWriteCursor-2026-10-02/vpack-fork-3/results.json": "7d75a4d7a7ce2de111f84a06f031e21c77d649af817c7524db89f3aa12f3edba",
+    "jmh-result/treeWriteCursor-2026-10-02/vpack-fork-3/com.arangodb.jackson.dataformat.velocypack.Bench.treeWriteCursor-AverageTime-batchSize-1000-format-VPACK/profile.jfr": "73b12ff00b4df8bdd932ec65776c00b78574d5027d72406dd93ccc068670009c",
+    "jmh-result/treeWriteCursor-2026-10-02/vpack-fork-2/com.arangodb.jackson.dataformat.velocypack.Bench.treeWriteCursor-AverageTime-batchSize-1000-format-VPACK/profile.jfr": "f7f58ff8f5ab817b0f4e32b1df9b481f3ccf5adedbe79e1fddf7cafba9d266ae",
+    "jmh-result/treeWriteCursor-2026-10-02/vpack-fork-1/com.arangodb.jackson.dataformat.velocypack.Bench.treeWriteCursor-AverageTime-batchSize-1000-format-VPACK/profile.jfr": "ebe67199a9531405a01e72c34aa6a6b8f902506997f6a1e61aa5e8e060e617d3"
+  },
+  "requestedEffectivePom": {
+    "path": "target/writer-stage1/requested-effective-pom.xml",
+    "sha256": "06ca5d525b1ade64e9b283375d54286d1d287f6ed17e90fa57938a5a110aafa0"
+  },
+  "requestedAndOverrideRuntimeClasspathsIdentical": true,
+  "finalDirtyState": "Only new docs/, scripts/ and five test-only Java source files. No tracked files modified."
+}

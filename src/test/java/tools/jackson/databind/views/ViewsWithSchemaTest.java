@@ -1,0 +1,84 @@
+package tools.jackson.databind.views;
+
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
+import com.fasterxml.jackson.annotation.JsonView;
+import org.junit.jupiter.api.Test;
+import tools.jackson.databind.*;
+import tools.jackson.databind.jsonFormatVisitors.*;
+import tools.jackson.databind.testutil.DatabindTestUtil;
+import com.arangodb.jackson.dataformat.velocypack.VPackMapper;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+public class ViewsWithSchemaTest extends DatabindTestUtil
+{
+    interface ViewBC { }
+    interface ViewAB { }
+
+    @JsonPropertyOrder({ "a", "b", "c" })
+    static class POJO {
+        @JsonView({ ViewAB.class })
+        public int a;
+
+        @JsonView({ ViewAB.class, ViewBC.class })
+        public int b;
+
+        @JsonView({ ViewBC.class })
+        public int c;
+    }
+
+    static class ListingVisitor extends JsonFormatVisitorWrapper.Base
+    {
+        public final List<String> names = new ArrayList<>();
+
+        @Override
+        public JsonObjectFormatVisitor expectObjectFormat(JavaType type) {
+            return new JsonObjectFormatVisitor.Base(getContext()) {
+                @Override
+                public void optionalProperty(BeanProperty writer) {
+                    names.add(writer.getName());
+                }
+
+                @Override
+                public void optionalProperty(String name,
+                        JsonFormatVisitable handler, JavaType propertyTypeHint) {
+                    names.add(name);
+                }
+            };
+        }
+    }
+
+    /*
+    /**********************************************************
+    /* Test methods
+    /**********************************************************
+     */
+
+    private final ObjectMapper MAPPER = new VPackMapper();
+
+    @Test
+    public void testSchemaWithViews() throws Exception
+    {
+        ListingVisitor v = new ListingVisitor();
+        MAPPER.writerWithView(ViewBC.class)
+            .acceptJsonFormatVisitor(POJO.class, v);
+        assertEquals(Arrays.asList("b", "c"), v.names);
+
+        v = new ListingVisitor();
+        MAPPER.writerWithView(ViewAB.class)
+            .acceptJsonFormatVisitor(POJO.class, v);
+        assertEquals(Arrays.asList("a", "b"), v.names);
+    }
+
+    @Test
+    public void testSchemaWithoutViews() throws Exception
+    {
+        ListingVisitor v = new ListingVisitor();
+        MAPPER.acceptJsonFormatVisitor(POJO.class, v);
+        assertEquals(Arrays.asList("a", "b", "c"), v.names);
+    }
+}
